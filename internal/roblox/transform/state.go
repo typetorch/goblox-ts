@@ -1,6 +1,7 @@
 package transform
 
 import (
+	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -26,22 +27,38 @@ const (
 	ProjectTypePackage ProjectType = "package"
 )
 
-// ProjectOptions is the subset of Shared/types.ts ProjectOptions the transformer reads.
+// ProjectOptions is Shared/types.ts ProjectOptions. Type is "" when undefined.
 type ProjectOptions struct {
-	IncludePath      string
-	RojoConfigPath   string
-	Type             ProjectType
-	NoCompilerHeader bool
-	Luau             bool
+	IncludePath            string
+	Rojo                   string
+	Type                   ProjectType
+	LogTruthyChanges       bool
+	NoInclude              bool
+	NoCompilerHeader       bool
+	UsePolling             bool
+	Verbose                bool
+	Watch                  bool
+	WriteOnlyChanged       bool
+	WriteTransformedFiles  bool
+	OptimizedLoops         bool
+	AllowCommentDirectives bool
+	Luau                   bool
 }
 
-// ProjectData is Shared/types.ts ProjectData.
+// DEFAULT_PROJECT_OPTIONS is Shared/constants.ts DEFAULT_PROJECT_OPTIONS.
+var DEFAULT_PROJECT_OPTIONS = ProjectOptions{
+	OptimizedLoops: true,
+	Luau:           true,
+}
+
+// ProjectData is Shared/types.ts ProjectData. RojoConfigPath is "" when undefined.
 type ProjectData struct {
+	IsPackage       bool
+	NodeModulesPath string
 	ProjectOptions  ProjectOptions
 	ProjectPath     string
-	NodeModulesPath string
+	RojoConfigPath  string
 	TsConfigPath    string
-	IsPackage       bool
 }
 
 // TransformServices is TSTransformer/types.ts TransformServices.
@@ -155,12 +172,30 @@ func listOrNode(n luau.Node) luau.ListOrNode {
 
 // DiagnosticService collects the diagnostics of a compilation. Like roblox-ts's static class it is
 // global; it is safe for concurrent use.
-var DiagnosticService = &diagnosticService{singleDiagnostics: map[int32]bool{}}
+//
+// goblox transforms files in parallel, one goroutine per checker, while roblox-ts transforms them in
+// order and stops transforming once any file has an error. To report the same set of diagnostics, the
+// service keeps each diagnostic that has a file in that file's bucket, and the driver replays the
+// buckets in file order (TakeFileDiagnostics). Diagnostics without a file are kept globally.
+var DiagnosticService = &diagnosticService{
+	singleDiagnostics: map[int32]bool{},
+	byFile:            map[*ast.SourceFile][]*ast.Diagnostic{},
+}
 
 type diagnosticService struct {
 	mu                sync.Mutex
 	diagnostics       []*ast.Diagnostic
+	byFile            map[*ast.SourceFile][]*ast.Diagnostic
 	singleDiagnostics map[int32]bool
+}
+
+// add must be called with s.mu held.
+func (s *diagnosticService) add(d *ast.Diagnostic) {
+	if file := d.File(); file != nil {
+		s.byFile[file] = append(s.byFile[file], d)
+	} else {
+		s.diagnostics = append(s.diagnostics, d)
+	}
 }
 
 func (s *diagnosticService) AddSingleDiagnostic(d *ast.Diagnostic) {
@@ -168,20 +203,22 @@ func (s *diagnosticService) AddSingleDiagnostic(d *ast.Diagnostic) {
 	defer s.mu.Unlock()
 	if !s.singleDiagnostics[d.Code()] {
 		s.singleDiagnostics[d.Code()] = true
-		s.diagnostics = append(s.diagnostics, d)
+		s.add(d)
 	}
 }
 
 func (s *diagnosticService) AddDiagnostic(d *ast.Diagnostic) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.diagnostics = append(s.diagnostics, d)
+	s.add(d)
 }
 
 func (s *diagnosticService) AddDiagnostics(ds []*ast.Diagnostic) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.diagnostics = append(s.diagnostics, ds...)
+	for _, d := range ds {
+		s.add(d)
+	}
 }
 
 // AddDiagnosticWithCache adds d unless cacheBy was already reported.
@@ -190,15 +227,32 @@ func AddDiagnosticWithCache[T comparable](cacheBy T, d *ast.Diagnostic, cache ma
 	defer DiagnosticService.mu.Unlock()
 	if !cache[cacheBy] {
 		cache[cacheBy] = true
-		DiagnosticService.diagnostics = append(DiagnosticService.diagnostics, d)
+		DiagnosticService.add(d)
 	}
 }
 
+// TakeFileDiagnostics removes and returns the diagnostics of file, in the order they were added.
+func (s *diagnosticService) TakeFileDiagnostics(file *ast.SourceFile) []*ast.Diagnostic {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	current := s.byFile[file]
+	delete(s.byFile, file)
+	return current
+}
+
+// Flush removes and returns every diagnostic: the ones without a file, then each file's, by file name.
 func (s *diagnosticService) Flush() []*ast.Diagnostic {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	current := s.diagnostics
+	files := slices.SortedFunc(maps.Keys(s.byFile), func(a, b *ast.SourceFile) int {
+		return strings.Compare(a.FileName(), b.FileName())
+	})
+	for _, file := range files {
+		current = append(current, s.byFile[file]...)
+	}
 	s.diagnostics = nil
+	clear(s.byFile)
 	clear(s.singleDiagnostics)
 	return current
 }
@@ -206,7 +260,15 @@ func (s *diagnosticService) Flush() []*ast.Diagnostic {
 func (s *diagnosticService) HasErrors() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return hasErrors(s.diagnostics)
+	if hasErrors(s.diagnostics) {
+		return true
+	}
+	for _, ds := range s.byFile {
+		if hasErrors(ds) {
+			return true
+		}
+	}
+	return false
 }
 
 // hasErrors is Shared/util/hasErrors.ts.

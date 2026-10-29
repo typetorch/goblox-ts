@@ -26,9 +26,12 @@ The full list is in `internal/roblox/transform/doc.go`. In short:
 |---|---|
 | `nodes/class/*`, `util/findConstructor.ts`, `util/getExtendsNode.ts` and other class-only helpers | agent 3 |
 | `nodes/binding/*`, `util/binding/*`, and the destructuring-assignment paths of `transformBinaryExpression` | agent 3 |
-| Everything else: the driver (`internal/roblox/project`, `cmd/goblox`), `transformSourceFile`, `transformStatementList`, the remaining nodes, macros and evaluation | agent 1 |
+| `macros/*`: `propertyCallMacros`, `callMacros`, `constructorMacros`, `identifierMacros`, `macros_types` (`callMacros` and `identifierMacros` already ported by agent 1; review and keep) | agent 4 |
+| Loops and control flow: for..of, for, while/do, break/continue and the loop helpers; switch, try, throw; `transformOptionalChain`; `transformLogical` and the `&&=`/`\|\|=`/`??=` assignment forms | agent 5 |
+| Everything else: the driver (`internal/roblox/project`, `cmd/goblox`, `cmd/goblox-fixtures`), `MacroManager`, `transformSourceFile`, `transformStatementList`, imports/exports, variables, functions, calls, property/element access, literals, the remaining expressions, JSX, enums/namespaces and `util/evaluation` | agent 1 |
 
-Agent 1 does not port, or hand to subagents, the files agent 3 owns. Both agents land work on `goblox`, so
+Agent 1 does not port, or hand to subagents, the files agents 3, 4 and 5 own. Agents 3-5 work in their own
+worktrees (`goblox-ts-agent3`, `-agent4`, `-agent5`) and land fast-forward pushes on `goblox`. Both agents land work on `goblox`, so
 run `git pull --rebase` before you push. Never force-push.
 
 ## Oracle
