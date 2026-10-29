@@ -296,7 +296,8 @@ local x = _valueExisted
 		{"x = v3.idiv(v3)", "Vector3", "idiv", []luau.Expression{testId("v3")}, "local x = v3 // v3\n"},
 		{"x = n.idiv(2)", "Number", "idiv", []luau.Expression{luau.Number(2)}, "local x = n // 2\n"},
 		{"x = p.then(cb)", "Promise", "then", []luau.Expression{cb}, "local x = p:andThen(cb)\n"},
-		{"arr.insert(n, 5);", "Array", "insert", []luau.Expression{testId("n"), luau.Number(5)}, "table.insert(arr, n + 1, 5)\n"},
+		// insert returns the call itself, which transformExpressionStatement emits as `table.insert(arr, n + 1, 5)`
+		{"arr.insert(n, 5);", "Array", "insert", []luau.Expression{testId("n"), luau.Number(5)}, "local x = table.insert(arr, n + 1, 5)\n"},
 		{"x = m.size()", "ReadonlyMap", "size", nil, `
 -- ▼ ReadonlyMap.size ▼
 local _size = 0
