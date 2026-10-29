@@ -5,7 +5,7 @@
 // is one big cycle of mutually recursive modules, so this is one Go package. Files of the
 // util/evaluation directory are prefixed with evaluation_, and macros/types.ts is macros_types.go.
 //
-// Conventions of the port (see PORTING.md):
+// Conventions of the port (see docs/goblox/PORTING.md):
 //   - ts.Node and all its subtypes are *ast.Node; ts.SourceFile is *ast.SourceFile; ts.Type is
 //     *checker.Type; ts.Symbol is *ast.Symbol. TypeScript's Type methods (getProperty, getConstraint,
 //     ...) are the typeX helpers of types.go.
