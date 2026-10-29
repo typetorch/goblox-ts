@@ -10,7 +10,7 @@ import (
 // optimizeArraySpreadParameter optimizes parameters in the form `...[a, b, c]: [A, B, C]` to be just `(a, b, c)`
 func optimizeArraySpreadParameter(state *TransformState, prereqs *Prereqs, parameters *luau.List, bindingPattern *ast.Node) {
 	for _, element := range bindingPattern.Elements() {
-		if ast.IsOmittedExpression(element) {
+		if isOmittedBindingElement(element) {
 			parameters.Push(luau.TempId())
 		} else {
 			name := element.Name()
