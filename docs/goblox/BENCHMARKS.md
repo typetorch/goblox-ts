@@ -72,3 +72,23 @@ errors for `moduleResolution: Node` and `downlevelIteration`.
 `tsc` 5.5.3 reports exactly the same 23 errors. They are pre-existing library errors, not TS 7
 regressions. roblox-ts never reports them, because it only asks for the diagnostics of the files it
 compiles.
+
+## First full `goblox build` of gnome-game (2026-10-30)
+
+Same scratch copy and machine as Phase 0. goblox was built with the Go port of @typetorch/transformer
+linked in (`-tags typetorch` through a `go.work`, see `cmd/goblox/plugins_typetorch.go`).
+Command: `goblox build -p . -timing`, cold (`out/` deleted), 3 runs.
+
+| run | wall | goblox `Build time` |
+| --- | ---: | ---: |
+| 1 | 6.7 s | 5.05 s |
+| 2 | 5.2 s | 5.07 s |
+| 3 | 9.3 s | 8.94 s (machine busy with other agents' builds) |
+
+rbxtsc cold build: 18.6-18.9 s (Phase 0 above).
+
+All 407 files went through the plugin and the Luau transform. One file, `mob-hud.controller.ts`, panicked
+on a class `static {}` block (`transformClassLikeDeclaration` calls `declaration.Body()`, which is nil for
+`ClassStaticBlockDeclaration` in typescript-go). As in rbxtsc, any error skips the write, so these runs
+wrote no `out/`. The output has not been diffed against rbxtsc's yet. These numbers include the type check
+and the transform, but not the write.
