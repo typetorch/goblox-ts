@@ -1,8 +1,22 @@
 package transform
 
-// Port of TSTransformer/util/cleanModuleName.ts. TODO(port): stub, the signatures are fixed.
+// Port of TSTransformer/util/cleanModuleName.ts.
 
-// cleanModuleName is TSTransformer/util/cleanModuleName.ts cleanModuleName.
+import "strings"
+
+// cleanModuleName is TSTransformer/util/cleanModuleName.ts cleanModuleName: `name.replace(/\W/g, "_")`.
+// JavaScript replaces every UTF-16 code unit, so a rune outside the BMP becomes two underscores.
 func cleanModuleName(name string) string {
-	panic(todo("util/cleanModuleName.ts", "cleanModuleName"))
+	var sb strings.Builder
+	for _, r := range name {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '_':
+			sb.WriteRune(r)
+		case r > 0xFFFF:
+			sb.WriteString("__")
+		default:
+			sb.WriteByte('_')
+		}
+	}
+	return sb.String()
 }

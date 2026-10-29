@@ -1,6 +1,6 @@
 package transform
 
-// Port of TSTransformer/nodes/transformEntityName.ts. TODO(port): stub, the signatures are fixed.
+// Port of TSTransformer/nodes/transformEntityName.ts.
 
 import (
 	"github.com/microsoft/typescript-go/internal/ast"
@@ -9,5 +9,14 @@ import (
 
 // transformEntityName is TSTransformer/nodes/transformEntityName.ts transformEntityName.
 func transformEntityName(state *TransformState, node *ast.Node) luau.Expression {
-	panic(todo("nodes/transformEntityName.ts", "transformEntityName"))
+	if ast.IsIdentifier(node) {
+		validateIdentifier(node)
+		return transformIdentifier(state, node)
+	}
+	return transformQualifiedName(state, node)
+}
+
+func transformQualifiedName(state *TransformState, node *ast.Node) *luau.PropertyAccessExpression {
+	qualifiedName := node.AsQualifiedName()
+	return luau.Property(convertToIndexableExpression(transformEntityName(state, qualifiedName.Left)), qualifiedName.Right.Text())
 }

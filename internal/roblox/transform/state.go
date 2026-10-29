@@ -59,6 +59,10 @@ type ProjectData struct {
 	ProjectPath     string
 	RojoConfigPath  string
 	TsConfigPath    string
+	// ProjectReferencePaths maps the projectPathKey of every source and declaration file of the
+	// referenced projects to its import path in the referenced project's output (ProjectGraph.ts
+	// mapReferencePaths).
+	ProjectReferencePaths map[string]string
 }
 
 // TransformServices is TSTransformer/types.ts TransformServices.

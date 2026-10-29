@@ -1,6 +1,6 @@
 package transform
 
-// Port of TSTransformer/util/expressionChain.ts. TODO(port): stub, the signatures are fixed.
+// Port of TSTransformer/util/expressionChain.ts.
 
 import (
 	"github.com/microsoft/typescript-go/internal/roblox/luau"
@@ -17,5 +17,9 @@ func binaryExpressionChain(expressions []luau.Expression, operator luau.BinaryOp
 
 // propertyAccessExpressionChain is TSTransformer/util/expressionChain.ts propertyAccessExpressionChain.
 func propertyAccessExpressionChain(expression luau.Expression, names []string) luau.IndexableExpression {
-	panic(todo("util/expressionChain.ts", "propertyAccessExpressionChain"))
+	acc := convertToIndexableExpression(expression)
+	for _, current := range names {
+		acc = luau.Property(acc, current)
+	}
+	return acc
 }

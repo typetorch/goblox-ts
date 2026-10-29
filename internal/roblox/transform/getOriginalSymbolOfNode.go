@@ -1,6 +1,6 @@
 package transform
 
-// Port of TSTransformer/util/getOriginalSymbolOfNode.ts. TODO(port): stub, the signatures are fixed.
+// Port of TSTransformer/util/getOriginalSymbolOfNode.ts.
 
 import (
 	"github.com/microsoft/typescript-go/internal/ast"
@@ -9,5 +9,9 @@ import (
 
 // getOriginalSymbolOfNode is TSTransformer/util/getOriginalSymbolOfNode.ts getOriginalSymbolOfNode.
 func getOriginalSymbolOfNode(typeChecker *checker.Checker, node *ast.Node) *ast.Symbol {
-	panic(todo("util/getOriginalSymbolOfNode.ts", "getOriginalSymbolOfNode"))
+	symbol := typeChecker.GetSymbolAtLocation(node)
+	if symbol != nil {
+		return typeChecker.SkipAlias(symbol)
+	}
+	return symbol
 }

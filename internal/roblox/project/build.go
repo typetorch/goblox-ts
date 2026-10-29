@@ -21,6 +21,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/roblox/nodepath"
 	"github.com/microsoft/typescript-go/internal/roblox/rojo"
 	"github.com/microsoft/typescript-go/internal/roblox/transform"
+	"github.com/microsoft/typescript-go/internal/tsoptions"
 	"github.com/microsoft/typescript-go/internal/tspath"
 	"github.com/microsoft/typescript-go/internal/vfs"
 )
@@ -107,19 +108,85 @@ func projectPathKey(fs vfs.FS, filePath string) string {
 	return tspath.GetCanonicalFileName(nodepath.Normalize(filePath), fs.UseCaseSensitiveFileNames())
 }
 
-func createPathTranslator(program *compiler.Program, data *transform.ProjectData) *rojo.PathTranslator {
-	compilerOptions := program.Options()
-	rootDir := findAncestorDir(append([]string{program.CommonSourceDirectory()}, getRootDirs(compilerOptions)...))
-	outDir := compilerOptions.OutDir
+// createPathTranslator is the path translator of ProjectGraph.ts for a parsed config.
+func createPathTranslator(config *tsoptions.ParsedCommandLine, luau bool) *rojo.PathTranslator {
+	compilerOptions := config.CompilerOptions()
+	rootDir := findAncestorDir(append([]string{config.CommonSourceDirectory()}, getRootDirs(compilerOptions)...))
 	buildInfoPath := outputpaths.GetBuildInfoFileName(compilerOptions, tspath.ComparePathsOptions{
-		UseCaseSensitiveFileNames: program.UseCaseSensitiveFileNames(),
-		CurrentDirectory:          program.GetCurrentDirectory(),
+		UseCaseSensitiveFileNames: config.UseCaseSensitiveFileNames(),
+		CurrentDirectory:          config.GetCurrentDirectory(),
 	})
 	if buildInfoPath != "" {
 		buildInfoPath = nodepath.Normalize(buildInfoPath)
 	}
-	declaration := compilerOptions.GetEmitDeclarations()
-	return rojo.NewPathTranslator(rootDir, outDir, buildInfoPath, declaration, data.ProjectOptions.Luau)
+	return rojo.NewPathTranslator(rootDir, nodepath.Normalize(compilerOptions.OutDir), buildInfoPath, compilerOptions.GetEmitDeclarations(), luau)
+}
+
+// isSolutionConfig is ts.isSolutionConfig.
+func isSolutionConfig(config *tsoptions.ParsedCommandLine) bool {
+	return len(config.FileNames()) == 0 && len(config.ProjectReferences()) > 0
+}
+
+// mapReferencePaths is ProjectGraph.ts mapReferencePaths for the root project: the import path of every
+// file of the (transitively) referenced projects. Referenced projects are not built; build them first.
+func mapReferencePaths(fs vfs.FS, cwd string, root *tsoptions.ParsedCommandLine, projectOptions func(own PartialProjectOptions) transform.ProjectOptions) (map[string]string, error) {
+	paths := map[string]string{}
+	visited := map[string]bool{}
+
+	var visit func(configPath string) error
+	visit = func(configPath string) error {
+		key := projectPathKey(fs, configPath)
+		if visited[key] {
+			return nil
+		}
+		visited[key] = true
+
+		loaded, errs := loadConfig(LoadOptions{Project: configPath, CurrentDirectory: cwd, FS: fs})
+		if len(errs) > 0 {
+			return &diagnostics.DiagnosticError{Diagnostics: errs}
+		}
+		config := loaded.config
+		for _, reference := range config.ResolvedProjectReferencePaths() {
+			if err := visit(reference); err != nil {
+				return err
+			}
+		}
+		if isSolutionConfig(config) {
+			return nil
+		}
+
+		own, err := readProjectOptions(loaded.host, configPath, map[string]PartialProjectOptions{})
+		if err != nil {
+			return err
+		}
+		compilerOptions := config.CompilerOptions()
+		if compilerOptions.Composite.IsTrue() && compilerOptions.RootDir == "" {
+			compilerOptions.RootDir = nodepath.Dirname(configPath)
+		}
+		translator := createPathTranslator(config, projectOptions(own).Luau)
+
+		for _, fileName := range config.FileNames() {
+			if tspath.IsDeclarationFileName(fileName) && !transform.IsPathDescendantOf(fileName, translator.RootDir) {
+				continue
+			}
+
+			outputPath := translator.GetImportPath(fileName, false)
+			paths[projectPathKey(fs, fileName)] = outputPath
+
+			if !tspath.IsDeclarationFileName(fileName) && !strings.HasSuffix(fileName, ".json") {
+				declarationPath := outputpaths.GetOutputDeclarationFileNameWorker(fileName, compilerOptions, config)
+				paths[projectPathKey(fs, declarationPath)] = outputPath
+			}
+		}
+		return nil
+	}
+
+	for _, reference := range root.ResolvedProjectReferencePaths() {
+		if err := visit(reference); err != nil {
+			return nil, err
+		}
+	}
+	return paths, nil
 }
 
 // projectOutputs is getProjectOutputs.ts ProjectOutputs.
@@ -391,6 +458,14 @@ func build(ctx context.Context, fs vfs.FS, cwd string, tsConfigPath string, opts
 	projectOptions := transform.DEFAULT_PROJECT_OPTIONS
 	ApplyProjectOptions(&projectOptions, ownOptions)
 	ApplyProjectOptions(&projectOptions, opts.Overrides)
+	// options of a referenced project: `{ ...DEFAULT_PROJECT_OPTIONS, ...inheritedOptions, ...config.raw.rbxts, ...referenceOverrides }`
+	referenceOptions := func(own PartialProjectOptions) transform.ProjectOptions {
+		options := transform.DEFAULT_PROJECT_OPTIONS
+		ApplyProjectOptions(&options, ownOptions)
+		ApplyProjectOptions(&options, own)
+		ApplyProjectOptions(&options, opts.Overrides)
+		return options
+	}
 	LogService.Verbose = projectOptions.Verbose
 
 	data, err := createProjectData(fs, tsConfigPath, projectOptions)
@@ -413,9 +488,14 @@ func build(ctx context.Context, fs vfs.FS, cwd string, tsConfigPath string, opts
 		configPaths[projectPathKey(fs, extended)] = true
 	}
 
+	data.ProjectReferencePaths, err = mapReferencePaths(fs, cwd, loaded.config, referenceOptions)
+	if err != nil {
+		return nil, err
+	}
+
 	LogService.WriteLineIfVerbose("Building project: " + data.TsConfigPath)
 	program := loaded.newProgram()
-	pathTranslator := createPathTranslator(program, data)
+	pathTranslator := createPathTranslator(loaded.config, data.ProjectOptions.Luau)
 	if err := validateProjectOutputs(pathTranslator, program.Options()); err != nil {
 		return nil, err
 	}

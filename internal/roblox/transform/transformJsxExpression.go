@@ -1,6 +1,6 @@
 package transform
 
-// Port of TSTransformer/nodes/expressions/transformJsxExpression.ts. TODO(port): stub, the signatures are fixed.
+// Port of TSTransformer/nodes/expressions/transformJsxExpression.ts.
 
 import (
 	"github.com/microsoft/typescript-go/internal/ast"
@@ -9,5 +9,13 @@ import (
 
 // transformJsxExpression is TSTransformer/nodes/expressions/transformJsxExpression.ts transformJsxExpression.
 func transformJsxExpression(state *TransformState, prereqs *Prereqs, node *ast.Node) luau.Expression {
-	panic(todo("nodes/expressions/transformJsxExpression.ts", "transformJsxExpression"))
+	jsxExpression := node.AsJsxExpression()
+	if jsxExpression.Expression != nil {
+		expression := transformExpression(state, prereqs, jsxExpression.Expression)
+		if jsxExpression.DotDotDotToken != nil {
+			return luau.Call(luau.Globals.Unpack, expression)
+		}
+		return expression
+	}
+	return luau.NewNone()
 }
