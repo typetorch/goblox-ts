@@ -34,11 +34,12 @@ func (c *Checker) CreateArrayType(elementType *Type) *Type {
 	return c.createArrayType(elementType)
 }
 
-// GetTrueType is TypeScript's checker.getTrueType (a field in typescript-go).
-func (c *Checker) GetTrueType() *Type { return c.trueType }
+// GetTrueType is TypeScript's checker.getTrueType() (a field in typescript-go). Without the `fresh`
+// argument TypeScript returns the regular literal type, which is what declared `true` types resolve to.
+func (c *Checker) GetTrueType() *Type { return c.regularTrueType }
 
-// GetFalseType is TypeScript's checker.getFalseType (a field in typescript-go).
-func (c *Checker) GetFalseType() *Type { return c.falseType }
+// GetFalseType is TypeScript's checker.getFalseType() (a field in typescript-go), the regular literal type.
+func (c *Checker) GetFalseType() *Type { return c.regularFalseType }
 
 // Checker is TypeScript's Type.checker: the checker that created t.
 func (t *Type) Checker() *Checker { return t.checker }
