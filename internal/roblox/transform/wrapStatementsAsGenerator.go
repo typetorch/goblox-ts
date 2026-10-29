@@ -1,0 +1,13 @@
+package transform
+
+// Port of TSTransformer/util/wrapStatementsAsGenerator.ts. TODO(port): stub, the signatures are fixed.
+
+import (
+	"github.com/microsoft/typescript-go/internal/ast"
+	"github.com/microsoft/typescript-go/internal/roblox/luau"
+)
+
+// wrapStatementsAsGenerator is TSTransformer/util/wrapStatementsAsGenerator.ts wrapStatementsAsGenerator.
+func wrapStatementsAsGenerator(state *TransformState, node *ast.Node, statements *luau.List) *luau.List {
+	panic(todo("util/wrapStatementsAsGenerator.ts", "wrapStatementsAsGenerator"))
+}

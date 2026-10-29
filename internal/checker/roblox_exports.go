@@ -36,3 +36,11 @@ func (c *Checker) GetTrueType() *Type { return c.trueType }
 
 // GetFalseType is TypeScript's checker.getFalseType (a field in typescript-go).
 func (c *Checker) GetFalseType() *Type { return c.falseType }
+
+// Checker is TypeScript's Type.checker: the checker that created t.
+func (t *Type) Checker() *Checker { return t.checker }
+
+// GetAwaitedType is TypeScript's checker.getAwaitedType.
+func (c *Checker) GetAwaitedType(t *Type) *Type {
+	return c.getAwaitedType(t)
+}

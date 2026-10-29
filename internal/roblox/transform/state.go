@@ -56,11 +56,16 @@ type TryUses struct {
 	UsesContinue bool
 }
 
-// MultiTransformState is state that lives only for a single compilation step.
+// MultiTransformState is state that lives only for a single compilation step. goblox creates one per
+// checker: its caches are keyed by that checker's types and symbols, and the files of a checker are
+// transformed sequentially by one goroutine, so it needs no locking.
 type MultiTransformState struct {
-	mu                                   sync.Mutex
+	// type classifications stay valid for this compilation; emitted AST facts can still change
 	IsPrimitiveTypeCache                 map[*checker.Type]bool
 	IsRobloxTypeCache                    map[*checker.Type]bool
+	FunctionEffects                      map[*ast.Symbol]*EvaluationEffects
+	BindingKeys                          map[*ast.Symbol]*BindingKey
+	BindingUsageBySourceFile             map[*ast.SourceFile]*BindingUsage
 	IsMethodCache                        map[*checker.Type]bool
 	IsReportedByNoUnstableThisType       map[*ast.Node]bool
 	IsDefinedAsLetCache                  map[*ast.Symbol]bool
@@ -76,6 +81,9 @@ func NewMultiTransformState() *MultiTransformState {
 	return &MultiTransformState{
 		IsPrimitiveTypeCache:                 map[*checker.Type]bool{},
 		IsRobloxTypeCache:                    map[*checker.Type]bool{},
+		FunctionEffects:                      map[*ast.Symbol]*EvaluationEffects{},
+		BindingKeys:                          map[*ast.Symbol]*BindingKey{},
+		BindingUsageBySourceFile:             map[*ast.SourceFile]*BindingUsage{},
 		IsMethodCache:                        map[*checker.Type]bool{},
 		IsReportedByNoUnstableThisType:       map[*ast.Node]bool{},
 		IsDefinedAsLetCache:                  map[*ast.Symbol]bool{},
@@ -418,15 +426,13 @@ func (s *TransformState) CreateRuntimeLibImport(sourceFile *ast.SourceFile) luau
 
 // GetModuleExports returns the value exports of a module.
 func (s *TransformState) GetModuleExports(moduleSymbol *ast.Symbol) []*ast.Symbol {
-	s.MultiTransformState.mu.Lock()
-	defer s.MultiTransformState.mu.Unlock()
 	return getOrSetDefault(s.MultiTransformState.GetModuleExportsCache, moduleSymbol, func() []*ast.Symbol {
 		var result []*ast.Symbol
 		for _, exportSymbol := range s.TypeChecker.GetExportsOfModule(moduleSymbol) {
 			typeOnlyDeclaration := s.TypeChecker.GetTypeOnlyAliasDeclaration(exportSymbol)
 			// erased aliases must not redirect mutable locals to properties on the exports table
 			if typeOnlyDeclaration == nil ||
-				(s.CompilerOptions.VerbatimModuleSyntax.IsTrue() && !ast.IsTypeOnlyExportDeclaration(typeOnlyDeclaration)) {
+				(s.CompilerOptions.VerbatimModuleSyntax.IsTrue() && !isTypeOnlyExportDeclaration(typeOnlyDeclaration)) {
 				result = append(result, exportSymbol)
 			}
 		}
@@ -436,15 +442,11 @@ func (s *TransformState) GetModuleExports(moduleSymbol *ast.Symbol) []*ast.Symbo
 
 // GetModuleExportsAliasMap maps the original symbol of each export of a module to its export key.
 func (s *TransformState) GetModuleExportsAliasMap(moduleSymbol *ast.Symbol) map[*ast.Symbol]luau.Expression {
-	exports := s.GetModuleExports(moduleSymbol)
-	s.MultiTransformState.mu.Lock()
-	cached, ok := s.MultiTransformState.GetModuleExportsAliasMapCache[moduleSymbol]
-	s.MultiTransformState.mu.Unlock()
-	if ok {
+	if cached, ok := s.MultiTransformState.GetModuleExportsAliasMapCache[moduleSymbol]; ok {
 		return cached
 	}
 	aliasMap := map[*ast.Symbol]luau.Expression{}
-	for _, exportSymbol := range exports {
+	for _, exportSymbol := range s.GetModuleExports(moduleSymbol) {
 		originalSymbol := s.TypeChecker.SkipAlias(exportSymbol)
 		var declaration *ast.Node
 		if len(exportSymbol.Declarations) > 0 {
@@ -459,9 +461,7 @@ func (s *TransformState) GetModuleExportsAliasMap(moduleSymbol *ast.Symbol) map[
 			aliasMap[originalSymbol] = luau.String(exportSymbol.Name)
 		}
 	}
-	s.MultiTransformState.mu.Lock()
 	s.MultiTransformState.GetModuleExportsAliasMapCache[moduleSymbol] = aliasMap
-	s.MultiTransformState.mu.Unlock()
 	return aliasMap
 }
 
@@ -525,4 +525,18 @@ func assert(value bool, message ...string) {
 			"\nThis is a compiler bug! Please submit a bug report here:" +
 			"\nhttps://github.com/roblox-ts/roblox-ts/issues")
 	}
+}
+
+// isTypeOnlyExportDeclaration is TypeScript's isTypeOnlyExportDeclaration (unexported in typescript-go).
+func isTypeOnlyExportDeclaration(node *ast.Node) bool {
+	switch node.Kind {
+	case ast.KindExportSpecifier:
+		return node.IsTypeOnly() || node.Parent.Parent.IsTypeOnly()
+	case ast.KindExportDeclaration:
+		d := node.AsExportDeclaration()
+		return d.IsTypeOnly && d.ModuleSpecifier != nil && d.ExportClause == nil
+	case ast.KindNamespaceExport:
+		return node.Parent.IsTypeOnly()
+	}
+	return false
 }

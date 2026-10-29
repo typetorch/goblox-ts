@@ -56,15 +56,6 @@ func getModuleAncestor(node *ast.Node) *ast.Node {
 	return getAncestor(node, isSourceFileOrModuleDeclaration)
 }
 
-// isBlockLike is TSTransformer/typeGuards.ts isBlockLike.
-func isBlockLike(node *ast.Node) bool {
-	switch node.Kind {
-	case ast.KindSourceFile, ast.KindBlock, ast.KindModuleBlock, ast.KindCaseClause, ast.KindDefaultClause:
-		return true
-	}
-	return false
-}
-
 // blockStatements returns the statements of a block-like node.
 func blockStatements(node *ast.Node) []*ast.Node {
 	switch node.Kind {

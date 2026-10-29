@@ -1,139 +1,199 @@
 package transform
 
+// Port of TSTransformer/util/types.ts.
+
 import (
+	"reflect"
+
 	"github.com/microsoft/typescript-go/internal/ast"
 	"github.com/microsoft/typescript-go/internal/checker"
+	"github.com/microsoft/typescript-go/internal/jsnum"
 	"github.com/microsoft/typescript-go/internal/roblox/nodepath"
 )
-
-// Port of TSTransformer/util/types.ts.
 
 // TypeCheck is a predicate over types.
 type TypeCheck = func(t *checker.Type) bool
 
-func (s *TransformState) getConstraint(t *checker.Type) *checker.Type {
-	// TypeScript's Type.getConstraint(): the base constraint of a type parameter / indexed access
-	if t.Flags()&checker.TypeFlagsInstantiable != 0 {
-		return s.TypeChecker.GetBaseConstraintOfType(t)
-	}
-	return nil
+// The methods of TypeScript's TypeObject that the transformer uses. A type knows its checker.
+
+// typeGetConstraint is TypeScript's Type.getConstraint().
+func typeGetConstraint(t *checker.Type) *checker.Type {
+	return t.Checker().GetBaseConstraintOfType(t)
 }
 
-func (s *TransformState) getBaseTypes(t *checker.Type) []*checker.Type {
+// typeGetConstraintOrSelf is `type.getConstraint() ?? type`.
+func typeGetConstraintOrSelf(t *checker.Type) *checker.Type {
+	if constraint := typeGetConstraint(t); constraint != nil {
+		return constraint
+	}
+	return t
+}
+
+// typeGetBaseTypes is TypeScript's Type.getBaseTypes().
+func typeGetBaseTypes(t *checker.Type) []*checker.Type {
 	if t.Flags()&checker.TypeFlagsObject != 0 && t.ObjectFlags()&checker.ObjectFlagsClassOrInterface != 0 {
-		return s.TypeChecker.GetBaseTypes(t)
+		return t.Checker().GetBaseTypes(t)
 	}
 	return nil
 }
 
-func (s *TransformState) isDefinitelyTypeInner(t *checker.Type, callbacks []TypeCheck) bool {
+// typeGetProperty is TypeScript's Type.getProperty(name).
+func typeGetProperty(t *checker.Type, name string) *ast.Symbol {
+	return t.Checker().GetPropertyOfType(t, name)
+}
+
+// typeGetProperties is TypeScript's Type.getProperties().
+func typeGetProperties(t *checker.Type) []*ast.Symbol {
+	return t.Checker().GetPropertiesOfType(t)
+}
+
+// typeGetCallSignatures is TypeScript's Type.getCallSignatures().
+func typeGetCallSignatures(t *checker.Type) []*checker.Signature {
+	return t.Checker().GetSignaturesOfType(t, checker.SignatureKindCall)
+}
+
+// typeGetConstructSignatures is TypeScript's Type.getConstructSignatures().
+func typeGetConstructSignatures(t *checker.Type) []*checker.Signature {
+	return t.Checker().GetSignaturesOfType(t, checker.SignatureKindConstruct)
+}
+
+// typeGetNumberIndexType is TypeScript's Type.getNumberIndexType().
+func typeGetNumberIndexType(t *checker.Type) *checker.Type {
+	c := t.Checker()
+	return c.GetIndexTypeOfType(t, c.GetNumberType())
+}
+
+// typeGetStringIndexType is TypeScript's Type.getStringIndexType().
+func typeGetStringIndexType(t *checker.Type) *checker.Type {
+	c := t.Checker()
+	return c.GetIndexTypeOfType(t, c.GetStringType())
+}
+
+// typeTypes is TypeScript's UnionOrIntersectionType.types.
+func typeTypes(t *checker.Type) []*checker.Type {
+	return t.Types()
+}
+
+// typeNumberValue is a NumberLiteralType's value.
+func typeNumberValue(t *checker.Type) float64 {
+	return float64(t.AsLiteralType().Value().(jsnum.Number))
+}
+
+// typeStringValue is a StringLiteralType's value.
+func typeStringValue(t *checker.Type) string {
+	return t.AsLiteralType().Value().(string)
+}
+
+func isUnionOrIntersection(t *checker.Type) bool {
+	return t.Flags()&checker.TypeFlagsUnionOrIntersection != 0
+}
+
+func isDefinitelyTypeInner(t *checker.Type, callbacks []TypeCheck) bool {
 	if t.IsUnion() {
 		for _, u := range t.Types() {
-			if !s.isDefinitelyTypeInner(u, callbacks) {
+			if !isDefinitelyTypeInner(u, callbacks) {
 				return false
 			}
 		}
 		return true
 	} else if t.IsIntersection() {
 		for _, u := range t.Types() {
-			if s.isDefinitelyTypeInner(u, callbacks) {
+			if isDefinitelyTypeInner(u, callbacks) {
+				return true
+			}
+		}
+		return false
+	} else {
+		// getBaseTypes() checks isClassOrInterface() internally
+		for _, base := range typeGetBaseTypes(t) {
+			if isDefinitelyTypeInner(base, callbacks) {
+				return true
+			}
+		}
+		for _, cb := range callbacks {
+			if cb(t) {
 				return true
 			}
 		}
 		return false
 	}
-	// getBaseTypes() checks isClassOrInterface() internally
-	for _, base := range s.getBaseTypes(t) {
-		if s.isDefinitelyTypeInner(base, callbacks) {
-			return true
-		}
-	}
-	for _, cb := range callbacks {
-		if cb(t) {
-			return true
-		}
-	}
-	return false
 }
 
-func (s *TransformState) isDefinitelyType(t *checker.Type, callbacks ...TypeCheck) bool {
-	if c := s.getConstraint(t); c != nil {
-		t = c
-	}
-	return s.isDefinitelyTypeInner(t, callbacks)
+func isDefinitelyType(t *checker.Type, callbacks ...TypeCheck) bool {
+	return isDefinitelyTypeInner(typeGetConstraintOrSelf(t), callbacks)
 }
 
-func (s *TransformState) isPossiblyTypeInner(t *checker.Type, callbacks []TypeCheck, onlyUndefined bool) bool {
-	if t.Flags()&checker.TypeFlagsUnionOrIntersection != 0 {
+func isPossiblyTypeInner(t *checker.Type, callbacks []TypeCheck) bool {
+	if isUnionOrIntersection(t) {
 		for _, u := range t.Types() {
-			if s.isPossiblyTypeInner(u, callbacks, onlyUndefined) {
+			if isPossiblyTypeInner(u, callbacks) {
+				return true
+			}
+		}
+		return false
+	} else {
+		// getBaseTypes() checks isClassOrInterface() internally
+		for _, base := range typeGetBaseTypes(t) {
+			if isPossiblyTypeInner(base, callbacks) {
+				return true
+			}
+		}
+
+		// type variable without constraint, any, or unknown
+		if t.Flags()&(checker.TypeFlagsTypeVariable|checker.TypeFlagsAnyOrUnknown) != 0 {
+			return true
+		}
+
+		// defined type
+		if isDefinedType(t) {
+			if len(callbacks) == 1 && sameFunc(callbacks[0], isUndefinedType) {
+				// if only matching undefined, then defined means not possible
+				return false
+			}
+			return true
+		}
+
+		for _, cb := range callbacks {
+			if cb(t) {
 				return true
 			}
 		}
 		return false
 	}
-	// getBaseTypes() checks isClassOrInterface() internally
-	for _, base := range s.getBaseTypes(t) {
-		if s.isPossiblyTypeInner(base, callbacks, onlyUndefined) {
-			return true
-		}
-	}
-	// type variable without constraint, any, or unknown
-	if t.Flags()&(checker.TypeFlagsTypeVariable|checker.TypeFlagsAnyOrUnknown) != 0 {
-		return true
-	}
-	// defined type
-	if s.isDefinedType(t) {
-		// if only matching undefined, then defined means not possible
-		return !onlyUndefined
-	}
-	for _, cb := range callbacks {
-		if cb(t) {
-			return true
-		}
-	}
-	return false
 }
 
-// isPossiblyType is isPossiblyType. Pass onlyUndefined when the only callback is isUndefinedType
-// (TypeScript compares the callback by identity, which Go cannot do).
-func (s *TransformState) isPossiblyType(t *checker.Type, callbacks ...TypeCheck) bool {
-	return s.isPossiblyTypeEx(t, false, callbacks...)
+// sameFunc is `===` on two top-level functions.
+func sameFunc(a, b TypeCheck) bool {
+	return reflect.ValueOf(a).Pointer() == reflect.ValueOf(b).Pointer()
 }
 
-func (s *TransformState) isPossiblyUndefined(t *checker.Type) bool {
-	return s.isPossiblyTypeEx(t, true, isUndefinedType)
+func isPossiblyType(t *checker.Type, callbacks ...TypeCheck) bool {
+	return isPossiblyTypeInner(typeGetConstraintOrSelf(t), callbacks)
 }
 
-func (s *TransformState) isPossiblyTypeEx(t *checker.Type, onlyUndefined bool, callbacks ...TypeCheck) bool {
-	if c := s.getConstraint(t); c != nil {
-		t = c
-	}
-	return s.isPossiblyTypeInner(t, callbacks, onlyUndefined)
-}
-
-func (s *TransformState) isDefinedType(t *checker.Type) bool {
-	c := s.TypeChecker
+func isDefinedType(t *checker.Type) bool {
 	return t.Flags() == checker.TypeFlagsObject &&
-		len(c.GetPropertiesOfType(t)) == 0 &&
-		len(c.GetSignaturesOfType(t, checker.SignatureKindCall)) == 0 &&
-		len(c.GetSignaturesOfType(t, checker.SignatureKindConstruct)) == 0 &&
-		c.GetIndexTypeOfType(t, c.GetNumberType()) == nil &&
-		c.GetIndexTypeOfType(t, c.GetStringType()) == nil
+		len(typeGetProperties(t)) == 0 &&
+		len(typeGetCallSignatures(t)) == 0 &&
+		len(typeGetConstructSignatures(t)) == 0 &&
+		typeGetNumberIndexType(t) == nil &&
+		typeGetStringIndexType(t) == nil
 }
 
-func (s *TransformState) isAnyType(t *checker.Type) bool { return t == s.TypeChecker.GetAnyType() }
+func isAnyType(state *TransformState) TypeCheck {
+	return func(t *checker.Type) bool { return t == state.TypeChecker.GetAnyType() }
+}
 
 func isBooleanType(t *checker.Type) bool {
 	return t.Flags()&(checker.TypeFlagsBoolean|checker.TypeFlagsBooleanLiteral) != 0
 }
 
-func (s *TransformState) isBooleanLiteralType(value bool) TypeCheck {
+func isBooleanLiteralType(state *TransformState, value bool) TypeCheck {
 	return func(t *checker.Type) bool {
 		if t.Flags()&checker.TypeFlagsBooleanLiteral != 0 {
-			valueType := s.TypeChecker.GetFalseType()
+			valueType := state.TypeChecker.GetFalseType()
 			if value {
-				valueType = s.TypeChecker.GetTrueType()
+				valueType = state.TypeChecker.GetTrueType()
 			}
 			return t == valueType
 		}
@@ -148,93 +208,111 @@ func isNumberType(t *checker.Type) bool {
 func isNumberLiteralType(value float64) TypeCheck {
 	return func(t *checker.Type) bool {
 		if t.IsNumberLiteral() {
-			return numberLiteralValue(t) == value
+			return typeNumberValue(t) == value
 		}
 		return isNumberType(t)
 	}
 }
 
-func isNaNType(t *checker.Type) bool { return isNumberType(t) && !t.IsNumberLiteral() }
+func isNaNType(t *checker.Type) bool {
+	return isNumberType(t) && !t.IsNumberLiteral()
+}
 
 func isStringType(t *checker.Type) bool {
 	return t.Flags()&(checker.TypeFlagsString|checker.TypeFlagsStringLike|checker.TypeFlagsStringLiteral) != 0
 }
 
-func (s *TransformState) isMixedStringType(t *checker.Type) bool {
-	if c := s.getConstraint(t); c != nil {
-		t = c
-	}
-	if !t.IsUnion() || s.isDefinitelyType(t, isStringType) {
+func isMixedStringType(t *checker.Type) bool {
+	t = typeGetConstraintOrSelf(t)
+	if !t.IsUnion() || isDefinitelyType(t, isStringType) {
 		return false
 	}
 	for _, u := range t.Types() {
-		if s.isDefinitelyType(u, isStringType) {
+		if isDefinitelyType(u, isStringType) {
 			return true
 		}
 	}
 	return false
 }
 
-func (s *TransformState) symbolIs(t *checker.Type, names ...string) bool {
-	symbol := t.Symbol()
-	if symbol == nil {
-		return false
-	}
-	for _, name := range names {
-		if symbol == s.Services.MacroManager.GetSymbolOrThrow(name) {
-			return true
+func isArrayType(state *TransformState) TypeCheck {
+	return func(t *checker.Type) bool {
+		// typeChecker.isArrayLikeType() will return true for `any`, so rule it out here
+		if t.Flags()&checker.TypeFlagsAny != 0 {
+			return false
 		}
+		macroManager := state.Services.MacroManager
+		return checker.IsTupleType(t) ||
+			state.TypeChecker.IsArrayLikeType(t) ||
+			t.Symbol() == macroManager.GetSymbolOrThrow(SYMBOL_NAMES.ReadonlyArray) ||
+			t.Symbol() == macroManager.GetSymbolOrThrow(SYMBOL_NAMES.Array) ||
+			t.Symbol() == macroManager.GetSymbolOrThrow(SYMBOL_NAMES.ReadVoxelsArray) ||
+			t.Symbol() == macroManager.GetSymbolOrThrow(SYMBOL_NAMES.TemplateStringsArray)
 	}
-	return false
 }
 
-func (s *TransformState) isArrayType(t *checker.Type) bool {
-	// typeChecker.isArrayLikeType() will return true for `any`, so rule it out here
-	if t.Flags()&checker.TypeFlagsAny != 0 {
+func isSetType(state *TransformState) TypeCheck {
+	return func(t *checker.Type) bool {
+		macroManager := state.Services.MacroManager
+		return t.Symbol() == macroManager.GetSymbolOrThrow(SYMBOL_NAMES.Set) ||
+			t.Symbol() == macroManager.GetSymbolOrThrow(SYMBOL_NAMES.ReadonlySet) ||
+			t.Symbol() == macroManager.GetSymbolOrThrow(SYMBOL_NAMES.WeakSet)
+	}
+}
+
+func isMapType(state *TransformState) TypeCheck {
+	return func(t *checker.Type) bool {
+		macroManager := state.Services.MacroManager
+		return t.Symbol() == macroManager.GetSymbolOrThrow(SYMBOL_NAMES.Map) ||
+			t.Symbol() == macroManager.GetSymbolOrThrow(SYMBOL_NAMES.ReadonlyMap) ||
+			t.Symbol() == macroManager.GetSymbolOrThrow(SYMBOL_NAMES.WeakMap)
+	}
+}
+
+func isSharedTableType(state *TransformState) TypeCheck {
+	return func(t *checker.Type) bool {
+		return t.Symbol() == state.Services.MacroManager.GetSymbolOrThrow(SYMBOL_NAMES.SharedTable)
+	}
+}
+
+func isGeneratorType(state *TransformState) TypeCheck {
+	return func(t *checker.Type) bool {
+		return t.Symbol() == state.Services.MacroManager.GetSymbolOrThrow(SYMBOL_NAMES.Generator)
+	}
+}
+
+func isIterableFunctionType(state *TransformState) TypeCheck {
+	return func(t *checker.Type) bool {
+		return t.Symbol() == state.Services.MacroManager.GetSymbolOrThrow(SYMBOL_NAMES.IterableFunction)
+	}
+}
+
+func isLuaTupleType(state *TransformState) TypeCheck {
+	return func(t *checker.Type) bool {
+		return typeGetProperty(t, NOMINAL_LUA_TUPLE_NAME) ==
+			state.Services.MacroManager.GetSymbolOrThrow(NOMINAL_LUA_TUPLE_NAME)
+	}
+}
+
+func isIterableFunctionLuaTupleType(state *TransformState) TypeCheck {
+	return func(t *checker.Type) bool {
+		if isIterableFunctionType(state)(t) {
+			typeArguments := getTypeArguments(state, t)
+			return len(typeArguments) > 0 && isLuaTupleType(state)(typeArguments[0])
+		}
 		return false
 	}
-	return checker.IsTupleType(t) || s.TypeChecker.IsArrayLikeType(t) ||
-		s.symbolIs(t, SYMBOL_NAMES.ReadonlyArray, SYMBOL_NAMES.Array, SYMBOL_NAMES.ReadVoxelsArray, SYMBOL_NAMES.TemplateStringsArray)
 }
 
-func (s *TransformState) isSetType(t *checker.Type) bool {
-	return s.symbolIs(t, SYMBOL_NAMES.Set, SYMBOL_NAMES.ReadonlySet, SYMBOL_NAMES.WeakSet)
-}
-
-func (s *TransformState) isMapType(t *checker.Type) bool {
-	return s.symbolIs(t, SYMBOL_NAMES.Map, SYMBOL_NAMES.ReadonlyMap, SYMBOL_NAMES.WeakMap)
-}
-
-func (s *TransformState) isSharedTableType(t *checker.Type) bool {
-	return s.symbolIs(t, SYMBOL_NAMES.SharedTable)
-}
-
-func (s *TransformState) isGeneratorType(t *checker.Type) bool {
-	return s.symbolIs(t, SYMBOL_NAMES.Generator)
-}
-
-func (s *TransformState) isIterableFunctionType(t *checker.Type) bool {
-	return s.symbolIs(t, SYMBOL_NAMES.IterableFunction)
-}
-
-func (s *TransformState) isLuaTupleType(t *checker.Type) bool {
-	nominal := s.Services.MacroManager.symbols[NOMINAL_LUA_TUPLE_NAME]
-	return nominal != nil && s.TypeChecker.GetPropertyOfType(t, NOMINAL_LUA_TUPLE_NAME) == nominal
-}
-
-func (s *TransformState) isIterableFunctionLuaTupleType(t *checker.Type) bool {
-	if s.isIterableFunctionType(t) {
-		args := s.getTypeArguments(t)
-		return len(args) > 0 && s.isLuaTupleType(args[0])
+func isIterableType(state *TransformState) TypeCheck {
+	return func(t *checker.Type) bool {
+		return t.Symbol() == state.Services.MacroManager.GetSymbolOrThrow(SYMBOL_NAMES.Iterable)
 	}
-	return false
 }
 
-func (s *TransformState) isIterableType(t *checker.Type) bool {
-	return s.symbolIs(t, SYMBOL_NAMES.Iterable)
+func isObjectType(t *checker.Type) bool {
+	return t.Flags()&checker.TypeFlagsObject != 0
 }
-
-func isObjectType(t *checker.Type) bool { return t.Flags()&checker.TypeFlagsObject != 0 }
 
 func isUndefinedType(t *checker.Type) bool {
 	return t.Flags()&(checker.TypeFlagsUndefined|checker.TypeFlagsVoid) != 0
@@ -242,12 +320,12 @@ func isUndefinedType(t *checker.Type) bool {
 
 func isEmptyStringType(t *checker.Type) bool {
 	if t.IsStringLiteral() {
-		return t.AsLiteralType().Value() == ""
+		return typeStringValue(t) == ""
 	}
-	if t.Flags()&checker.TypeFlagsTemplateLiteral != 0 {
+	if isTemplateLiteralType(t) {
 		texts := t.AsTemplateLiteralType().Texts()
 		for _, v := range texts {
-			if v != "" {
+			if len(v) != 0 {
 				return false
 			}
 		}
@@ -256,19 +334,21 @@ func isEmptyStringType(t *checker.Type) bool {
 	return isStringType(t)
 }
 
-func (s *TransformState) isRobloxType(t *checker.Type) bool {
-	typesPath := nodepath.Join(s.Data.NodeModulesPath, RBXTS_SCOPE, "types")
-	symbol := t.Symbol()
-	if symbol == nil {
+func isRobloxType(state *TransformState) TypeCheck {
+	typesPath := nodepath.Join(state.Data.NodeModulesPath, RBXTS_SCOPE, "types")
+	return func(t *checker.Type) bool {
+		symbol := t.Symbol()
+		if symbol == nil {
+			return false
+		}
+		for _, d := range symbol.Declarations {
+			filePath := ast.GetSourceFileOfNode(d).FileName()
+			if isPathDescendantOf(filePath, typesPath) {
+				return true
+			}
+		}
 		return false
 	}
-	for _, d := range symbol.Declarations {
-		filePath := ast.GetSourceFileOfNode(d).FileName()
-		if isPathDescendantOf(filePath, typesPath) {
-			return true
-		}
-	}
-	return false
 }
 
 // isPathDescendantOf is Shared/util/isPathDescendantOf.ts.
@@ -280,24 +360,24 @@ func hasDotDotPrefix(p string) bool { return len(p) >= 2 && p[:2] == ".." }
 
 // type utilities
 
-func (s *TransformState) walkTypes(t *checker.Type, callback func(*checker.Type)) {
-	if t.Flags()&checker.TypeFlagsUnionOrIntersection != 0 {
+func walkTypes(t *checker.Type, callback func(t *checker.Type)) {
+	if isUnionOrIntersection(t) {
 		for _, u := range t.Types() {
-			s.walkTypes(u, callback)
+			walkTypes(u, callback)
 		}
-		return
-	}
-	// in template literal types, constraint === type and this causes infinite recursion
-	constraint := s.getConstraint(t)
-	if constraint != nil && constraint != t {
-		s.walkTypes(constraint, callback)
 	} else {
-		callback(t)
+		// in template literal types, constraint === type and this causes infinite recursion
+		constraint := typeGetConstraint(t)
+		if constraint != nil && constraint != t {
+			walkTypes(constraint, callback)
+		} else {
+			callback(t)
+		}
 	}
 }
 
-func (s *TransformState) getFirstConstructSymbol(expression *ast.Node) *ast.Symbol {
-	t := s.GetType(expression)
+func getFirstConstructSymbol(state *TransformState, expression *ast.Node) *ast.Symbol {
+	t := state.GetType(expression)
 	if symbol := t.Symbol(); symbol != nil {
 		for _, declaration := range symbol.Declarations {
 			if ast.IsInterfaceDeclaration(declaration) {
@@ -312,10 +392,10 @@ func (s *TransformState) getFirstConstructSymbol(expression *ast.Node) *ast.Symb
 	return nil
 }
 
-func (s *TransformState) getFirstDefinedSymbol(t *checker.Type) *ast.Symbol {
-	if t.Flags()&checker.TypeFlagsUnionOrIntersection != 0 {
+func getFirstDefinedSymbol(state *TransformState, t *checker.Type) *ast.Symbol {
+	if isUnionOrIntersection(t) {
 		for _, u := range t.Types() {
-			if u.Symbol() != nil && !s.TypeChecker.IsUndefinedSymbol(u.Symbol()) {
+			if u.Symbol() != nil && !state.TypeChecker.IsUndefinedSymbol(u.Symbol()) {
 				return u.Symbol()
 			}
 		}
@@ -324,14 +404,10 @@ func (s *TransformState) getFirstDefinedSymbol(t *checker.Type) *ast.Symbol {
 	return t.Symbol()
 }
 
-func (s *TransformState) getTypeArguments(t *checker.Type) []*checker.Type {
+func getTypeArguments(state *TransformState, t *checker.Type) []*checker.Type {
+	// TypeScript's getTypeArguments reads the reference's resolvedTypeArguments; non-references have none
 	if t.ObjectFlags()&checker.ObjectFlagsReference == 0 {
 		return nil
 	}
-	return s.TypeChecker.GetTypeArguments(t)
-}
-
-func numberLiteralValue(t *checker.Type) float64 {
-	value, _ := numberValue(t.AsLiteralType().Value())
-	return value
+	return state.TypeChecker.GetTypeArguments(t)
 }
