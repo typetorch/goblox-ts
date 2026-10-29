@@ -8,7 +8,11 @@ import (
 
 // binaryExpressionChain is TSTransformer/util/expressionChain.ts binaryExpressionChain.
 func binaryExpressionChain(expressions []luau.Expression, operator luau.BinaryOperator) luau.Expression {
-	panic(todo("util/expressionChain.ts", "binaryExpressionChain"))
+	acc := expressions[0]
+	for _, current := range expressions[1:] {
+		acc = luau.Binary(acc, operator, current)
+	}
+	return acc
 }
 
 // propertyAccessExpressionChain is TSTransformer/util/expressionChain.ts propertyAccessExpressionChain.
