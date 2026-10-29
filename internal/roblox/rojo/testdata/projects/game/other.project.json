@@ -1,0 +1,1 @@
+{ "name": "Other", "tree": { "$className": "Folder", "Child": { "$path": "otherdir" } } }

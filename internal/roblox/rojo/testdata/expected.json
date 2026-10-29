@@ -1,0 +1,1110 @@
+{
+	"projects": [
+		{
+			"warnings": [],
+			"isGame": true,
+			"partitions": [
+				{
+					"fsPath": "<root>/projects/game/out/client",
+					"rbxPath": [
+						"StarterPlayer",
+						"StarterPlayerScripts",
+						"TS"
+					]
+				},
+				{
+					"fsPath": "<root>/projects/game/out/server",
+					"rbxPath": [
+						"ServerScriptService",
+						"TS"
+					]
+				},
+				{
+					"fsPath": "<root>/projects/game/num",
+					"rbxPath": [
+						"ReplicatedStorage",
+						"zeta"
+					]
+				},
+				{
+					"fsPath": "<root>/projects/game/missing",
+					"rbxPath": [
+						"ReplicatedStorage",
+						"Optional"
+					]
+				},
+				{
+					"fsPath": "<root>/projects/game/otherdir",
+					"rbxPath": [
+						"ReplicatedStorage",
+						"Other",
+						"Child"
+					]
+				},
+				{
+					"fsPath": "<root>/projects/game/nested/src",
+					"rbxPath": [
+						"ReplicatedStorage",
+						"Nested"
+					]
+				},
+				{
+					"fsPath": "<root>/projects/game/out/shared/sub",
+					"rbxPath": [
+						"ReplicatedStorage",
+						"TS",
+						"withproject",
+						"Inner"
+					]
+				},
+				{
+					"fsPath": "<root>/projects/game/out/shared",
+					"rbxPath": [
+						"ReplicatedStorage",
+						"TS"
+					]
+				},
+				{
+					"fsPath": "<root>/projects/game/node_modules/@rbxts",
+					"rbxPath": [
+						"ReplicatedStorage",
+						"rbxts_include",
+						"node_modules",
+						"@rbxts"
+					]
+				},
+				{
+					"fsPath": "<root>/projects/game/include",
+					"rbxPath": [
+						"ReplicatedStorage",
+						"rbxts_include"
+					]
+				}
+			],
+			"files": [
+				{
+					"file": "projects/game/out/shared/module.lua",
+					"rbxPath": [
+						"ReplicatedStorage",
+						"TS",
+						"module"
+					],
+					"rbxType": 0,
+					"networkType": 0,
+					"isolated": false
+				},
+				{
+					"file": "projects/game/out/shared/module.luau",
+					"rbxPath": [
+						"ReplicatedStorage",
+						"TS",
+						"module"
+					],
+					"rbxType": 0,
+					"networkType": 0,
+					"isolated": false
+				},
+				{
+					"file": "projects/game/out/shared/init.lua",
+					"rbxPath": [
+						"ReplicatedStorage",
+						"TS"
+					],
+					"rbxType": 0,
+					"networkType": 0,
+					"isolated": false
+				},
+				{
+					"file": "projects/game/out/shared/sub/init.lua",
+					"rbxPath": [
+						"ReplicatedStorage",
+						"TS",
+						"withproject",
+						"Inner"
+					],
+					"rbxType": 0,
+					"networkType": 0,
+					"isolated": false
+				},
+				{
+					"file": "projects/game/out/shared/sub/a.lua",
+					"rbxPath": [
+						"ReplicatedStorage",
+						"TS",
+						"withproject",
+						"Inner",
+						"a"
+					],
+					"rbxType": 0,
+					"networkType": 0,
+					"isolated": false
+				},
+				{
+					"file": "projects/game/out/shared/sub/a.server.lua",
+					"rbxPath": [
+						"ReplicatedStorage",
+						"TS",
+						"withproject",
+						"Inner",
+						"a"
+					],
+					"rbxType": 1,
+					"networkType": 0,
+					"isolated": false
+				},
+				{
+					"file": "projects/game/out/shared/virtual.client.luau",
+					"rbxPath": [
+						"ReplicatedStorage",
+						"TS",
+						"virtual"
+					],
+					"rbxType": 2,
+					"networkType": 0,
+					"isolated": false
+				},
+				{
+					"file": "projects/game/out/shared/data.json",
+					"rbxPath": [
+						"ReplicatedStorage",
+						"TS",
+						"data"
+					],
+					"rbxType": 0,
+					"networkType": 0,
+					"isolated": false
+				},
+				{
+					"file": "projects/game/out/shared/init.json",
+					"rbxPath": [
+						"ReplicatedStorage",
+						"TS",
+						"init"
+					],
+					"rbxType": 0,
+					"networkType": 0,
+					"isolated": false
+				},
+				{
+					"file": "projects/game/out/server/main.server.lua",
+					"rbxPath": [
+						"ServerScriptService",
+						"TS",
+						"main"
+					],
+					"rbxType": 1,
+					"networkType": 2,
+					"isolated": false
+				},
+				{
+					"file": "projects/game/out/client/main.client.lua",
+					"rbxPath": [
+						"StarterPlayer",
+						"StarterPlayerScripts",
+						"TS",
+						"main"
+					],
+					"rbxType": 2,
+					"networkType": 1,
+					"isolated": true
+				},
+				{
+					"file": "projects/game/out/client/deep/thing.lua",
+					"rbxPath": [
+						"StarterPlayer",
+						"StarterPlayerScripts",
+						"TS",
+						"deep",
+						"thing"
+					],
+					"rbxType": 0,
+					"networkType": 1,
+					"isolated": true
+				},
+				{
+					"file": "projects/game/include/RuntimeLib.lua",
+					"rbxPath": [
+						"ReplicatedStorage",
+						"rbxts_include",
+						"RuntimeLib"
+					],
+					"rbxType": 0,
+					"networkType": 0,
+					"isolated": false
+				},
+				{
+					"file": "projects/game/include/Promise.lua",
+					"rbxPath": [
+						"ReplicatedStorage",
+						"rbxts_include",
+						"Promise"
+					],
+					"rbxType": 0,
+					"networkType": 0,
+					"isolated": false
+				},
+				{
+					"file": "projects/game/node_modules/@rbxts/services/init.lua",
+					"rbxPath": [
+						"ReplicatedStorage",
+						"rbxts_include",
+						"node_modules",
+						"@rbxts",
+						"services"
+					],
+					"rbxType": 0,
+					"networkType": 0,
+					"isolated": false
+				},
+				{
+					"file": "projects/game/nested/src/x.lua",
+					"rbxPath": [
+						"ReplicatedStorage",
+						"Nested",
+						"x"
+					],
+					"rbxType": 0,
+					"networkType": 0,
+					"isolated": false
+				},
+				{
+					"file": "projects/game/otherdir/y.lua",
+					"rbxPath": [
+						"ReplicatedStorage",
+						"Other",
+						"Child",
+						"y"
+					],
+					"rbxType": 0,
+					"networkType": 0,
+					"isolated": false
+				},
+				{
+					"file": "projects/game/num/n.lua",
+					"rbxPath": [
+						"ReplicatedStorage",
+						"zeta",
+						"n"
+					],
+					"rbxType": 0,
+					"networkType": 0,
+					"isolated": false
+				},
+				{
+					"file": "projects/game/lib.lua",
+					"rbxPath": [
+						"ReplicatedStorage",
+						"Lib"
+					],
+					"rbxType": 0,
+					"networkType": 0,
+					"isolated": false
+				},
+				{
+					"file": "projects/game/assets/thing.model.json",
+					"rbxPath": [
+						"Workspace",
+						"Thing"
+					],
+					"rbxType": 0,
+					"networkType": 0,
+					"isolated": false
+				},
+				{
+					"file": "projects/game/elsewhere/z.lua",
+					"rbxPath": null,
+					"rbxType": 0,
+					"networkType": null,
+					"isolated": null
+				},
+				{
+					"file": "projects/game/out/shared/x.plugin.lua",
+					"rbxPath": [
+						"ReplicatedStorage",
+						"TS",
+						"x"
+					],
+					"rbxType": 1,
+					"networkType": 0,
+					"isolated": false
+				},
+				{
+					"file": "projects/game/out/shared/x.d.ts",
+					"rbxPath": [
+						"ReplicatedStorage",
+						"TS",
+						"x.d.ts"
+					],
+					"rbxType": 0,
+					"networkType": 0,
+					"isolated": false
+				}
+			]
+		},
+		{
+			"warnings": [
+				"RojoResolver: Invalid configuration! data/name must be string"
+			],
+			"isGame": false,
+			"partitions": [],
+			"files": []
+		},
+		{
+			"warnings": [
+				"RojoResolver: Invalid configuration! data must have required property 'name'"
+			],
+			"isGame": false,
+			"partitions": [],
+			"files": []
+		},
+		{
+			"warnings": [
+				"RojoResolver: Path does not exist \"<root>/projects/game/doesnotexist.project.json\""
+			],
+			"isGame": false,
+			"partitions": [],
+			"files": []
+		},
+		{
+			"warnings": [],
+			"isGame": false,
+			"partitions": [
+				{
+					"fsPath": "<root>/projects/model/out",
+					"rbxPath": []
+				}
+			],
+			"files": [
+				{
+					"file": "projects/model/out/init.lua",
+					"rbxPath": [],
+					"rbxType": 0,
+					"networkType": 0,
+					"isolated": false
+				},
+				{
+					"file": "projects/model/out/a/b.lua",
+					"rbxPath": [
+						"a",
+						"b"
+					],
+					"rbxType": 0,
+					"networkType": 0,
+					"isolated": false
+				}
+			]
+		}
+	],
+	"find": [
+		{
+			"path": "<root>/projects/game/default.project.json",
+			"warnings": []
+		},
+		{
+			"path": "<root>/projects/multi/a.project.json",
+			"warnings": [
+				"Multiple *.project.json files found, using <root>/projects/multi/a.project.json"
+			]
+		},
+		{
+			"path": "<root>/projects/model/default.project.json",
+			"warnings": []
+		},
+		{
+			"path": null,
+			"warnings": []
+		}
+	],
+	"synthetic": {
+		"warnings": [],
+		"isGame": false,
+		"partitions": [
+			{
+				"fsPath": "<root>/projects/game/out/shared/sub",
+				"rbxPath": [
+					"shared",
+					"withproject",
+					"Inner"
+				]
+			},
+			{
+				"fsPath": "<root>/projects/game/out",
+				"rbxPath": []
+			}
+		],
+		"files": [
+			{
+				"file": "projects/game/out/shared/module.lua",
+				"rbxPath": [
+					"shared",
+					"module"
+				],
+				"rbxType": 0,
+				"networkType": 0,
+				"isolated": false
+			},
+			{
+				"file": "projects/game/out/init.lua",
+				"rbxPath": [],
+				"rbxType": 0,
+				"networkType": 0,
+				"isolated": false
+			},
+			{
+				"file": "projects/game/x.lua",
+				"rbxPath": null,
+				"rbxType": 0,
+				"networkType": null,
+				"isolated": null
+			}
+		]
+	},
+	"relative": [
+		[
+			"<parent>",
+			"d"
+		],
+		[],
+		[
+			"b",
+			"c"
+		],
+		[
+			"<parent>",
+			"<parent>"
+		],
+		[
+			"x"
+		],
+		[
+			"<parent>",
+			"<parent>"
+		]
+	],
+	"fileRelations": [
+		[
+			3,
+			1,
+			1,
+			2,
+			2,
+			2,
+			3,
+			1,
+			1
+		],
+		[
+			1,
+			3,
+			1,
+			2,
+			2,
+			2,
+			1,
+			1,
+			1
+		],
+		[
+			1,
+			1,
+			3,
+			2,
+			2,
+			2,
+			1,
+			1,
+			1
+		],
+		[
+			1,
+			1,
+			1,
+			0,
+			0,
+			0,
+			1,
+			1,
+			1
+		],
+		[
+			1,
+			1,
+			1,
+			0,
+			0,
+			0,
+			1,
+			1,
+			1
+		],
+		[
+			1,
+			1,
+			1,
+			0,
+			0,
+			0,
+			1,
+			1,
+			1
+		],
+		[
+			3,
+			1,
+			1,
+			2,
+			2,
+			2,
+			3,
+			1,
+			1
+		],
+		[
+			1,
+			1,
+			1,
+			2,
+			2,
+			2,
+			1,
+			3,
+			1
+		],
+		[
+			1,
+			1,
+			1,
+			2,
+			2,
+			2,
+			1,
+			1,
+			3
+		]
+	],
+	"networkTypes": [
+		1,
+		1,
+		1,
+		0,
+		2,
+		2,
+		1,
+		1,
+		0
+	],
+	"translator": [
+		{
+			"declaration": false,
+			"luau": false,
+			"outputPath": [
+				"<root>/out/init.lua",
+				"<root>/out/a.lua",
+				"<root>/out/a.lua",
+				"<root>/out/a.d.ts",
+				"<root>/out/a.d.tsx",
+				"<root>/out/index.d.ts",
+				"<root>/out/b.server.lua",
+				"<root>/out/c.client.lua",
+				"<root>/out/sub/init.lua",
+				"<root>/out/x.json",
+				"<root>/out/noext",
+				"<root>/out/.hidden.lua",
+				"<root>/out/a.b.c.lua",
+				"<root>/node_modules/@rbxts/pkg/out/index.d.ts",
+				"<root>/node_modules/@rbxts/pkg/out/foo.lua"
+			],
+			"outputDeclarationPath": [
+				"<root>/out/index.d.ts",
+				"<root>/out/a.d.ts",
+				"<root>/out/a.d.ts",
+				"<root>/out/a.d.ts",
+				"<root>/out/a.d.tsx",
+				"<root>/out/index.d.ts",
+				"<root>/out/b.server.d.ts",
+				"<root>/out/c.client.d.ts",
+				"<root>/out/sub/index.d.ts",
+				"<root>/out/x.json",
+				"<root>/out/noext",
+				"<root>/out/.hidden.d.ts",
+				"<root>/out/a.b.c.d.ts",
+				"<root>/node_modules/@rbxts/pkg/out/index.d.ts",
+				"<root>/node_modules/@rbxts/pkg/out/foo.d.ts"
+			],
+			"outputTransformedPath": [
+				"<root>/out/index.transformed.ts",
+				"<root>/out/a.transformed.ts",
+				"<root>/out/a.transformed.tsx",
+				"<root>/out/a.transformed.d.ts",
+				"<root>/out/a.transformed.d.tsx",
+				"<root>/out/index.transformed.d.ts",
+				"<root>/out/b.server.transformed.ts",
+				"<root>/out/c.client.transformed.tsx",
+				"<root>/out/sub/index.transformed.ts",
+				"<root>/out/x.transformed.json",
+				"<root>/out/noext.transformed",
+				"<root>/out/.hidden.transformed.ts",
+				"<root>/out/a.b.c.transformed.ts",
+				"<root>/node_modules/@rbxts/pkg/out/index.transformed.d.ts",
+				"<root>/node_modules/@rbxts/pkg/out/foo.transformed.ts"
+			],
+			"importPath": [
+				"<root>/out/init.lua",
+				"<root>/out/a.lua",
+				"<root>/out/a.lua",
+				"<root>/out/a.lua",
+				"<root>/out/a.lua",
+				"<root>/out/init.lua",
+				"<root>/out/b.server.lua",
+				"<root>/out/c.client.lua",
+				"<root>/out/sub/init.lua",
+				"<root>/out/x.json",
+				"<root>/out/noext",
+				"<root>/out/.hidden.lua",
+				"<root>/out/a.b.c.lua",
+				"<root>/node_modules/@rbxts/pkg/out/init.lua",
+				"<root>/node_modules/@rbxts/pkg/out/foo.lua"
+			],
+			"importPathNodeModule": [
+				"<root>/src/init.lua",
+				"<root>/src/a.lua",
+				"<root>/src/a.lua",
+				"<root>/src/a.lua",
+				"<root>/src/a.lua",
+				"<root>/src/init.lua",
+				"<root>/src/b.server.lua",
+				"<root>/src/c.client.lua",
+				"<root>/src/sub/init.lua",
+				"<root>/src/x.json",
+				"<root>/src/noext",
+				"<root>/src/.hidden.lua",
+				"<root>/src/a.b.c.lua",
+				"<root>/node_modules/@rbxts/pkg/out/init.lua",
+				"<root>/node_modules/@rbxts/pkg/out/foo.lua"
+			],
+			"inputPaths": [
+				[
+					"<root>/src/init.ts",
+					"<root>/src/init.tsx",
+					"<root>/src/index.ts",
+					"<root>/src/index.tsx",
+					"<root>/src/init.lua"
+				],
+				[
+					"<root>/src/init.luau"
+				],
+				[
+					"<root>/src/a.ts",
+					"<root>/src/a.tsx",
+					"<root>/src/a.lua"
+				],
+				[
+					"<root>/src/a.luau"
+				],
+				[
+					"<root>/src/index.lua"
+				],
+				[
+					"<root>/src/b.server.ts",
+					"<root>/src/b.server.tsx",
+					"<root>/src/b.server.lua"
+				],
+				[
+					"<root>/src/a.d.ts"
+				],
+				[
+					"<root>/src/x.json"
+				],
+				[
+					"<root>/src/sub/init.ts",
+					"<root>/src/sub/init.tsx",
+					"<root>/src/sub/index.ts",
+					"<root>/src/sub/index.tsx",
+					"<root>/src/sub/init.lua"
+				]
+			]
+		},
+		{
+			"declaration": false,
+			"luau": true,
+			"outputPath": [
+				"<root>/out/init.luau",
+				"<root>/out/a.luau",
+				"<root>/out/a.luau",
+				"<root>/out/a.d.ts",
+				"<root>/out/a.d.tsx",
+				"<root>/out/index.d.ts",
+				"<root>/out/b.server.luau",
+				"<root>/out/c.client.luau",
+				"<root>/out/sub/init.luau",
+				"<root>/out/x.json",
+				"<root>/out/noext",
+				"<root>/out/.hidden.luau",
+				"<root>/out/a.b.c.luau",
+				"<root>/node_modules/@rbxts/pkg/out/index.d.ts",
+				"<root>/node_modules/@rbxts/pkg/out/foo.luau"
+			],
+			"outputDeclarationPath": [
+				"<root>/out/index.d.ts",
+				"<root>/out/a.d.ts",
+				"<root>/out/a.d.ts",
+				"<root>/out/a.d.ts",
+				"<root>/out/a.d.tsx",
+				"<root>/out/index.d.ts",
+				"<root>/out/b.server.d.ts",
+				"<root>/out/c.client.d.ts",
+				"<root>/out/sub/index.d.ts",
+				"<root>/out/x.json",
+				"<root>/out/noext",
+				"<root>/out/.hidden.d.ts",
+				"<root>/out/a.b.c.d.ts",
+				"<root>/node_modules/@rbxts/pkg/out/index.d.ts",
+				"<root>/node_modules/@rbxts/pkg/out/foo.d.ts"
+			],
+			"outputTransformedPath": [
+				"<root>/out/index.transformed.ts",
+				"<root>/out/a.transformed.ts",
+				"<root>/out/a.transformed.tsx",
+				"<root>/out/a.transformed.d.ts",
+				"<root>/out/a.transformed.d.tsx",
+				"<root>/out/index.transformed.d.ts",
+				"<root>/out/b.server.transformed.ts",
+				"<root>/out/c.client.transformed.tsx",
+				"<root>/out/sub/index.transformed.ts",
+				"<root>/out/x.transformed.json",
+				"<root>/out/noext.transformed",
+				"<root>/out/.hidden.transformed.ts",
+				"<root>/out/a.b.c.transformed.ts",
+				"<root>/node_modules/@rbxts/pkg/out/index.transformed.d.ts",
+				"<root>/node_modules/@rbxts/pkg/out/foo.transformed.ts"
+			],
+			"importPath": [
+				"<root>/out/init.luau",
+				"<root>/out/a.luau",
+				"<root>/out/a.luau",
+				"<root>/out/a.luau",
+				"<root>/out/a.luau",
+				"<root>/out/init.luau",
+				"<root>/out/b.server.luau",
+				"<root>/out/c.client.luau",
+				"<root>/out/sub/init.luau",
+				"<root>/out/x.json",
+				"<root>/out/noext",
+				"<root>/out/.hidden.luau",
+				"<root>/out/a.b.c.luau",
+				"<root>/node_modules/@rbxts/pkg/out/init.luau",
+				"<root>/node_modules/@rbxts/pkg/out/foo.luau"
+			],
+			"importPathNodeModule": [
+				"<root>/src/init.luau",
+				"<root>/src/a.luau",
+				"<root>/src/a.luau",
+				"<root>/src/a.luau",
+				"<root>/src/a.luau",
+				"<root>/src/init.luau",
+				"<root>/src/b.server.luau",
+				"<root>/src/c.client.luau",
+				"<root>/src/sub/init.luau",
+				"<root>/src/x.json",
+				"<root>/src/noext",
+				"<root>/src/.hidden.luau",
+				"<root>/src/a.b.c.luau",
+				"<root>/node_modules/@rbxts/pkg/out/init.luau",
+				"<root>/node_modules/@rbxts/pkg/out/foo.luau"
+			],
+			"inputPaths": [
+				[
+					"<root>/src/init.lua"
+				],
+				[
+					"<root>/src/init.ts",
+					"<root>/src/init.tsx",
+					"<root>/src/index.ts",
+					"<root>/src/index.tsx",
+					"<root>/src/init.luau"
+				],
+				[
+					"<root>/src/a.lua"
+				],
+				[
+					"<root>/src/a.ts",
+					"<root>/src/a.tsx",
+					"<root>/src/a.luau"
+				],
+				[
+					"<root>/src/index.lua"
+				],
+				[
+					"<root>/src/b.server.lua"
+				],
+				[
+					"<root>/src/a.d.ts"
+				],
+				[
+					"<root>/src/x.json"
+				],
+				[
+					"<root>/src/sub/init.lua"
+				]
+			]
+		},
+		{
+			"declaration": true,
+			"luau": false,
+			"outputPath": [
+				"<root>/out/init.lua",
+				"<root>/out/a.lua",
+				"<root>/out/a.lua",
+				"<root>/out/a.d.ts",
+				"<root>/out/a.d.tsx",
+				"<root>/out/index.d.ts",
+				"<root>/out/b.server.lua",
+				"<root>/out/c.client.lua",
+				"<root>/out/sub/init.lua",
+				"<root>/out/x.json",
+				"<root>/out/noext",
+				"<root>/out/.hidden.lua",
+				"<root>/out/a.b.c.lua",
+				"<root>/node_modules/@rbxts/pkg/out/index.d.ts",
+				"<root>/node_modules/@rbxts/pkg/out/foo.lua"
+			],
+			"outputDeclarationPath": [
+				"<root>/out/index.d.ts",
+				"<root>/out/a.d.ts",
+				"<root>/out/a.d.ts",
+				"<root>/out/a.d.ts",
+				"<root>/out/a.d.tsx",
+				"<root>/out/index.d.ts",
+				"<root>/out/b.server.d.ts",
+				"<root>/out/c.client.d.ts",
+				"<root>/out/sub/index.d.ts",
+				"<root>/out/x.json",
+				"<root>/out/noext",
+				"<root>/out/.hidden.d.ts",
+				"<root>/out/a.b.c.d.ts",
+				"<root>/node_modules/@rbxts/pkg/out/index.d.ts",
+				"<root>/node_modules/@rbxts/pkg/out/foo.d.ts"
+			],
+			"outputTransformedPath": [
+				"<root>/out/index.transformed.ts",
+				"<root>/out/a.transformed.ts",
+				"<root>/out/a.transformed.tsx",
+				"<root>/out/a.transformed.d.ts",
+				"<root>/out/a.transformed.d.tsx",
+				"<root>/out/index.transformed.d.ts",
+				"<root>/out/b.server.transformed.ts",
+				"<root>/out/c.client.transformed.tsx",
+				"<root>/out/sub/index.transformed.ts",
+				"<root>/out/x.transformed.json",
+				"<root>/out/noext.transformed",
+				"<root>/out/.hidden.transformed.ts",
+				"<root>/out/a.b.c.transformed.ts",
+				"<root>/node_modules/@rbxts/pkg/out/index.transformed.d.ts",
+				"<root>/node_modules/@rbxts/pkg/out/foo.transformed.ts"
+			],
+			"importPath": [
+				"<root>/out/init.lua",
+				"<root>/out/a.lua",
+				"<root>/out/a.lua",
+				"<root>/out/a.lua",
+				"<root>/out/a.lua",
+				"<root>/out/init.lua",
+				"<root>/out/b.server.lua",
+				"<root>/out/c.client.lua",
+				"<root>/out/sub/init.lua",
+				"<root>/out/x.json",
+				"<root>/out/noext",
+				"<root>/out/.hidden.lua",
+				"<root>/out/a.b.c.lua",
+				"<root>/node_modules/@rbxts/pkg/out/init.lua",
+				"<root>/node_modules/@rbxts/pkg/out/foo.lua"
+			],
+			"importPathNodeModule": [
+				"<root>/src/init.lua",
+				"<root>/src/a.lua",
+				"<root>/src/a.lua",
+				"<root>/src/a.lua",
+				"<root>/src/a.lua",
+				"<root>/src/init.lua",
+				"<root>/src/b.server.lua",
+				"<root>/src/c.client.lua",
+				"<root>/src/sub/init.lua",
+				"<root>/src/x.json",
+				"<root>/src/noext",
+				"<root>/src/.hidden.lua",
+				"<root>/src/a.b.c.lua",
+				"<root>/node_modules/@rbxts/pkg/out/init.lua",
+				"<root>/node_modules/@rbxts/pkg/out/foo.lua"
+			],
+			"inputPaths": [
+				[
+					"<root>/src/init.ts",
+					"<root>/src/init.tsx",
+					"<root>/src/index.ts",
+					"<root>/src/index.tsx",
+					"<root>/src/init.lua"
+				],
+				[
+					"<root>/src/init.luau"
+				],
+				[
+					"<root>/src/a.ts",
+					"<root>/src/a.tsx",
+					"<root>/src/a.lua"
+				],
+				[
+					"<root>/src/a.luau"
+				],
+				[
+					"<root>/src/index.lua"
+				],
+				[
+					"<root>/src/b.server.ts",
+					"<root>/src/b.server.tsx",
+					"<root>/src/b.server.lua"
+				],
+				[
+					"<root>/src/a.ts",
+					"<root>/src/a.tsx",
+					"<root>/src/a.d.ts"
+				],
+				[
+					"<root>/src/x.json"
+				],
+				[
+					"<root>/src/sub/init.ts",
+					"<root>/src/sub/init.tsx",
+					"<root>/src/sub/index.ts",
+					"<root>/src/sub/index.tsx",
+					"<root>/src/sub/init.lua"
+				]
+			]
+		},
+		{
+			"declaration": true,
+			"luau": true,
+			"outputPath": [
+				"<root>/out/init.luau",
+				"<root>/out/a.luau",
+				"<root>/out/a.luau",
+				"<root>/out/a.d.ts",
+				"<root>/out/a.d.tsx",
+				"<root>/out/index.d.ts",
+				"<root>/out/b.server.luau",
+				"<root>/out/c.client.luau",
+				"<root>/out/sub/init.luau",
+				"<root>/out/x.json",
+				"<root>/out/noext",
+				"<root>/out/.hidden.luau",
+				"<root>/out/a.b.c.luau",
+				"<root>/node_modules/@rbxts/pkg/out/index.d.ts",
+				"<root>/node_modules/@rbxts/pkg/out/foo.luau"
+			],
+			"outputDeclarationPath": [
+				"<root>/out/index.d.ts",
+				"<root>/out/a.d.ts",
+				"<root>/out/a.d.ts",
+				"<root>/out/a.d.ts",
+				"<root>/out/a.d.tsx",
+				"<root>/out/index.d.ts",
+				"<root>/out/b.server.d.ts",
+				"<root>/out/c.client.d.ts",
+				"<root>/out/sub/index.d.ts",
+				"<root>/out/x.json",
+				"<root>/out/noext",
+				"<root>/out/.hidden.d.ts",
+				"<root>/out/a.b.c.d.ts",
+				"<root>/node_modules/@rbxts/pkg/out/index.d.ts",
+				"<root>/node_modules/@rbxts/pkg/out/foo.d.ts"
+			],
+			"outputTransformedPath": [
+				"<root>/out/index.transformed.ts",
+				"<root>/out/a.transformed.ts",
+				"<root>/out/a.transformed.tsx",
+				"<root>/out/a.transformed.d.ts",
+				"<root>/out/a.transformed.d.tsx",
+				"<root>/out/index.transformed.d.ts",
+				"<root>/out/b.server.transformed.ts",
+				"<root>/out/c.client.transformed.tsx",
+				"<root>/out/sub/index.transformed.ts",
+				"<root>/out/x.transformed.json",
+				"<root>/out/noext.transformed",
+				"<root>/out/.hidden.transformed.ts",
+				"<root>/out/a.b.c.transformed.ts",
+				"<root>/node_modules/@rbxts/pkg/out/index.transformed.d.ts",
+				"<root>/node_modules/@rbxts/pkg/out/foo.transformed.ts"
+			],
+			"importPath": [
+				"<root>/out/init.luau",
+				"<root>/out/a.luau",
+				"<root>/out/a.luau",
+				"<root>/out/a.luau",
+				"<root>/out/a.luau",
+				"<root>/out/init.luau",
+				"<root>/out/b.server.luau",
+				"<root>/out/c.client.luau",
+				"<root>/out/sub/init.luau",
+				"<root>/out/x.json",
+				"<root>/out/noext",
+				"<root>/out/.hidden.luau",
+				"<root>/out/a.b.c.luau",
+				"<root>/node_modules/@rbxts/pkg/out/init.luau",
+				"<root>/node_modules/@rbxts/pkg/out/foo.luau"
+			],
+			"importPathNodeModule": [
+				"<root>/src/init.luau",
+				"<root>/src/a.luau",
+				"<root>/src/a.luau",
+				"<root>/src/a.luau",
+				"<root>/src/a.luau",
+				"<root>/src/init.luau",
+				"<root>/src/b.server.luau",
+				"<root>/src/c.client.luau",
+				"<root>/src/sub/init.luau",
+				"<root>/src/x.json",
+				"<root>/src/noext",
+				"<root>/src/.hidden.luau",
+				"<root>/src/a.b.c.luau",
+				"<root>/node_modules/@rbxts/pkg/out/init.luau",
+				"<root>/node_modules/@rbxts/pkg/out/foo.luau"
+			],
+			"inputPaths": [
+				[
+					"<root>/src/init.lua"
+				],
+				[
+					"<root>/src/init.ts",
+					"<root>/src/init.tsx",
+					"<root>/src/index.ts",
+					"<root>/src/index.tsx",
+					"<root>/src/init.luau"
+				],
+				[
+					"<root>/src/a.lua"
+				],
+				[
+					"<root>/src/a.ts",
+					"<root>/src/a.tsx",
+					"<root>/src/a.luau"
+				],
+				[
+					"<root>/src/index.lua"
+				],
+				[
+					"<root>/src/b.server.lua"
+				],
+				[
+					"<root>/src/a.ts",
+					"<root>/src/a.tsx",
+					"<root>/src/a.d.ts"
+				],
+				[
+					"<root>/src/x.json"
+				],
+				[
+					"<root>/src/sub/init.lua"
+				]
+			]
+		}
+	]
+}

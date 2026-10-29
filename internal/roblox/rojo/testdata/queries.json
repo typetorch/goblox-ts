@@ -1,0 +1,89 @@
+{
+	"projects": [
+		{
+			"config": "projects/game/default.project.json",
+			"files": [
+				"projects/game/out/shared/module.lua",
+				"projects/game/out/shared/module.luau",
+				"projects/game/out/shared/init.lua",
+				"projects/game/out/shared/sub/init.lua",
+				"projects/game/out/shared/sub/a.lua",
+				"projects/game/out/shared/sub/a.server.lua",
+				"projects/game/out/shared/virtual.client.luau",
+				"projects/game/out/shared/data.json",
+				"projects/game/out/shared/init.json",
+				"projects/game/out/server/main.server.lua",
+				"projects/game/out/client/main.client.lua",
+				"projects/game/out/client/deep/thing.lua",
+				"projects/game/include/RuntimeLib.lua",
+				"projects/game/include/Promise.lua",
+				"projects/game/node_modules/@rbxts/services/init.lua",
+				"projects/game/nested/src/x.lua",
+				"projects/game/otherdir/y.lua",
+				"projects/game/num/n.lua",
+				"projects/game/lib.lua",
+				"projects/game/assets/thing.model.json",
+				"projects/game/elsewhere/z.lua",
+				"projects/game/out/shared/x.plugin.lua",
+				"projects/game/out/shared/x.d.ts"
+			]
+		},
+		{ "config": "projects/game/invalid.project.json", "files": [] },
+		{ "config": "projects/game/missing.project.json", "files": [] },
+		{ "config": "projects/game/doesnotexist.project.json", "files": [] },
+		{ "config": "projects/model/default.project.json", "files": ["projects/model/out/init.lua", "projects/model/out/a/b.lua"] }
+	],
+	"find": ["projects/game", "projects/multi", "projects/model", "projects/game/out"],
+	"synthetic": { "base": "projects/game/out", "files": ["projects/game/out/shared/module.lua", "projects/game/out/init.lua", "projects/game/x.lua"] },
+	"relative": [
+		[["a", "b", "c"], ["a", "b", "d"]],
+		[["a", "b"], ["a", "b"]],
+		[["a"], ["a", "b", "c"]],
+		[["a", "b", "c"], ["a"]],
+		[[], ["x"]],
+		[["x", "y"], []]
+	],
+	"rbxPaths": [
+		["StarterPlayer", "StarterPlayerScripts", "TS"],
+		["StarterPlayer", "StarterCharacterScripts"],
+		["StarterGui", "x"],
+		["ReplicatedStorage", "TS"],
+		["ServerScriptService", "TS"],
+		["ServerStorage"],
+		["StarterPlayer"],
+		["StarterPack", "a"],
+		["PluginDebugService"]
+	],
+	"translator": {
+		"rootDir": "src",
+		"outDir": "out",
+		"files": [
+			"src/index.ts",
+			"src/a.ts",
+			"src/a.tsx",
+			"src/a.d.ts",
+			"src/a.d.tsx",
+			"src/index.d.ts",
+			"src/b.server.ts",
+			"src/c.client.tsx",
+			"src/sub/index.ts",
+			"src/x.json",
+			"src/noext",
+			"src/.hidden.ts",
+			"src/a.b.c.ts",
+			"node_modules/@rbxts/pkg/out/index.d.ts",
+			"node_modules/@rbxts/pkg/out/foo.ts"
+		],
+		"outputs": [
+			"out/init.lua",
+			"out/init.luau",
+			"out/a.lua",
+			"out/a.luau",
+			"out/index.lua",
+			"out/b.server.lua",
+			"out/a.d.ts",
+			"out/x.json",
+			"out/sub/init.lua"
+		]
+	}
+}
