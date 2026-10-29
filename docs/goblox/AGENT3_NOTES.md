@@ -19,9 +19,9 @@
   ported by agent 1, so it was skipped.
 - Shared helpers ported because the files above needed them: `util/wrapExpressionStatement.ts`,
   `util/isMethod.ts`, `util/ensureTransformOrder.ts`, `util/arrayLikeExpressionContainsSpread.ts`,
-  `util/wrapStatementsAsGenerator.ts`, `util/checkVariableHoist.ts`,
-  `util/arrayBindingPatternContainsHoists.ts`, `util/validateNotAny.ts`, `nodes/transformInitializer.ts` and
-  `transformIdentifierDefined` (only that function; `transformIdentifier` itself is still agent 1's stub).
+  `util/wrapStatementsAsGenerator.ts`, `util/arrayBindingPatternContainsHoists.ts`, `nodes/transformInitializer.ts`
+  and `transformIdentifierDefined` (only that function). checkVariableHoist and validateNotAny were landed by
+  other agents first with the same content, so agent 3's copies dropped out on rebase.
 
 ## Shared additions
 
@@ -39,9 +39,6 @@
 - A `Binding` is `any`: a `*BindingKey`, a `string` (identifier name), an `int` (temp id) or the
   `USER_READS` / `USER_WRITES` sentinels.
 - `ensureTransformOrder` treats a nil transformer as the TS default, `transformExpression`.
-- `propertyCallMacrosJoin_test.go`: `checkedCalls` now gives its TransformState a `MultiTransformState`.
-  TestConstructorMacrosWithArguments reached transformExpression once ensureTransformOrder was ported and
-  dereferenced the nil field.
 
 ## Signature notes (not changed)
 
@@ -57,18 +54,11 @@
 - `BindingAccessor` (createArrayBindingAccessor.go) keeps the stub's interface shape: `Read(prereqs,
   index, omitted)` / `Rest(prereqs, index)`.
 
-## Known driver issue (not agent 3's files)
-
-- `cmd/goblox-fixtures` deadlocks once a file reaches transformImportDeclaration: `compileFiles` holds the
-  checker through `GetTypeCheckerForFileExclusive`, and `EmitResolver.IsReferencedAliasDeclaration` locks
-  the same `checker.mu` (`EmitResolver.checkerMu = &checker.mu`). For measurement only, agent 3 ran the
-  harness with `GetTypeCheckerForFile` in compileFiles (not committed).
-
 ## Tests
 
 - `agent3_class_test.go` covers findConstructor, getExtendsNode, countDecorators and
   transformImplicitClassConstructor (rendered output, checked against `class.spec.luau`).
 - `agent3_evaluation_test.go` covers facts surviving clones, effects, substitute and planEvaluation.
-- Fixtures (with the driver workaround above): class.spec, decorator.spec, assignment.spec and
-  restDestructure.spec stop at agent 1's transformCallExpression stub; destructure.spec stops at
-  transformIdentifier.
+- Fixtures: class.spec, decorator.spec, assignment.spec, destructure.spec and restDestructure.spec all stop
+  at agent 1's transformCallExpression stub (the `-run "class|decorator|destructure|restDestructure|assignment"`
+  run: 0 match, 0 differ, 5 panic). The whole suite is at 11 match, 0 differ, 62 panic.
