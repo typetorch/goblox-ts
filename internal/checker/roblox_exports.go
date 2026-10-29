@@ -1,0 +1,38 @@
+package checker
+
+import "github.com/microsoft/typescript-go/internal/ast"
+
+// Exports for goblox-ts (internal/roblox): checker helpers that TypeScript's public API exposes but
+// typescript-go keeps unexported. This is the only upstream package goblox-ts adds a file to; keep
+// every such export here so upstream merges conflict in one place.
+
+// GetIndexTypeOfType is TypeScript's checker.getIndexTypeOfType.
+func (c *Checker) GetIndexTypeOfType(t *Type, keyType *Type) *Type {
+	return c.getIndexTypeOfType(t, keyType)
+}
+
+// GetStringLiteralType is TypeScript's checker.getStringLiteralType.
+func (c *Checker) GetStringLiteralType(value string) *Type {
+	return c.getStringLiteralType(value)
+}
+
+// GetConstraintOfType is TypeScript's checker.getConstraintOfType.
+func (c *Checker) GetConstraintOfType(t *Type) *Type {
+	return c.getConstraintOfType(t)
+}
+
+// GetTypeOfAssignmentPattern is TypeScript's checker.getTypeOfAssignmentPattern.
+func (c *Checker) GetTypeOfAssignmentPattern(expr *ast.Node) *Type {
+	return c.getTypeOfAssignmentPattern(expr)
+}
+
+// CreateArrayType is TypeScript's checker.createArrayType.
+func (c *Checker) CreateArrayType(elementType *Type) *Type {
+	return c.createArrayType(elementType)
+}
+
+// GetTrueType is TypeScript's checker.getTrueType (a field in typescript-go).
+func (c *Checker) GetTrueType() *Type { return c.trueType }
+
+// GetFalseType is TypeScript's checker.getFalseType (a field in typescript-go).
+func (c *Checker) GetFalseType() *Type { return c.falseType }
