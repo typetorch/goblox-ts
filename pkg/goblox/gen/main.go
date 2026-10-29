@@ -27,6 +27,8 @@ var packages = []struct {
 	{"internal/checker", "checker", []string{"TypeFlags", "ObjectFlags", "SignatureKind", "ElementFlags", "TypeFormatFlags"}},
 	{"internal/printer", "printer", []string{"GeneratedIdentifierFlags", "EmitFlags"}},
 	{"internal/diagnostics", "diagnostics", []string{"Category"}},
+	// "Flags=NodeBuilderFlags": nodebuilder.FlagsX is generated as NodeBuilderFlagsX
+	{"internal/nodebuilder", "nodebuilder", []string{"Flags=NodeBuilderFlags"}},
 }
 
 func main() {
@@ -40,7 +42,7 @@ func main() {
 	for _, p := range packages {
 		names := collect(filepath.Join(root, p.dir), p.prefixes)
 		for _, name := range names {
-			fmt.Fprintf(&out, "\t%s = %s.%s\n", name, p.name, name)
+			fmt.Fprintf(&out, "\t%s = %s.%s\n", rename(name, p.prefixes), p.name, name)
 		}
 	}
 	out.WriteString(")\n")
@@ -73,6 +75,7 @@ func collect(dir string, prefixes []string) []string {
 							continue
 						}
 						for _, prefix := range prefixes {
+							prefix, _, _ = strings.Cut(prefix, "=")
 							if strings.HasPrefix(name.Name, prefix) {
 								seen[name.Name] = true
 							}
@@ -88,4 +91,14 @@ func collect(dir string, prefixes []string) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// rename applies a "From=To" prefix rename to name.
+func rename(name string, prefixes []string) string {
+	for _, prefix := range prefixes {
+		if from, to, ok := strings.Cut(prefix, "="); ok && strings.HasPrefix(name, from) {
+			return to + strings.TrimPrefix(name, from)
+		}
+	}
+	return name
 }

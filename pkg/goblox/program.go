@@ -85,3 +85,32 @@ func WriteDiagnostics(w io.Writer, diags []*Diagnostic, currentDirectory string)
 		diagnosticwriter.WriteFormatDiagnostic(w, diagnosticwriter.WrapASTDiagnostic(d), formatOpts)
 	}
 }
+
+// PluginEntries returns the tsconfig's `compilerOptions.plugins` entries as plain Go values
+// (map[string]any, []any, string, float64, bool, nil), taken from the nearest config of the `extends`
+// chain that sets `plugins`.
+func PluginEntries(program *Program) []map[string]any {
+	return project.PluginEntries(program)
+}
+
+// PluginFactory creates a plugin from its tsconfig entry (`{ "transform": "<name>", ...options }`).
+type PluginFactory = project.PluginFactory
+
+// RegisterPlugin makes a Go plugin available to the tsconfig `plugins` entries whose `transform` is
+// name, the npm package of the JavaScript transformer it replaces (e.g. "@typetorch/transformer").
+// Call it from an init function; the goblox binary runs the plugins a project's tsconfig lists.
+func RegisterPlugin(name string, create PluginFactory) {
+	project.RegisterPlugin(name, create)
+}
+
+// RegisteredPlugins are the names passed to RegisterPlugin, sorted.
+func RegisteredPlugins() []string {
+	return project.RegisteredPlugins()
+}
+
+// PluginsForProgram creates the registered plugins for the program's tsconfig `plugins` entries, in
+// order. Entries without `transform` (language service plugins) are skipped; a transform without a
+// registered plugin is an error.
+func PluginsForProgram(program *Program) ([]Plugin, []error) {
+	return project.PluginsForProgram(program)
+}

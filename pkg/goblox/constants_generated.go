@@ -6,6 +6,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/ast"
 	"github.com/microsoft/typescript-go/internal/checker"
 	"github.com/microsoft/typescript-go/internal/diagnostics"
+	"github.com/microsoft/typescript-go/internal/nodebuilder"
 	"github.com/microsoft/typescript-go/internal/printer"
 )
 
@@ -771,4 +772,37 @@ const (
 	CategoryMessage                                       = diagnostics.CategoryMessage
 	CategorySuggestion                                    = diagnostics.CategorySuggestion
 	CategoryWarning                                       = diagnostics.CategoryWarning
+	NodeBuilderFlagsAllowAnonymousIdentifier              = nodebuilder.FlagsAllowAnonymousIdentifier
+	NodeBuilderFlagsAllowEmptyIndexInfoType               = nodebuilder.FlagsAllowEmptyIndexInfoType
+	NodeBuilderFlagsAllowEmptyTuple                       = nodebuilder.FlagsAllowEmptyTuple
+	NodeBuilderFlagsAllowEmptyUnionOrIntersection         = nodebuilder.FlagsAllowEmptyUnionOrIntersection
+	NodeBuilderFlagsAllowNodeModulesRelativePaths         = nodebuilder.FlagsAllowNodeModulesRelativePaths
+	NodeBuilderFlagsAllowQualifiedNameInPlaceOfIdentifier = nodebuilder.FlagsAllowQualifiedNameInPlaceOfIdentifier
+	NodeBuilderFlagsAllowThisInObjectLiteral              = nodebuilder.FlagsAllowThisInObjectLiteral
+	NodeBuilderFlagsAllowUniqueESSymbolType               = nodebuilder.FlagsAllowUniqueESSymbolType
+	NodeBuilderFlagsForbidIndexedAccessSymbolReferences   = nodebuilder.FlagsForbidIndexedAccessSymbolReferences
+	NodeBuilderFlagsGenerateNamesForShadowedTypeParams    = nodebuilder.FlagsGenerateNamesForShadowedTypeParams
+	NodeBuilderFlagsIgnoreErrors                          = nodebuilder.FlagsIgnoreErrors
+	NodeBuilderFlagsInInitialEntityName                   = nodebuilder.FlagsInInitialEntityName
+	NodeBuilderFlagsInObjectTypeLiteral                   = nodebuilder.FlagsInObjectTypeLiteral
+	NodeBuilderFlagsInTypeAlias                           = nodebuilder.FlagsInTypeAlias
+	NodeBuilderFlagsMultilineObjectLiterals               = nodebuilder.FlagsMultilineObjectLiterals
+	NodeBuilderFlagsNoTruncation                          = nodebuilder.FlagsNoTruncation
+	NodeBuilderFlagsNoTypeReduction                       = nodebuilder.FlagsNoTypeReduction
+	NodeBuilderFlagsNone                                  = nodebuilder.FlagsNone
+	NodeBuilderFlagsOmitParameterModifiers                = nodebuilder.FlagsOmitParameterModifiers
+	NodeBuilderFlagsOmitThisParameter                     = nodebuilder.FlagsOmitThisParameter
+	NodeBuilderFlagsSuppressAnyReturnType                 = nodebuilder.FlagsSuppressAnyReturnType
+	NodeBuilderFlagsUseAliasDefinedOutsideCurrentScope    = nodebuilder.FlagsUseAliasDefinedOutsideCurrentScope
+	NodeBuilderFlagsUseFullyQualifiedType                 = nodebuilder.FlagsUseFullyQualifiedType
+	NodeBuilderFlagsUseInstantiationExpressions           = nodebuilder.FlagsUseInstantiationExpressions
+	NodeBuilderFlagsUseOnlyExternalAliasing               = nodebuilder.FlagsUseOnlyExternalAliasing
+	NodeBuilderFlagsUseSingleQuotesForStringLiteralType   = nodebuilder.FlagsUseSingleQuotesForStringLiteralType
+	NodeBuilderFlagsUseStructuralFallback                 = nodebuilder.FlagsUseStructuralFallback
+	NodeBuilderFlagsUseTypeOfFunction                     = nodebuilder.FlagsUseTypeOfFunction
+	NodeBuilderFlagsWriteArrayAsGenericType               = nodebuilder.FlagsWriteArrayAsGenericType
+	NodeBuilderFlagsWriteCallStyleSignature               = nodebuilder.FlagsWriteCallStyleSignature
+	NodeBuilderFlagsWriteClassExpressionAsTypeLiteral     = nodebuilder.FlagsWriteClassExpressionAsTypeLiteral
+	NodeBuilderFlagsWriteTypeArgumentsOfSignature         = nodebuilder.FlagsWriteTypeArgumentsOfSignature
+	NodeBuilderFlagsWriteTypeParametersInQualifiedName    = nodebuilder.FlagsWriteTypeParametersInQualifiedName
 )

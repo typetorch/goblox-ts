@@ -80,6 +80,16 @@ func LoadProgram(opts LoadOptions) (*compiler.Program, []*ast.Diagnostic) {
 	if len(errs) > 0 {
 		return nil, errs
 	}
+	if config.CompilerOptions().Types == nil {
+		// TypeScript 5 includes every package of the type roots when `types` is not set
+		// (getAutomaticTypeDirectiveNames); TypeScript 7 includes none unless `types` has "*". roblox-ts's
+		// project templates don't set `types` and rely on @rbxts/compiler-types being global.
+		cliOptions.Types = []string{"*"}
+		config, errs = tsoptions.GetParsedCommandLineOfConfigFile(configFileName, cliOptions, nil, host, extendedConfigCache)
+		if len(errs) > 0 {
+			return nil, errs
+		}
+	}
 
 	compilerHost := compiler.NewCachedFSCompilerHost(cwd, fs, bundled.LibPath(), extendedConfigCache, nil, nil)
 	program := compiler.NewProgram(compiler.ProgramOptions{Config: config, Host: compilerHost})
