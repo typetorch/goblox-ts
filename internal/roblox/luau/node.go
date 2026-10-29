@@ -61,6 +61,14 @@ func GetFacts(node Node) any { return node.(hasFacts).getFacts() }
 // SetFacts replaces the evaluation facts of node.
 func SetFacts(node Node, facts any) { node.(hasFacts).setFacts(facts) }
 
+// ShallowClone is `{ ...node, parent: undefined }`: a copy of node (fields and facts) without a parent. Its
+// children are shared with node until Create adopts them.
+func ShallowClone(node Node) Node {
+	clone := node.shallowClone()
+	clone.setParent(nil)
+	return clone
+}
+
 // Create is `luau.create(kind, fields)`: it sets the parent of every child of node to node, cloning
 // children that already have a parent, and returns node.
 func Create[T Node](node T) T {
