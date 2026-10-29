@@ -38,11 +38,28 @@ type (
 // NodeBase is embedded in every node.
 type NodeBase struct {
 	parent Node
+	// facts are the symbol-keyed annotations of TSTransformer/util/evaluation/facts.ts. In TypeScript the
+	// shallow clone of luau.create copies them with the other fields; shallowClone copies them here too.
+	facts any
 }
 
 func (b *NodeBase) Parent() Node          { return b.parent }
 func (b *NodeBase) setParent(parent Node) { b.parent = parent }
 func (b *NodeBase) isListOrNode()         {}
+func (b *NodeBase) getFacts() any         { return b.facts }
+func (b *NodeBase) setFacts(facts any)    { b.facts = facts }
+
+type hasFacts interface {
+	getFacts() any
+	setFacts(facts any)
+}
+
+// GetFacts returns the evaluation facts of node (nil when it has none). Store values, not pointers, so a
+// clone keeps the facts of its original at clone time, like the TypeScript object spread.
+func GetFacts(node Node) any { return node.(hasFacts).getFacts() }
+
+// SetFacts replaces the evaluation facts of node.
+func SetFacts(node Node, facts any) { node.(hasFacts).setFacts(facts) }
 
 // Create is `luau.create(kind, fields)`: it sets the parent of every child of node to node, cloning
 // children that already have a parent, and returns node.
