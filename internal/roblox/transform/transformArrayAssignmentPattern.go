@@ -1,6 +1,6 @@
 package transform
 
-// Port of TSTransformer/nodes/binding/transformArrayAssignmentPattern.ts. TODO(port): stub, the signatures are fixed.
+// Port of TSTransformer/nodes/binding/transformArrayAssignmentPattern.ts.
 
 import (
 	"github.com/microsoft/typescript-go/internal/ast"
@@ -9,5 +9,24 @@ import (
 
 // transformArrayAssignmentPattern is TSTransformer/nodes/binding/transformArrayAssignmentPattern.ts transformArrayAssignmentPattern.
 func transformArrayAssignmentPattern(state *TransformState, prereqs *Prereqs, assignmentPattern *ast.Node, parentId luau.AnyIdentifier) {
-	panic(todo("nodes/binding/transformArrayAssignmentPattern.ts", "transformArrayAssignmentPattern"))
+	type_ := getAssignmentPatternType(state, assignmentPattern)
+	accessor := createArrayBindingAccessor(state, prereqs, assignmentPattern, type_, parentId)
+	for index, element := range assignmentPattern.Elements() {
+		if ast.IsOmittedExpression(element) {
+			accessor.Read(prereqs, index, true)
+			continue
+		}
+
+		valuePrereqs := NewPrereqs()
+		spread := ast.IsSpreadElement(element)
+		var value luau.Expression
+		target := element
+		if spread {
+			value = accessor.Rest(valuePrereqs, index)
+			target = element.Expression()
+		} else {
+			value = accessor.Read(valuePrereqs, index, false)
+		}
+		transformAssignmentPatternElement(state, prereqs, target, valuePrereqs, value, nil)
+	}
 }

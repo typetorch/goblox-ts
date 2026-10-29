@@ -1,6 +1,9 @@
 package checker
 
-import "github.com/microsoft/typescript-go/internal/ast"
+import (
+	"github.com/microsoft/typescript-go/internal/ast"
+	"github.com/microsoft/typescript-go/internal/jsnum"
+)
 
 // Exports for goblox-ts (internal/roblox): checker helpers that TypeScript's public API exposes but
 // typescript-go keeps unexported. This is the only upstream package goblox-ts adds a file to; keep
@@ -43,4 +46,9 @@ func (t *Type) Checker() *Checker { return t.checker }
 // GetAwaitedType is TypeScript's checker.getAwaitedType.
 func (c *Checker) GetAwaitedType(t *Type) *Type {
 	return c.getAwaitedType(t)
+}
+
+// GetNumberLiteralType is TypeScript's checker.getNumberLiteralType.
+func (c *Checker) GetNumberLiteralType(value jsnum.Number) *Type {
+	return c.getNumberLiteralType(value)
 }

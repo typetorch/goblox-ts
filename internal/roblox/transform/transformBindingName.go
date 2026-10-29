@@ -1,6 +1,6 @@
 package transform
 
-// Port of TSTransformer/nodes/binding/transformBindingName.ts. TODO(port): stub, the signatures are fixed.
+// Port of TSTransformer/nodes/binding/transformBindingName.ts.
 
 import (
 	"github.com/microsoft/typescript-go/internal/ast"
@@ -9,5 +9,18 @@ import (
 
 // transformBindingName is TSTransformer/nodes/binding/transformBindingName.ts transformBindingName.
 func transformBindingName(state *TransformState, name *ast.Node, initializers *luau.List) luau.AnyIdentifier {
-	panic(todo("nodes/binding/transformBindingName.ts", "transformBindingName"))
+	var id luau.AnyIdentifier
+	if ast.IsIdentifier(name) {
+		id = transformIdentifierDefined(state, name)
+	} else {
+		id = luau.TempId("binding")
+		bindingPrereqs := NewPrereqs()
+		if ast.IsArrayBindingPattern(name) {
+			transformArrayBindingPattern(state, bindingPrereqs, name, id)
+		} else {
+			transformObjectBindingPattern(state, bindingPrereqs, name, id)
+		}
+		initializers.PushList(bindingPrereqs.Statements)
+	}
+	return id
 }
