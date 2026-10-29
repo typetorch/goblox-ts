@@ -1,0 +1,2 @@
+# the root .gitignore ignores every "out"; these are fixtures
+!out/

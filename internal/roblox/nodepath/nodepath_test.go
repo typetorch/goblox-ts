@@ -53,3 +53,26 @@ func TestNodeSemantics(t *testing.T) {
 		}
 	}
 }
+
+func TestWindowsRoots(t *testing.T) {
+	Cwd = func() string { return "C:/cwd" }
+	cases := []struct{ got, want string }{
+		{Resolve("a"), "C:/cwd/a"},
+		{Resolve("C:/x", "y", "../z"), "C:/x/z"},
+		{Resolve("/x", "D:/y"), "D:/y"},
+		{Resolve("C:/.."), "C:/"},
+		{Normalize("C:/a/../b/"), "C:/b/"},
+		{Relative("C:/a/b", "C:/a/c/d"), "../c/d"},
+		{Relative("C:/A/b", "c:/a/b/x"), "x"},
+		{Relative("C:/a", "D:/a"), "D:/a"},
+		{Dirname("C:/a/b"), "C:/a"},
+		{Dirname("C:/a"), "C:/"},
+		{Dirname("C:/"), "C:/"},
+		{Join("C:/a", "../b"), "C:/b"},
+	}
+	for i, c := range cases {
+		if c.got != c.want {
+			t.Errorf("case %d: got %q, want %q", i, c.got, c.want)
+		}
+	}
+}

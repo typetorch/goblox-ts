@@ -1,6 +1,10 @@
 // Package nodepath implements the parts of Node.js's `path` module (POSIX flavour) that roblox-ts,
 // rojo-resolver and path-translator use, with Node's exact semantics: Go's path/filepath differs on
 // empty results ("" vs "."), trailing separators, dot files and relative paths.
+//
+// Paths always use "/". typescript-go normalizes Windows paths to "C:/a/b", so besides "/" a drive
+// root ("C:/") is an absolute root too, as in path.win32. Relative compares the segments of drive
+// paths case-insensitively, like path.win32.relative.
 package nodepath
 
 import (
@@ -11,17 +15,34 @@ import (
 // Sep is path.sep.
 const Sep = "/"
 
+// rootOf returns the root of an absolute path ("/" or a drive root like "C:/"), "" for a relative path.
+func rootOf(p string) string {
+	if strings.HasPrefix(p, "/") {
+		return "/"
+	}
+	if len(p) >= 3 && p[1] == ':' && (p[2] == '/' || p[2] == '\\') && isDriveLetter(p[0]) {
+		return p[:2] + "/"
+	}
+	if len(p) == 2 && p[1] == ':' && isDriveLetter(p[0]) {
+		return p + "/"
+	}
+	return ""
+}
+
+func isDriveLetter(c byte) bool { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') }
+
 // Normalize is path.normalize.
 func Normalize(p string) string {
 	if p == "" {
 		return "."
 	}
-	isAbsolute := strings.HasPrefix(p, "/")
+	root := rootOf(p)
+	isAbsolute := root != ""
 	trailingSeparator := strings.HasSuffix(p, "/")
-	p = normalizeString(p, !isAbsolute)
+	p = normalizeString(p[min(len(root), len(p)):], !isAbsolute)
 	if p == "" {
 		if isAbsolute {
-			return "/"
+			return root
 		}
 		if trailingSeparator {
 			return "./"
@@ -31,10 +52,7 @@ func Normalize(p string) string {
 	if trailingSeparator {
 		p += "/"
 	}
-	if isAbsolute {
-		return "/" + p
-	}
-	return p
+	return root + p
 }
 
 // normalizeString resolves . and .. segments, like Node's internal normalizeString.
@@ -77,14 +95,14 @@ var Cwd = func() string {
 	if err != nil {
 		return "/"
 	}
-	return cwd
+	return strings.ReplaceAll(cwd, "\\", "/")
 }
 
 // Resolve is path.resolve.
 func Resolve(paths ...string) string {
 	resolved := ""
-	resolvedAbsolute := false
-	for i := len(paths) - 1; i >= -1 && !resolvedAbsolute; i-- {
+	root := ""
+	for i := len(paths) - 1; i >= -1 && root == ""; i-- {
 		var p string
 		if i >= 0 {
 			p = paths[i]
@@ -94,12 +112,12 @@ func Resolve(paths ...string) string {
 		if p == "" {
 			continue
 		}
-		resolved = p + "/" + resolved
-		resolvedAbsolute = strings.HasPrefix(p, "/")
+		root = rootOf(p)
+		resolved = p[min(len(root), len(p)):] + "/" + resolved
 	}
-	resolved = normalizeString(resolved, !resolvedAbsolute)
-	if resolvedAbsolute {
-		return "/" + resolved
+	resolved = normalizeString(resolved, root == "")
+	if root != "" {
+		return root + resolved
 	}
 	if resolved == "" {
 		return "."
@@ -108,7 +126,7 @@ func Resolve(paths ...string) string {
 }
 
 // IsAbsolute is path.isAbsolute.
-func IsAbsolute(p string) bool { return strings.HasPrefix(p, "/") }
+func IsAbsolute(p string) bool { return rootOf(p) != "" }
 
 // Relative is path.relative.
 func Relative(from, to string) string {
@@ -120,10 +138,18 @@ func Relative(from, to string) string {
 	if from == to {
 		return ""
 	}
-	fromParts := splitNonEmpty(from)
-	toParts := splitNonEmpty(to)
+	fromRoot, toRoot := rootOf(from), rootOf(to)
+	equal := func(a, b string) bool { return a == b }
+	if fromRoot != "/" || toRoot != "/" {
+		if !strings.EqualFold(fromRoot, toRoot) {
+			return to
+		}
+		equal = strings.EqualFold
+	}
+	fromParts := splitNonEmpty(from[len(fromRoot):])
+	toParts := splitNonEmpty(to[len(toRoot):])
 	i := 0
-	for i < len(fromParts) && i < len(toParts) && fromParts[i] == toParts[i] {
+	for i < len(fromParts) && i < len(toParts) && equal(fromParts[i], toParts[i]) {
 		i++
 	}
 	var out []string
@@ -148,6 +174,17 @@ func splitNonEmpty(p string) []string {
 func Dirname(p string) string {
 	if p == "" {
 		return "."
+	}
+	root := rootOf(p)
+	if len(root) > 1 {
+		if len(p) <= len(root) {
+			return root
+		}
+		dir := Dirname("/" + p[len(root):])
+		if dir == "/" {
+			return root
+		}
+		return root + dir[1:]
 	}
 	hasRoot := p[0] == '/'
 	end := -1
