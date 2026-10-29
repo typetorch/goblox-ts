@@ -60,3 +60,21 @@ goblox into a temporary out directory. It never writes into the oracle's `out/`.
 file against `oracle/tests/out` and prints, per file, `match`, `differs` (with a unified diff under `-v`) or
 `panic: todo(<file>, <function>)`. A file whose transform hits an unported stub fails alone; the other files
 still compile.
+
+## Signature answers (agent 1)
+
+- `getSimpleAssignmentOperator` returns `""` when TypeScript returns `undefined` (no simple operator).
+- `transformIdentifierDefined` returns `luau.AnyIdentifier` because, like TypeScript, it returns a copy of the
+  `*luau.TemporaryIdentifier` in `state.SymbolToIdMap` when the symbol was renamed, and a fresh `*luau.Identifier`
+  otherwise. Code that needs the name should switch on both types (both have `.Name`). Parameter properties are
+  never in `SymbolToIdMap`, so the `*luau.Identifier` assertion in transformClassConstructor holds.
+
+## Running the harness
+
+```
+go run ./cmd/goblox-fixtures -oracle <oracle dir>                 # one line per file + summary
+go run ./cmd/goblox-fixtures -oracle <oracle dir> -v -run object  # diffs and panic stacks for matching files
+```
+
+`goblox build` (`go run ./cmd/goblox -p <project>`) is the `rbxtsc build` equivalent; `goblox check` is the
+Phase 0 type-check benchmark.
