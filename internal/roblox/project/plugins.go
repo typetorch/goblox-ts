@@ -124,7 +124,7 @@ func RunPlugins(ctx context.Context, program *compiler.Program, plugins []Plugin
 		done()
 		if transformed != file {
 			p := printer.NewPrinter(printer.PrinterOptions{NewLine: core.NewLineKindLF}, printer.PrintHandlers{}, emitContext)
-			result.Transformed[file.FileName()] = p.EmitSourceFile(transformed)
+			result.Transformed[file.FileName()] = removeNonNullAccessParens(file.FileName(), transformed, p.EmitSourceFile(transformed))
 		}
 	}
 
