@@ -414,11 +414,12 @@ func Build(ctx context.Context, opts BuildOptions) (*EmitResult, error) {
 	result, err := build(ctx, fs, cwd, tsConfigPath, opts)
 	var diagnosticError *diagnostics.DiagnosticError
 	if errors.As(err, &diagnosticError) {
-		return &EmitResult{EmitSkipped: true, Diagnostics: diagnosticError.Diagnostics}, nil
+		return &EmitResult{EmitSkipped: true, Diagnostics: diagnosticError.Diagnostics, WatchRoot: nodepath.Dirname(tsConfigPath)}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
+	result.WatchRoot = nodepath.Dirname(tsConfigPath)
 	result.Diagnostics = compiler.SortAndDeduplicateDiagnostics(result.Diagnostics)
 	result.EmitSkipped = hasErrors(result.Diagnostics)
 	return result, nil
@@ -518,6 +519,7 @@ func build(ctx context.Context, fs vfs.FS, cwd string, tsConfigPath string, opts
 
 	// compileFiles checks the rebound plugin output, which can differ from the original TypeScript
 	result = compileFiles(ctx, fs, program, data, pathTranslator, sourceFiles, opts.KeepGoing)
+	result.OutputRoots = append(getOutputRoots(pathTranslator, program.Options()), data.ProjectOptions.IncludePath)
 	if !result.EmitSkipped || opts.KeepGoing {
 		if err := syncProjectOutputs(fs, outputs, data.ProjectOptions.WriteOnlyChanged); err != nil {
 			return nil, err

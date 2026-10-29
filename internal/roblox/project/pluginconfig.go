@@ -151,9 +151,17 @@ func RegisteredPlugins() []string {
 	return names
 }
 
+// UnregisteredPluginError is the error of PluginsForProgram for a tsconfig entry whose transform has no
+// registered Go plugin (a JavaScript transformer goblox cannot run).
+type UnregisteredPluginError struct{ Name string }
+
+func (e *UnregisteredPluginError) Error() string {
+	return fmt.Sprintf("no Go plugin is registered for the transformer %q", e.Name)
+}
+
 // PluginsForProgram creates the plugins of the program's tsconfig `plugins` entries, in order. Entries
 // without a `transform` are language service plugins and are skipped. An entry whose transform has no
-// registered Go plugin is an error, as is a factory error.
+// registered Go plugin is an *UnregisteredPluginError, and a factory error is returned wrapped.
 func PluginsForProgram(program *compiler.Program) ([]Plugin, []error) {
 	var plugins []Plugin
 	var errs []error
@@ -166,7 +174,7 @@ func PluginsForProgram(program *compiler.Program) ([]Plugin, []error) {
 		create := pluginRegistry[name]
 		pluginRegistryMu.Unlock()
 		if create == nil {
-			errs = append(errs, fmt.Errorf("no Go plugin is registered for the transformer %q", name))
+			errs = append(errs, &UnregisteredPluginError{Name: name})
 			continue
 		}
 		plugin, err := create(entry)

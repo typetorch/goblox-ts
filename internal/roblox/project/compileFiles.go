@@ -11,6 +11,7 @@ package project
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"runtime/debug"
@@ -33,7 +34,11 @@ import (
 
 // EmitResult is ts.EmitResult, plus the files whose transform panicked.
 type EmitResult struct {
-	EmitSkipped  bool
+	EmitSkipped bool
+	// WatchRoot is the directory of the project's tsconfig.json, and OutputRoots are the directories the
+	// build writes (outDir, the include folder, ...). Watch mode polls WatchRoot without OutputRoots.
+	WatchRoot    string
+	OutputRoots  []string
 	Diagnostics  []*ast.Diagnostic
 	EmittedFiles []string
 	// Panics maps the file name of every file whose transform panicked (an unported stub or an internal
@@ -368,7 +373,13 @@ func compileFiles(ctx context.Context, fs vfs.FS, program *compiler.Program, dat
 		LogService.WriteLineIfVerbose("running transformers..")
 		plugins, errs := PluginsForProgram(program)
 		for _, err := range errs {
-			transform.DiagnosticService.AddDiagnostic(diagnostics.CreateTextDiagnostic(err.Error(), tsdiagnostics.CategoryError))
+			if message, isError := pluginErrorMessage(err); message != "" {
+				category := tsdiagnostics.CategoryWarning
+				if isError {
+					category = tsdiagnostics.CategoryError
+				}
+				transform.DiagnosticService.AddDiagnostic(diagnostics.CreateTextDiagnostic(message, category))
+			}
 		}
 		if len(plugins) > 0 {
 			result := RunPlugins(ctx, program, plugins, PluginOptions{
@@ -502,4 +513,33 @@ func compileFiles(ctx context.Context, fs vfs.FS, program *compiler.Program, dat
 	}
 
 	return &EmitResult{EmittedFiles: emittedFiles, EmitSkipped: hasErrors(diags), Diagnostics: diags, Panics: panics}
+}
+
+// TYPETORCH_TRANSFORMER is the npm package of the transformer whose Go port goblox links by default.
+const TYPETORCH_TRANSFORMER = "@typetorch/transformer"
+
+var (
+	skippedPluginsMu sync.Mutex
+	skippedPlugins   = map[string]bool{}
+)
+
+// pluginErrorMessage is the diagnostic for an error of PluginsForProgram. A JavaScript transformer
+// without a Go port is skipped with a warning, once per process (watch mode rebuilds don't repeat it);
+// "" means it was already reported. @typetorch/transformer missing is an error: its macros would
+// compile to calls of functions that don't exist.
+func pluginErrorMessage(err error) (message string, isError bool) {
+	var unregistered *UnregisteredPluginError
+	if !errors.As(err, &unregistered) {
+		return err.Error(), true
+	}
+	if unregistered.Name == TYPETORCH_TRANSFORMER {
+		return "This goblox binary was built without the Go port of " + TYPETORCH_TRANSFORMER + " (build it with -tags typetorch, see docs/goblox/CLI.md)", true
+	}
+	skippedPluginsMu.Lock()
+	defer skippedPluginsMu.Unlock()
+	if skippedPlugins[unregistered.Name] {
+		return "", false
+	}
+	skippedPlugins[unregistered.Name] = true
+	return "goblox skips the tsconfig plugin \"" + unregistered.Name + "\": JavaScript transformers can't run, only " + TYPETORCH_TRANSFORMER + " (built in)", false
 }
