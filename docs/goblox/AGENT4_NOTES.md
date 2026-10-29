@@ -25,6 +25,16 @@
 - Every property call macro class/method has an oracle-checked case, or shares its helper with one (the math operator
   methods). The cases come from `macros.server.ts` and `macros2.server.ts` in agent 4's private oracle copy
   (`.t3\scratch\2026-10-29-act-as-the-implementation-sub-cb82ac38\oracle\tests`).
-- End-to-end runs (`go run ./cmd/goblox-fixtures`) of both macro fixtures panic in agent 1's
+- (Superseded, see below.) End-to-end runs of both macro fixtures used to panic in agent 1's
   `transformCallExpression` stub. Still stubs after it on the macro path: the `transformCallExpression` `*Inner`
   functions, `transformPropertyAccessExpression`, `transformNewExpression`, `transformStringLiteral`.
+
+## Module syntax (taken over from agent 1)
+
+- `transformExportDeclaration`, `transformModuleDeclaration`, `transformImportEqualsDeclaration` and
+  `transformEnumDeclaration` were already ported by agent 1. Reviewed line by line against 68648b0: they match
+  (`countImportExpUses` is `countExportImportExpUses` because transformImportDeclaration.ts has a function with the same
+  name; `hasDeclareModifier` checks only syntactic `declare` like `ts.getModifiers`; enum constant values are
+  `jsnum.Number` or `string`, as the type switch expects). Their helpers have no stubs left. The fixtures `enum`,
+  `namespace`, `moduleSyntax` (and its 15 module files), `exportLet`, `robloxEnum` and `runtimeImport` match.
+- The macro fixtures (`macros.server.ts`, `macros2.server.ts` in agent 4's private oracle copy) match end to end.
