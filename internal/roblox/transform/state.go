@@ -494,7 +494,7 @@ func (s *TransformState) CreateRuntimeLibImport(sourceFile *ast.SourceFile) luau
 func (s *TransformState) GetModuleExports(moduleSymbol *ast.Symbol) []*ast.Symbol {
 	return getOrSetDefault(s.MultiTransformState.GetModuleExportsCache, moduleSymbol, func() []*ast.Symbol {
 		var result []*ast.Symbol
-		for _, exportSymbol := range s.TypeChecker.GetExportsOfModule(moduleSymbol) {
+		for _, exportSymbol := range s.orderModuleExports(moduleSymbol, s.TypeChecker.GetExportsOfModule(moduleSymbol)) {
 			typeOnlyDeclaration := s.TypeChecker.GetTypeOnlyAliasDeclaration(exportSymbol)
 			// erased aliases must not redirect mutable locals to properties on the exports table
 			if typeOnlyDeclaration == nil ||
