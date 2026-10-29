@@ -1,0 +1,74 @@
+# goblox-ts benchmarks
+
+## Phase 0: program + check (2026-10-29)
+
+Machine: Windows 11 desktop, 12 threads, 32 GB RAM. Go 1.27.0, Node 24.22.1.
+
+Project: gnome-game (407 `.ts`/`.tsx` files, ~63k lines; 513 files in the program with the
+declaration files), built with roblox-ts 3.0.0, TypeScript 5.5.3 and @typetorch/transformer 0.3.2.
+@rbxts/types 1.0.957, @rbxts/compiler-types 3.0.0-types.0.
+
+To keep the repo clean, the benchmark ran on a copy of gnome-game without `.git`, with `node_modules`
+as a junction to the real one, and with `src/shared/build.ts` written by `bun scripts/build-info.ts`.
+The file is gitignored and is normally generated before every build.
+
+Wall time and peak working set come from `measure.ps1`, which starts the process and polls
+`PeakWorkingSet64` every 20 ms. The goblox phase times are its own `Program time` / `Check time` output.
+
+### rbxtsc (cold: `out/` and `include/` deleted, so no tsbuildinfo)
+
+`node node_modules/roblox-ts/out/CLI/cli.js --verbose`
+
+| run | wall | peak memory |
+| --- | ---: | ---: |
+| 1 | 18.94 s | 888 MB |
+| 2 | 18.81 s | 928 MB |
+| 3 | 18.62 s | 795 MB |
+
+Where the time goes (from `--verbose`, run 2):
+
+| phase | time |
+| --- | ---: |
+| node startup, tsconfig, program creation (not logged; the remainder) | ~6.6 s |
+| running transformers (@typetorch/transformer) | 1.59 s |
+| re-print 407 transformed files | 0.54 s |
+| re-create proxy program | 0.68 s |
+| per-file compile: pre-emit diagnostics (the type check, done lazily per file) + Luau transform + render, summed | 8.64 s |
+| writing compiled files | 0.20 s |
+
+`tsc -p . --noEmit` with TypeScript 5.5.3 on the same project takes 8.2 s.
+
+### goblox Phase 0 (program + full type check, no emit yet)
+
+`goblox -p .` (default of 4 checkers). The check covers every file in parallel, then collects the
+diagnostics of the 407 compiled files, which is the set roblox-ts reports.
+
+| run | wall | program | bind | check | peak memory |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 1 (cold file cache) | 2.50 s | 715 ms | 23 ms | 1.04 s | 671 MB |
+| 2 | 1.45 s | 106 ms | 24 ms | 1.02 s | 588 MB |
+| 3 | 1.48 s | 104 ms | 24 ms | 0.99 s | 616 MB |
+
+Result: 0 diagnostics in the compiled files, the same as rbxtsc.
+
+Program creation plus type check is **~1.1 s against rbxtsc's ~15 s** for the same work (everything
+except the transformer plugin, the Luau transform and writing). That is a 13x speedup end to end so far.
+The Luau transform in roblox-ts is a small part of the 8.6 s per-file phase (most files take 0-20 ms,
+and the type check dominates). So a full goblox build should land at 2-3 s, with the Go plugin and
+emit on top of the 1.5 s measured here.
+
+### @rbxts/types and @rbxts/compiler-types under TypeScript 7
+
+Both load. With the compat layer in `internal/roblox/project/compat.go`, the compiled files have no
+errors. The compat layer gives Iterable its three type parameters and drops the "removed option"
+errors for `moduleResolution: Node` and `downlevelIteration`.
+
+`goblox -all` also checks the declaration files and reports 23 errors in `node_modules`:
+
+- 12 in @rbxts/types `selector.d.ts`
+- 2 in @rbxts/types `generated/None.d.ts`
+- 9 in @rbxts/ui-labs and @rbxts/vide
+
+`tsc` 5.5.3 reports exactly the same 23 errors. They are pre-existing library errors, not TS 7
+regressions. roblox-ts never reports them, because it only asks for the diagnostics of the files it
+compiles.
