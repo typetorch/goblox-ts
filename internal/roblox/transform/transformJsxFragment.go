@@ -10,7 +10,7 @@ import (
 
 // transformJsxFragment is TSTransformer/nodes/expressions/transformJsxFragment.ts transformJsxFragment.
 func transformJsxFragment(state *TransformState, prereqs *Prereqs, node *ast.Node) *luau.CallExpression {
-	resolver := state.TypeChecker.GetEmitResolver()
+	resolver := state.TypeChecker
 	jsxFactoryEntity := resolver.GetJsxFactoryEntity(node)
 	assert(jsxFactoryEntity != nil, "Expected jsxFactoryEntity to be defined")
 

@@ -11,7 +11,7 @@ import (
 
 // isReferencedAliasDeclaration is `state.resolver.isReferencedAliasDeclaration(node)`.
 func (s *TransformState) isReferencedAliasDeclaration(node *ast.Node) bool {
-	return s.TypeChecker.GetEmitResolver().IsReferencedAliasDeclaration(node)
+	return s.TypeChecker.IsReferencedAliasDeclaration(node)
 }
 
 func countImportExpUses(state *TransformState, importClause *ast.Node) int {

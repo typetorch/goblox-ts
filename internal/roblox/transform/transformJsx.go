@@ -10,7 +10,7 @@ import (
 // transformJsx is TSTransformer/nodes/jsx/transformJsx.ts transformJsx.
 func transformJsx(state *TransformState, prereqs *Prereqs, node *ast.Node, tagName *ast.Node, attributes *ast.Node, children []*ast.Node) *luau.CallExpression {
 	// jsxFactoryEntity seems to always be defined and will default to `React.createElement`
-	jsxFactoryEntity := state.TypeChecker.GetEmitResolver().GetJsxFactoryEntity(node)
+	jsxFactoryEntity := state.TypeChecker.GetJsxFactoryEntity(node)
 	assert(jsxFactoryEntity != nil, "Expected jsxFactoryEntity to be defined")
 
 	createElementExpression := convertToIndexableExpression(transformEntityName(state, jsxFactoryEntity))

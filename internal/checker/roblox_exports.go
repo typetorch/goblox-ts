@@ -61,3 +61,38 @@ func (r *ConditionalRoot) Node() *ast.ConditionalTypeNode { return r.node }
 
 // CheckType is TypeScript's ConditionalRoot.checkType.
 func (r *ConditionalRoot) CheckType() *Type { return r.checkType }
+
+// The EmitResolver methods lock the checker's mutex, which the goblox transform already holds through
+// Program.GetTypeCheckerForFileExclusive, so it calls these unlocked equivalents instead.
+
+// GetJsxFactoryEntity is EmitResolver.GetJsxFactoryEntity without the checker lock.
+func (c *Checker) GetJsxFactoryEntity(location *ast.Node) *ast.Node {
+	return c.getJsxFactoryEntity(location)
+}
+
+// GetJsxFragmentFactoryEntity is EmitResolver.GetJsxFragmentFactoryEntity without the checker lock.
+func (c *Checker) GetJsxFragmentFactoryEntity(location *ast.Node) *ast.Node {
+	return c.getJsxFragmentFactoryEntity(location)
+}
+
+// IsReferencedAliasDeclaration is EmitResolver.IsReferencedAliasDeclaration without the checker lock.
+func (c *Checker) IsReferencedAliasDeclaration(node *ast.Node) bool {
+	if !c.canCollectSymbolAliasAccessibilityData || !ast.IsParseTreeNode(node) {
+		return true
+	}
+	if ast.IsAliasSymbolDeclaration(node) {
+		if symbol := c.getSymbolOfDeclaration(node); symbol != nil {
+			aliasLinks := c.aliasSymbolLinks.Get(symbol)
+			if aliasLinks.referenced {
+				return true
+			}
+			target := aliasLinks.aliasTarget
+			if target != nil && node.ModifierFlags()&ast.ModifierFlagsExport != 0 &&
+				c.getSymbolFlags(target)&ast.SymbolFlagsValue != 0 &&
+				(c.compilerOptions.ShouldPreserveConstEnums() || !isConstEnumOrConstEnumOnlyModule(target)) {
+				return true
+			}
+		}
+	}
+	return false
+}
