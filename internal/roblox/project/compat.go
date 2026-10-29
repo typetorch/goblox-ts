@@ -1,11 +1,14 @@
 package project
 
 import (
+	"path"
 	"regexp"
 	"slices"
 	"strings"
 
 	"github.com/microsoft/typescript-go/internal/ast"
+	"github.com/microsoft/typescript-go/internal/collections"
+	"github.com/microsoft/typescript-go/internal/core"
 	"github.com/microsoft/typescript-go/internal/vfs"
 )
 
@@ -21,6 +24,10 @@ import (
 //    options were removed in TypeScript 7 (TS5108, TS5102). Node10 resolution falls back to
 //    `bundler`, and downlevelIteration has no effect on the checker, so those two diagnostics are
 //    dropped by FilterCompatDiagnostics.
+// 3. roblox-ts project templates set `"baseUrl": "src"`. TypeScript 7 removed baseUrl (TS5102) and no
+//    longer resolves non-relative imports from it. applyBaseUrlCompat restores the TypeScript 5
+//    behavior with an equivalent `"paths": {"*": ["./*"]}` relative to baseUrl (and makes existing
+//    `paths` relative to baseUrl, as TypeScript 5 did), and FilterCompatDiagnostics drops the TS5102.
 
 var compilerTypesIterableArity = regexp.MustCompile(`(?m)^interface (AsyncIterable|Iterable|AsyncIterableIterator|IterableIterator)<T> `)
 
@@ -47,7 +54,7 @@ func (f *compatFS) ReadFile(path string) (string, bool) {
 func isCompatDiagnostic(d *ast.Diagnostic) bool {
 	switch d.Code() {
 	case 5102: // Option '{0}' has been removed. Please remove it from your configuration.
-		return slices.Contains(d.MessageArgs(), "downlevelIteration")
+		return slices.Contains(d.MessageArgs(), "downlevelIteration") || slices.Contains(d.MessageArgs(), "baseUrl")
 	case 5108: // Option '{0}={1}' has been removed. Please remove it from your configuration.
 		return len(d.MessageArgs()) > 0 && d.MessageArgs()[0] == "moduleResolution"
 	}
@@ -57,4 +64,19 @@ func isCompatDiagnostic(d *ast.Diagnostic) bool {
 // FilterCompatDiagnostics removes the diagnostics that FilterCompatDiagnostics documents.
 func FilterCompatDiagnostics(diags []*ast.Diagnostic) []*ast.Diagnostic {
 	return slices.DeleteFunc(slices.Clone(diags), isCompatDiagnostic)
+}
+
+// applyBaseUrlCompat is compatibility rewrite 3. configDirectory resolves a relative baseUrl.
+func applyBaseUrlCompat(options *core.CompilerOptions, configDirectory string) {
+	if options.BaseUrl == "" {
+		return
+	}
+	baseUrl := options.BaseUrl
+	if !path.IsAbs(baseUrl) && !(len(baseUrl) > 1 && baseUrl[1] == ':') {
+		baseUrl = path.Join(configDirectory, baseUrl)
+	}
+	if options.Paths.Size() == 0 {
+		options.Paths = collections.NewOrderedMapFromList([]collections.MapEntry[string, []string]{{Key: "*", Value: []string{"./*"}}})
+	}
+	options.PathsBasePath = baseUrl
 }

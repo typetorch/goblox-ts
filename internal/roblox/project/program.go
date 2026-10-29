@@ -56,6 +56,22 @@ func DefaultFS() vfs.FS {
 // LoadProgram parses the tsconfig and creates the program. It returns nil and the config errors when
 // the tsconfig cannot be read.
 func LoadProgram(opts LoadOptions) (*compiler.Program, []*ast.Diagnostic) {
+	config, errs := loadConfig(opts)
+	if len(errs) > 0 {
+		return nil, errs
+	}
+	return config.newProgram(), nil
+}
+
+// loadedConfig is a parsed tsconfig, before the program is created.
+type loadedConfig struct {
+	host                *parseHost
+	configFileName      string
+	config              *tsoptions.ParsedCommandLine
+	extendedConfigCache *tsc.ExtendedConfigCache
+}
+
+func loadConfig(opts LoadOptions) (*loadedConfig, []*ast.Diagnostic) {
 	fs := opts.FS
 	if fs == nil {
 		fs = DefaultFS()
@@ -90,10 +106,13 @@ func LoadProgram(opts LoadOptions) (*compiler.Program, []*ast.Diagnostic) {
 			return nil, errs
 		}
 	}
+	applyBaseUrlCompat(config.CompilerOptions(), tspath.GetDirectoryPath(configFileName))
+	return &loadedConfig{host: host, configFileName: configFileName, config: config, extendedConfigCache: extendedConfigCache}, nil
+}
 
-	compilerHost := compiler.NewCachedFSCompilerHost(cwd, fs, bundled.LibPath(), extendedConfigCache, nil, nil)
-	program := compiler.NewProgram(compiler.ProgramOptions{Config: config, Host: compilerHost})
-	return program, nil
+func (c *loadedConfig) newProgram() *compiler.Program {
+	compilerHost := compiler.NewCachedFSCompilerHost(c.host.cwd, c.host.fs, bundled.LibPath(), c.extendedConfigCache, nil, nil)
+	return compiler.NewProgram(compiler.ProgramOptions{Config: c.config, Host: compilerHost})
 }
 
 // GetConfigDiagnostics returns the config, syntactic and options diagnostics of the program, minus

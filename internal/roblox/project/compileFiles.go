@@ -299,7 +299,7 @@ func hasErrors(ds []*ast.Diagnostic) bool {
 // compileFiles 'transpiles' TypeScript project into a logically identical Luau project.
 //
 // writes rendered Luau source to the out directory.
-func compileFiles(ctx context.Context, fs vfs.FS, program *compiler.Program, data *transform.ProjectData, pathTranslator *rojo.PathTranslator, sourceFiles []*ast.SourceFile) *EmitResult {
+func compileFiles(ctx context.Context, fs vfs.FS, program *compiler.Program, data *transform.ProjectData, pathTranslator *rojo.PathTranslator, sourceFiles []*ast.SourceFile, keepGoing bool) *EmitResult {
 	compilerOptions := program.Options()
 
 	outDir := compilerOptions.OutDir
@@ -451,7 +451,7 @@ func compileFiles(ctx context.Context, fs vfs.FS, program *compiler.Program, dat
 	for i, sourceFile := range proxyFiles {
 		result := results[i]
 		diags = append(diags, result.preEmitDiagnostics...)
-		if failed || hasErrors(result.preEmitDiagnostics) {
+		if (failed && !keepGoing) || hasErrors(result.preEmitDiagnostics) {
 			failed = true
 			continue
 		}
@@ -479,7 +479,7 @@ func compileFiles(ctx context.Context, fs vfs.FS, program *compiler.Program, dat
 	// diagnostics without a file, or reported for another file
 	diags = append(diags, transform.DiagnosticService.Flush()...)
 
-	if hasErrors(diags) {
+	if hasErrors(diags) && !keepGoing {
 		return &EmitResult{EmitSkipped: true, Diagnostics: diags, Panics: panics}
 	}
 
@@ -501,5 +501,5 @@ func compileFiles(ctx context.Context, fs vfs.FS, program *compiler.Program, dat
 		emittedFiles = append(emittedFiles, outPath)
 	}
 
-	return &EmitResult{EmittedFiles: emittedFiles, EmitSkipped: false, Diagnostics: diags}
+	return &EmitResult{EmittedFiles: emittedFiles, EmitSkipped: hasErrors(diags), Diagnostics: diags, Panics: panics}
 }

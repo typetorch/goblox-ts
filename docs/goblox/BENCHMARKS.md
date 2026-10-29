@@ -40,7 +40,7 @@ Where the time goes (from `--verbose`, run 2):
 
 ### goblox Phase 0 (program + full type check, no emit yet)
 
-`goblox -p .` (default of 4 checkers). The check covers every file in parallel, then collects the
+`goblox check -p .` (default of 4 checkers). The check covers every file in parallel, then collects the
 diagnostics of the 407 compiled files, which is the set roblox-ts reports.
 
 | run | wall | program | bind | check | peak memory |
@@ -63,7 +63,7 @@ Both load. With the compat layer in `internal/roblox/project/compat.go`, the com
 errors. The compat layer gives Iterable its three type parameters and drops the "removed option"
 errors for `moduleResolution: Node` and `downlevelIteration`.
 
-`goblox -all` also checks the declaration files and reports 23 errors in `node_modules`:
+`goblox check -all` also checks the declaration files and reports 23 errors in `node_modules`:
 
 - 12 in @rbxts/types `selector.d.ts`
 - 2 in @rbxts/types `generated/None.d.ts`

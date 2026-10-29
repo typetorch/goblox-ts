@@ -1,37 +1,62 @@
 // Command goblox is the goblox-ts CLI: a port of the roblox-ts compiler (TypeScript -> Luau) on top of
 // typescript-go.
 //
-// Phase 0: load a tsconfig, build the program and checkers, report diagnostics and timings. The Luau
-// emit path is added on top of this as the transformer is ported.
+//	goblox [build] [flags]   build a project, like `rbxtsc build`
+//	goblox check [flags]     type check only, with timings (the Phase 0 benchmark)
 package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
-	"runtime"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/microsoft/typescript-go/internal/ast"
-	"github.com/microsoft/typescript-go/internal/compiler"
+	tsdiagnostics "github.com/microsoft/typescript-go/internal/diagnostics"
 	"github.com/microsoft/typescript-go/internal/diagnosticwriter"
+	"github.com/microsoft/typescript-go/internal/roblox/diagnostics"
 	"github.com/microsoft/typescript-go/internal/roblox/project"
-	"github.com/microsoft/typescript-go/internal/scanner"
 	"github.com/microsoft/typescript-go/internal/tspath"
 )
 
 func main() {
-	os.Exit(run())
+	args := os.Args[1:]
+	if len(args) > 0 && args[0] == "check" {
+		os.Exit(runCheck(args[1:]))
+	}
+	if len(args) > 0 && args[0] == "build" {
+		args = args[1:]
+	}
+	os.Exit(runBuild(args))
 }
 
-func run() int {
-	projectPath := flag.String("p", ".", "path to tsconfig.json or the folder containing it")
-	checkers := flag.Int("checkers", 0, "number of type checkers (0 = typescript-go default of 4)")
-	calls := flag.String("calls", "", "print GetTypeAtLocation for every call expression in this source file")
-	noCheck := flag.Bool("nocheck", false, "skip the semantic check (program creation only)")
-	all := flag.Bool("all", false, "report diagnostics of every file, including declaration files in node_modules (roblox-ts only reports the files it compiles)")
-	flag.Parse()
+// runBuild is CLI/commands/build.ts.
+func runBuild(args []string) int {
+	flags := flag.NewFlagSet("goblox build", flag.ExitOnError)
+	projectPath := flags.String("project", ".", "project path")
+	flags.StringVar(projectPath, "p", ".", "project path (alias of -project)")
+	flags.Bool("watch", false, "enable watch mode (not supported yet)")
+	flags.Bool("w", false, "enable watch mode (not supported yet)")
+	flags.Bool("usePolling", false, "use polling for watch mode")
+	flags.Bool("verbose", false, "enable verbose logs")
+	flags.Bool("noInclude", false, "do not copy include files")
+	flags.Bool("logTruthyChanges", false, "logs changes to truthiness evaluation from Lua truthiness rules")
+	flags.Bool("writeOnlyChanged", false, "only write output files whose contents changed")
+	flags.Bool("writeTransformedFiles", false, "writes resulting TypeScript ASTs after transformers to out directory")
+	flags.Bool("optimizedLoops", true, "optimize simple loops")
+	flags.String("type", "", `override project type ("game", "model" or "package")`)
+	includePath := flags.String("includePath", "", "folder to copy runtime files to")
+	flags.StringVar(includePath, "i", "", "folder to copy runtime files to (alias of -includePath)")
+	flags.String("rojo", "", "manually select Rojo project file")
+	flags.Bool("allowCommentDirectives", false, "allow @ts-ignore and similar comment directives")
+	flags.Bool("luau", true, "emit files with .luau extension")
+	checkers := flags.Int("checkers", 0, "number of type checkers (0 = typescript-go default of 4)")
+	timing := flags.Bool("timing", false, "print the build time")
+	_ = flags.Parse(args)
 
 	start := time.Now()
 	cwd, err := os.Getwd()
@@ -42,6 +67,24 @@ func run() int {
 	cwd = tspath.NormalizePath(cwd)
 	fs := project.DefaultFS()
 
+	// DO NOT PROVIDE DEFAULTS, USE DEFAULT_PROJECT_OPTIONS: only the flags that were given override
+	overrides := project.PartialProjectOptions{}
+	watch := false
+	flags.Visit(func(f *flag.Flag) {
+		getter := f.Value.(flag.Getter)
+		switch f.Name {
+		case "project", "p", "checkers", "timing":
+		case "w", "watch":
+			watch = getter.Get().(bool)
+		case "i":
+			overrides["includePath"] = nodePathResolve(cwd, getter.Get().(string))
+		case "includePath", "rojo":
+			overrides[f.Name] = nodePathResolve(cwd, getter.Get().(string))
+		default:
+			overrides[f.Name] = getter.Get()
+		}
+	})
+
 	formatOpts := &diagnosticwriter.FormattingOptions{
 		NewLine: "\n",
 		ComparePathsOptions: tspath.ComparePathsOptions{
@@ -51,91 +94,66 @@ func run() int {
 	}
 	report := func(diags []*ast.Diagnostic) {
 		for _, d := range diags {
-			diagnosticwriter.WriteFormatDiagnostic(os.Stdout, diagnosticwriter.WrapASTDiagnostic(d), formatOpts)
+			diagnosticwriter.FormatDiagnosticWithColorAndContext(os.Stdout, diagnosticwriter.WrapASTDiagnostic(d), formatOpts)
+			fmt.Fprint(os.Stdout, "\n")
 		}
 	}
 
-	programStart := time.Now()
-	program, errs := project.LoadProgram(project.LoadOptions{
+	if t, ok := overrides["type"].(string); ok && t != "game" && t != "model" && t != "package" {
+		report([]*ast.Diagnostic{diagnostics.CreateTextDiagnostic("Invalid values:\n  Argument: type, Given: \""+t+"\", Choices: \"game\", \"model\", \"package\"", tsdiagnostics.CategoryError)})
+		return 1
+	}
+	if watch {
+		report([]*ast.Diagnostic{diagnostics.CreateTextDiagnostic("goblox does not support watch mode yet", tsdiagnostics.CategoryError)})
+		return 1
+	}
+
+	result, err := project.Build(context.Background(), project.BuildOptions{
 		Project:          *projectPath,
 		CurrentDirectory: cwd,
 		FS:               fs,
+		Overrides:        overrides,
 		Checkers:         *checkers,
 	})
-	if program == nil {
-		report(errs)
+	if err != nil {
+		var projectError *diagnostics.ProjectError
+		var cliError *project.CLIError
+		switch {
+		case errors.As(err, &projectError):
+			report([]*ast.Diagnostic{diagnostics.CreateTextDiagnostic(projectError.Message, tsdiagnostics.CategoryError)})
+		case errors.As(err, &cliError):
+			report([]*ast.Diagnostic{diagnostics.CreateTextDiagnostic(cliError.Message, tsdiagnostics.CategoryError)})
+		default:
+			fmt.Fprintln(os.Stderr, err)
+		}
 		return 1
 	}
-	programTime := time.Since(programStart)
 
-	ctx := context.Background()
-	diags := project.GetConfigDiagnostics(ctx, program)
-
-	bindStart := time.Now()
-	program.GetBindDiagnostics(ctx, nil)
-	bindTime := time.Since(bindStart)
-
-	var checkTime time.Duration
-	if !*noCheck {
-		checkStart := time.Now()
-		if *all {
-			diags = append(diags, project.GetPreEmitDiagnostics(ctx, program, nil)...)
-		} else {
-			// Check every file in parallel first (as tsc does), then collect the diagnostics of the
-			// files roblox-ts would compile.
-			program.GetSemanticDiagnostics(ctx, nil)
-			diags = append(diags, program.GetGlobalDiagnostics(ctx)...)
-			for _, fileName := range program.CommandLine().FileNames() {
-				file := program.GetSourceFile(fileName)
-				if file == nil || file.IsDeclarationFile {
-					continue
-				}
-				diags = append(diags, program.GetSemanticDiagnostics(ctx, file)...)
-			}
-			diags = project.FilterCompatDiagnostics(diags)
+	report(result.Diagnostics)
+	if len(result.Panics) > 0 {
+		files := make([]string, 0, len(result.Panics))
+		for file := range result.Panics {
+			files = append(files, file)
 		}
-		checkTime = time.Since(checkStart)
+		sort.Strings(files)
+		for _, file := range files {
+			fmt.Fprintf(os.Stderr, "goblox: %s: %s\n", file, strings.TrimSpace(result.Panics[file]))
+		}
 	}
-	diags = compiler.SortAndDeduplicateDiagnostics(diags)
-	report(diags)
-
-	var callsTime time.Duration
-	if *calls != "" {
-		callsStart := time.Now()
-		file := program.GetSourceFile(tspath.GetNormalizedAbsolutePath(*calls, cwd))
-		if file == nil {
-			fmt.Fprintf(os.Stderr, "goblox: %s is not in the program\n", *calls)
+	if *timing {
+		fmt.Fprintf(os.Stderr, "Build time: %v\n", time.Since(start).Round(time.Millisecond))
+	}
+	for _, d := range result.Diagnostics {
+		if d.Category() == tsdiagnostics.CategoryError {
 			return 1
 		}
-		c, done := program.GetTypeCheckerForFile(ctx, file)
-		var visit ast.Visitor
-		visit = func(node *ast.Node) bool {
-			if ast.IsCallExpression(node) {
-				line := scanner.GetECMALineOfPosition(file, scanner.SkipTrivia(file.Text(), node.Pos()))
-				fmt.Printf("%d: %s\n", line+1, c.TypeToString(c.GetTypeAtLocation(node)))
-			}
-			node.ForEachChild(visit)
-			return false
-		}
-		file.AsNode().ForEachChild(visit)
-		done()
-		callsTime = time.Since(callsStart)
-	}
-
-	var mem runtime.MemStats
-	runtime.ReadMemStats(&mem)
-	fmt.Fprintf(os.Stderr, "Files:          %d\n", len(program.GetSourceFiles()))
-	fmt.Fprintf(os.Stderr, "Diagnostics:    %d\n", len(diags))
-	fmt.Fprintf(os.Stderr, "Program time:   %v\n", programTime.Round(time.Millisecond))
-	fmt.Fprintf(os.Stderr, "Bind time:      %v\n", bindTime.Round(time.Millisecond))
-	fmt.Fprintf(os.Stderr, "Check time:     %v\n", checkTime.Round(time.Millisecond))
-	if *calls != "" {
-		fmt.Fprintf(os.Stderr, "Calls time:     %v\n", callsTime.Round(time.Millisecond))
-	}
-	fmt.Fprintf(os.Stderr, "Total time:     %v\n", time.Since(start).Round(time.Millisecond))
-	fmt.Fprintf(os.Stderr, "Go heap (sys):  %d MB\n", mem.Sys>>20)
-	if len(diags) > 0 {
-		return 2
 	}
 	return 0
+}
+
+func nodePathResolve(cwd, p string) string {
+	if p == "" {
+		return p
+	}
+	return tspath.GetNormalizedAbsolutePath(p, cwd)
 }
