@@ -92,3 +92,32 @@ on a class `static {}` block (`transformClassLikeDeclaration` calls `declaration
 `ClassStaticBlockDeclaration` in typescript-go). As in rbxtsc, any error skips the write, so these runs
 wrote no `out/`. The output has not been diffed against rbxtsc's yet. These numbers include the type check
 and the transform, but not the write.
+
+## gnome-game output diff against roblox-ts (2026-10-30)
+
+After agent 3's class `static {}` fix, goblox builds gnome-game with no errors and writes all 407 files.
+Command: `goblox build --timing` (`-tags typetorch`), cold, on the same scratch copy. Build time: 3.4-4.5 s.
+
+**Which reference.** gnome-game's `node_modules/roblox-ts` is the npm 3.0.0 release. goblox ports roblox-ts
+master (68648b0, also called 3.0.0), which emits different output: it drops temporaries (evaluation
+effects), prints JSDoc comments differently, and orders array-macro callbacks differently. Against the npm
+build only 70 of 407 files match, so that comparison is meaningless. The reference is gnome-game compiled
+by the master oracle with the JS @typetorch/transformer:
+
+```sh
+# in the scratch copy; gen/ts-hook.cjs maps require("typescript") to the oracle's TS 5.9.3 so the JS
+# transformer shares the compiler's instance (node_modules is the real project's, never written)
+NODE_PATH=<oracle>/out node -r gen/ts-hook.cjs <oracle>/out/CLI/cli.js     # 25 s
+```
+
+| step | identical files |
+| --- | ---: |
+| first diff | 398 / 407 |
+| + `transformMacroCall` uses `luau.IsCall` (method call arguments get the nil-coercing parens) | 399 / 407 |
+| + the plugin reprint drops typescript-go's parens around `x!` in `x!.y` / `x![i]` / `x!()` | **406 / 407** |
+
+The last file, `shared/build.luau`, differs only in `builtAt = $compileTime()`, which is the build
+timestamp. Other differences:
+
+- goblox writes no `tsconfig.rbxtsc.tsbuildinfo`. See CLI.md, "Incremental builds".
+- The plugin-transformed TS (`--writeTransformedFiles`) differed only in those `x!` parens.
