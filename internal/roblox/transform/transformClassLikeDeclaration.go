@@ -334,7 +334,7 @@ func transformClassLikeDeclaration(state *TransformState, node *ast.Node) (state
 
 	for _, declaration := range staticDeclarations {
 		if ast.IsClassStaticBlockDeclaration(declaration) {
-			statementsInner.PushList(transformBlock(state, declaration.Body()))
+			statementsInner.PushList(transformBlock(state, declaration.AsClassStaticBlockDeclaration().Body))
 		} else {
 			propertyPrereqs := NewPrereqs()
 			statements := transformPropertyDeclaration(state, propertyPrereqs, declaration, internalName)
