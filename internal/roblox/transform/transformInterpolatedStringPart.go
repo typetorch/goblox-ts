@@ -1,6 +1,6 @@
 package transform
 
-// Port of TSTransformer/nodes/transformInterpolatedStringPart.ts. TODO(port): stub, the signatures are fixed.
+// Port of TSTransformer/nodes/transformInterpolatedStringPart.ts.
 
 import (
 	"github.com/microsoft/typescript-go/internal/ast"
@@ -9,5 +9,5 @@ import (
 
 // transformInterpolatedStringPart is TSTransformer/nodes/transformInterpolatedStringPart.ts transformInterpolatedStringPart.
 func transformInterpolatedStringPart(node *ast.Node) *luau.InterpolatedStringPart {
-	panic(todo("nodes/transformInterpolatedStringPart.ts", "transformInterpolatedStringPart"))
+	return luau.Create(&luau.InterpolatedStringPart{Text: createStringFromLiteral(node)})
 }
