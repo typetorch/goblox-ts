@@ -42,7 +42,7 @@ func checkedCalls(t *testing.T, source string) (*TransformState, []*ast.Node) {
 		return false
 	}
 	sourceFile.AsNode().ForEachChild(visit)
-	return &TransformState{TypeChecker: c, SourceFile: sourceFile, getTypeCache: map[*ast.Node]*checker.Type{}}, calls
+	return &TransformState{TypeChecker: c, SourceFile: sourceFile, MultiTransformState: NewMultiTransformState(), getTypeCache: map[*ast.Node]*checker.Type{}}, calls
 }
 
 // Expected Luau from roblox-ts 68648b0.
