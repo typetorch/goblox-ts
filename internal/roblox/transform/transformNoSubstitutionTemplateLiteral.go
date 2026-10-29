@@ -1,13 +1,16 @@
 package transform
 
-// Port of TSTransformer/nodes/expressions/transformNoSubstitutionTemplateLiteral.ts. TODO(port): stub, the signatures are fixed.
+// Port of TSTransformer/nodes/expressions/transformNoSubstitutionTemplateLiteral.ts.
 
 import (
 	"github.com/microsoft/typescript-go/internal/ast"
 	"github.com/microsoft/typescript-go/internal/roblox/luau"
 )
 
-// transformNoSubstitutionTemplateLiteral is TSTransformer/nodes/expressions/transformNoSubstitutionTemplateLiteral.ts transformNoSubstitutionTemplateLiteral.
+// backtick string literals without interpolation expressions should be preserved
+// as they still are valid in luau
 func transformNoSubstitutionTemplateLiteral(state *TransformState, node *ast.Node) *luau.InterpolatedString {
-	panic(todo("nodes/expressions/transformNoSubstitutionTemplateLiteral.ts", "transformNoSubstitutionTemplateLiteral"))
+	return luau.Create(&luau.InterpolatedString{
+		Parts: luau.MakeList(transformInterpolatedStringPart(node)),
+	})
 }
