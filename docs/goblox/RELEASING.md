@@ -3,6 +3,32 @@
 `.github/workflows/release.yml` builds goblox for six platforms, publishes it to npm and creates a GitHub
 Release. Pushing a `v*` tag starts it.
 
+## Before the first tag: checklist
+
+Do these once, in this order. They need you: GitHub repo admin rights and npm's browser 2FA.
+
+1. **Default branch.** Open https://github.com/typetorch/goblox-ts/settings, go to **General → Default
+   branch**, and click the ⇄ (switch) button. Choose **`goblox`**, click **Update**, then confirm with
+   **I understand, update the default branch**. Without this step, the Actions tab has no "Run workflow"
+   button for the dry run (tag pushes work either way).
+2. **npm packages and trusted publishing.** On a machine where `npm whoami` prints `phasenull`, run
+   `npm/scripts/npm-setup.sh` from a goblox-ts checkout, with an npm that has `npm trust` (11.20 does). It does two
+   things:
+   - It publishes a 0.0.0 placeholder for each `@typetorch/goblox-<os>-<arch>` package.
+   - It makes `typetorch/goblox-ts` / `release.yml` the trusted publisher of all eight packages.
+
+   Each publish and each trust call opens an npm 2FA page: press Enter, approve in the browser, and the
+   script continues.
+
+   To do the trust step on the website instead: open
+   `https://www.npmjs.com/package/<package>/access` for each of the eight packages and find **Trusted
+   Publisher**. Click **GitHub Actions**, then fill in Organization or user `typetorch`, Repository
+   `goblox-ts`, Workflow filename `release.yml`, and leave Environment empty. Click **Set up connection**.
+3. **Dry run.** Open Actions → **Release** → **Run workflow**, choose branch `goblox`, keep **Dry run**
+   ticked, and click **Run workflow** (or run `gh workflow run release.yml --ref goblox -f dry_run=true`). It
+   should finish green, with `npm publish --dry-run` output for all eight packages.
+4. **Release.** `git tag v0.1.0 && git push origin v0.1.0` (see below).
+
 ## Cutting a release
 
 ```sh
@@ -51,14 +77,9 @@ The Actions tab has a **Run workflow** button with three inputs:
 - On a `v*` tag with `dry_run` unticked: publishes that tag again. Use this to retry a failed release; the
   versions already published are skipped.
 
-GitHub only shows workflow_dispatch workflows that are on the repository's **default branch**. That branch is
-`main` here (the upstream mirror), so the button and `gh workflow run release.yml --ref goblox` stay
-unavailable until one of two things happens:
-
-- the default branch becomes `goblox` (Settings → General → Default branch), or
-- `release.yml` is also committed to `main`.
-
-Tag pushes work either way: they run the workflow file from the tagged commit.
+GitHub only shows workflow_dispatch workflows that are on the repository's **default branch**. That needs
+the default branch to be `goblox` (checklist step 1), not `main` (the upstream mirror). Tag pushes work
+either way: they run the workflow file from the tagged commit.
 
 ### Bumping the transformer
 
@@ -75,43 +96,24 @@ npm only lets you configure a trusted publisher on a package that already exists
 | --- | --- |
 | `goblox` | exists (0.0.0 placeholder, maintainer `phasenull`) |
 | `@typetorch/goblox` | exists (0.0.0 placeholder, maintainer `phasenull`) |
-| `@typetorch/goblox-{win32,linux,darwin}-{x64,arm64}` | **do not exist**: publish a placeholder once |
-
-Publish the six placeholders from a machine logged in to npm as `phasenull` (`npm whoami`). Each one is a
-`0.0.0-placeholder` with no binary:
-
-```sh
-tmp=$(mktemp -d) && cd "$tmp"
-for p in win32-x64 win32-arm64 linux-x64 linux-arm64 darwin-x64 darwin-arm64; do
-  mkdir "$p" && cat > "$p/package.json" <<EOF
-{ "name": "@typetorch/goblox-$p", "version": "0.0.0-placeholder",
-  "description": "goblox $p binary. Placeholder; install goblox.",
-  "repository": { "type": "git", "url": "git+https://github.com/typetorch/goblox-ts.git" },
-  "license": "Apache-2.0" }
-EOF
-  (cd "$p" && npm publish --access public --tag placeholder)
-done
-```
+| `@typetorch/goblox-{win32,linux,darwin}-{x64,arm64}` | **do not exist**: `npm/scripts/npm-setup.sh` publishes 0.0.0 placeholders |
 
 `goblox` pins exact versions of its platform packages, so the placeholders are never installed. The first
 plain release takes over `latest`.
 
 ### 2. Configure the trusted publisher on each of the 8 packages
 
-On npmjs.com, open each package's **Settings** tab. Under **Trusted Publisher**, choose **GitHub Actions** and
-enter:
+`npm/scripts/npm-setup.sh` runs this for every package:
 
-| Field | Value |
-| --- | --- |
-| Organization or user | `typetorch` |
-| Repository | `goblox-ts` |
-| Workflow filename | `release.yml` |
-| Environment | *(leave empty)* |
+```sh
+npm trust github <package> --repo typetorch/goblox-ts --file release.yml --allow-publish --yes
+```
 
-Do this for `goblox`, `@typetorch/goblox`, and the six `@typetorch/goblox-<os>-<arch>` packages.
+`npm trust list <package>` shows the result. The settings are the same as the website's **Trusted
+Publisher** form (checklist step 2): `typetorch` / `goblox-ts` / `release.yml`, with no environment.
 
-Optionally, set **Publishing access** to "Require two-factor authentication and disallow tokens" on the same
-page. Trusted publishing keeps working, and no leaked token can publish.
+Optionally, set **Publishing access** to "Require two-factor authentication and disallow tokens" in each
+package's settings. Trusted publishing keeps working, and no leaked token can publish.
 
 ### 3. Secrets
 
