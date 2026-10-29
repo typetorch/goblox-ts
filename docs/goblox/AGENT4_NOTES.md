@@ -2,14 +2,9 @@
 
 ## Signature issues
 
-- `getEffects(node luau.Node)` in `evaluation_effects.go` cannot take a `luau.List`, but roblox-ts's
-  `getEffects(node: luau.Node | luau.List<luau.Statement>)` is called with a statement list by
-  `ensureTransformOrder` (`getEffects(prereqStatements)`), so `ensureTransformOrder` cannot be ported 1:1 against
-  the fixed signature. I left `ensureTransformOrder` as a stub for agent 1, who owns `util/evaluation/*`.
-  Suggested fix: widen it to `getEffects(node luau.ListOrNode)` and return `NO_EFFECTS` for an empty list, as the
-  TypeScript version does. `NO_EFFECTS` is not declared in Go yet either.
-  Until that lands, `new Array(n)`, `new Set([...])` (literal without spreads) and all non-macro paths that use
-  `ensureTransformOrder` panic with `todo(util/ensureTransformOrder.ts, ...)`.
+- Resolved: the fixed `getEffects(node luau.Node)` cannot take the statement list that roblox-ts's
+  `ensureTransformOrder` passes (`getEffects(prereqStatements)`). Agent 1's effects port added
+  `getStatementsEffects(*luau.List)` for that, and `ensureTransformOrder` (ported by agent 4) uses it.
 
 ## Port notes
 
@@ -20,4 +15,6 @@
   `constructorMacros_test.go`, and `ReadonlyArray.join` (which needs a checker for `argumentsWithDefaults` and the
   index type) in `propertyCallMacrosJoin_test.go` with an in-memory noLib program.
 - Shared helpers ported by agent 4 (they were stubs): `offset`, `getLiteralNumberValue`,
-  `convertToIndexableExpression`, `isUsedAsStatement`.
+  `convertToIndexableExpression`, `isUsedAsStatement`, `ensureTransformOrder`.
+- `TestConstructorMacrosWithArguments` skips itself (`skipIfNotPorted`) while `transformNumericLiteral` and the
+  other literal transforms are stubs, and runs once they land.

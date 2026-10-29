@@ -3,6 +3,8 @@ package transform
 import (
 	"testing"
 
+	"github.com/microsoft/typescript-go/internal/ast"
+
 	"github.com/microsoft/typescript-go/internal/roblox/luau"
 )
 
@@ -59,5 +61,56 @@ func TestCallMacros(t *testing.T) {
 				t.Errorf("got:\n%s\nwant:\n%s", got, c.want)
 			}
 		})
+	}
+}
+
+// Expected Luau from roblox-ts 68648b0.
+func TestConstructorMacrosWithArguments(t *testing.T) {
+	source := `
+interface Array<T> { [n: number]: T }
+interface Boolean {}
+interface Function {}
+interface IArguments {}
+interface Number {}
+interface Object {}
+interface RegExp {}
+interface String {}
+declare function f(): number;
+export const h1 = new Array<number>(5);
+export const h2 = new Set(["a", "b"]);
+export const h4 = new Map([["a", 1]]);
+export const h11 = new Array<number>(f());
+`
+	state, _ := checkedCalls(t, source)
+	var news []*ast.Node
+	var visit func(node *ast.Node) bool
+	visit = func(node *ast.Node) bool {
+		if ast.IsNewExpression(node) {
+			news = append(news, node)
+		}
+		node.ForEachChild(visit)
+		return false
+	}
+	state.SourceFile.AsNode().ForEachChild(visit)
+
+	cases := []struct {
+		className string
+		want      string
+	}{
+		{"ArrayConstructor", "local x = table.create(5)\n"},
+		{"SetConstructor", "local x = {\n\ta = true,\n\tb = true,\n}\n"},
+		{"MapConstructor", "local x = {\n\ta = 1,\n}\n"},
+		{"ArrayConstructor", "local x = table.create(f())\n"},
+	}
+	if len(news) != len(cases) {
+		t.Fatalf("got %d new expressions, want %d", len(news), len(cases))
+	}
+	defer skipIfNotPorted(t)
+	for i, c := range cases {
+		prereqs := NewPrereqs()
+		result := CONSTRUCTOR_MACROS[c.className](state, prereqs, news[i])
+		if got := renderMacroResult(prereqs, result); got != c.want {
+			t.Errorf("case %d: got:\n%s\nwant:\n%s", i, got, c.want)
+		}
 	}
 }

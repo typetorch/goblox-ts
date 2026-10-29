@@ -353,3 +353,14 @@ func TestPropertyCallMacrosTable(t *testing.T) {
 		}
 	}
 }
+
+// skipIfNotPorted skips the test when it reaches a transformer that is still a todo stub, so tests
+// of paths through other agents' files start running once those land. Use it with defer.
+func skipIfNotPorted(t *testing.T) {
+	if r := recover(); r != nil {
+		if message, ok := r.(string); ok && strings.HasPrefix(message, "goblox: not ported yet: ") {
+			t.Skip(message)
+		}
+		panic(r)
+	}
+}
