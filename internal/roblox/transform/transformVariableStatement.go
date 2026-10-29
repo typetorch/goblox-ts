@@ -61,7 +61,7 @@ func transformOptimizedArrayBindingPattern(state *TransformState, bindingPattern
 	ids := luau.MakeList()
 	bindingStatements := luau.MakeList()
 	for _, element := range bindingPattern.Elements() {
-		if ast.IsOmittedExpression(element) {
+		if isOmittedBindingElement(element) {
 			ids.Push(luau.TempId())
 		} else {
 			if ast.IsIdentifier(element.Name()) {
