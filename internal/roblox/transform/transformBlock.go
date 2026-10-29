@@ -1,6 +1,6 @@
 package transform
 
-// Port of TSTransformer/nodes/statements/transformBlock.ts. TODO(port): stub, the signatures are fixed.
+// Port of TSTransformer/nodes/statements/transformBlock.ts.
 
 import (
 	"github.com/microsoft/typescript-go/internal/ast"
@@ -9,5 +9,9 @@ import (
 
 // transformBlock is TSTransformer/nodes/statements/transformBlock.ts transformBlock.
 func transformBlock(state *TransformState, node *ast.Node) *luau.List {
-	panic(todo("nodes/statements/transformBlock.ts", "transformBlock"))
+	return luau.MakeList(
+		luau.Create(&luau.DoStatement{
+			Statements: transformStatementList(state, node, node.AsBlock().Statements.Nodes, nil),
+		}),
+	)
 }
