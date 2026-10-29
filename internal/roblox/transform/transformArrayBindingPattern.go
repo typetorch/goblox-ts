@@ -16,7 +16,7 @@ func transformArrayBindingPattern(state *TransformState, prereqs *Prereqs, bindi
 	accessor := createArrayBindingAccessor(state, prereqs, bindingPattern, type_, parentId)
 
 	for _, element := range bindingPattern.Elements() {
-		if ast.IsOmittedExpression(element) {
+		if isOmittedBindingElement(element) {
 			accessor.Read(prereqs, index, true)
 		} else {
 			name := element.Name()
