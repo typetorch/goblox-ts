@@ -28,6 +28,10 @@
 - `internal/checker/roblox_exports.go`: `(*Checker).GetNumberLiteralType(jsnum.Number)` (getAssignmentPatternType),
   and `ConditionalType.Root`, `ConditionalRoot.Node`, `ConditionalRoot.CheckType` (isMethod's
   canChangeReceiverConvention; agent 5 added the same three at the same time and dropped its copy).
+  `(*Checker).GetContextualSignature(node)` (isMethod, see below).
+- `GetTrueType` / `GetFalseType` now return the *regular* literal types. TS's `getTrueType(fresh?)` without the
+  argument returns `regularTrueType`, which is what a declared `done: true` resolves to; the fresh type made
+  getAssignmentPatternType keep IteratorReturnResult's `void` in nested rest element types.
 - `internal/roblox/luau/node.go`: `NodeBase` has a `facts any` field with `luau.GetFacts` / `luau.SetFacts`.
   It holds the evaluation facts that TS stores in symbol-keyed node fields. A clone (including the
   clone `luau.Create` makes of an already parented child) copies them, as the TS spread does.
@@ -54,11 +58,23 @@
 - `BindingAccessor` (createArrayBindingAccessor.go) keeps the stub's interface shape: `Read(prereqs,
   index, omitted)` / `Rest(prereqs, index)`.
 
+## typescript-go differences handled in agent 3's files
+
+- Array *binding* holes (`[, a]`) are BindingElements with a nil Name, not OmittedExpressions (array literal
+  holes still are). transformArrayBindingPattern, transformOptimizedArrayBindingPattern,
+  optimizeArraySpreadParameter and transformParameters use agent 5's `isOmittedBindingElement`.
+  transformBindingName's callers never pass a hole (for-of's element loop already skips them), so it is unchanged.
+- `Node.Body()` is nil for a ClassStaticBlockDeclaration; transformClassLikeDeclaration reads
+  `AsClassStaticBlockDeclaration().Body`.
+- typescript-go's `HasContextSensitiveParameters` only counts the implicit `this` when the body has
+  `NodeFlagsContainsThis`; TS 5.9 always counts it, so a contextually typed function expression (or object
+  literal method) without `this` in its body gets no contextual `thisParameter`. isMethodInner falls back to
+  the contextual signature's `thisParameter` for exactly the cases TS 5.9 treats as context sensitive only
+  because of the implicit `this` (`hasImplicitContextualThis`). This fixes `[function() {}]` in array.spec.
+
 ## Tests
 
 - `agent3_class_test.go` covers findConstructor, getExtendsNode, countDecorators and
   transformImplicitClassConstructor (rendered output, checked against `class.spec.luau`).
 - `agent3_evaluation_test.go` covers facts surviving clones, effects, substitute and planEvaluation.
-- Fixtures: class.spec, decorator.spec, assignment.spec, destructure.spec and restDestructure.spec all stop
-  at agent 1's transformCallExpression stub (the `-run "class|decorator|destructure|restDestructure|assignment"`
-  run: 0 match, 0 differ, 5 panic). The whole suite is at 11 match, 0 differ, 62 panic.
+- Fixtures (2026-10-30, origin/goblox 15f1ec288): 73 match, 0 differ, 0 panic, 0 missing, 0 diagnostics.
