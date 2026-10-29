@@ -1,6 +1,6 @@
 package transform
 
-// Port of TSTransformer/nodes/expressions/transformDeleteExpression.ts. TODO(port): stub, the signatures are fixed.
+// Port of TSTransformer/nodes/expressions/transformDeleteExpression.ts.
 
 import (
 	"github.com/microsoft/typescript-go/internal/ast"
@@ -9,5 +9,10 @@ import (
 
 // transformDeleteExpression is TSTransformer/nodes/expressions/transformDeleteExpression.ts transformDeleteExpression.
 func transformDeleteExpression(state *TransformState, prereqs *Prereqs, node *ast.Node) luau.Expression {
-	panic(todo("nodes/expressions/transformDeleteExpression.ts", "transformDeleteExpression"))
+	// we just want the prereqs, deleting is done in the index expression transforms
+	transformExpression(state, prereqs, node.Expression())
+	if !isUsedAsStatement(node) {
+		return luau.Bool(true)
+	}
+	return luau.NewNone()
 }
