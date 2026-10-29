@@ -63,7 +63,9 @@ func (s *TransformState) orderModuleExports(moduleSymbol *ast.Symbol, exports []
 	return result
 }
 
-// ownExportNamesInDeclarationOrder is the key order of symbol.exports as the binder inserted them.
+// ownExportNamesInDeclarationOrder is the key order of symbol.exports as the binder inserted them. The
+// binder binds the function declarations of a statement list first (bindEachFunctionsFirst), then the
+// other statements.
 func ownExportNamesInDeclarationOrder(symbol *ast.Symbol) []string {
 	type entry struct {
 		name        string
@@ -73,7 +75,7 @@ func ownExportNamesInDeclarationOrder(symbol *ast.Symbol) []string {
 	for name, exportSymbol := range symbol.Exports {
 		var first *ast.Node
 		for _, declaration := range exportSymbol.Declarations {
-			if first == nil || compareDeclarationOrder(declaration, first) < 0 {
+			if first == nil || compareBindOrder(declaration, first) < 0 {
 				first = declaration
 			}
 		}
@@ -89,7 +91,7 @@ func ownExportNamesInDeclarationOrder(symbol *ast.Symbol) []string {
 			}
 			return -1
 		}
-		if c := compareDeclarationOrder(a.declaration, b.declaration); c != 0 {
+		if c := compareBindOrder(a.declaration, b.declaration); c != 0 {
 			return c
 		}
 		return compareStrings(a.name, b.name)
@@ -99,6 +101,22 @@ func ownExportNamesInDeclarationOrder(symbol *ast.Symbol) []string {
 		names[i] = e.name
 	}
 	return names
+}
+
+// compareBindOrder orders declarations the way bindEachFunctionsFirst binds them.
+func compareBindOrder(a, b *ast.Node) int {
+	if aFirst, bFirst := isBoundFunctionsFirst(a), isBoundFunctionsFirst(b); aFirst != bFirst {
+		if aFirst {
+			return -1
+		}
+		return 1
+	}
+	return compareDeclarationOrder(a, b)
+}
+
+func isBoundFunctionsFirst(declaration *ast.Node) bool {
+	return ast.IsFunctionDeclaration(declaration) && declaration.Parent != nil &&
+		(ast.IsSourceFile(declaration.Parent) || ast.IsModuleBlock(declaration.Parent) || ast.IsBlock(declaration.Parent))
 }
 
 // compareDeclarationOrder orders declarations by file name, then by position.
