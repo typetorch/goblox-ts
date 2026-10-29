@@ -25,7 +25,6 @@
 - Every property call macro class/method has an oracle-checked case, or shares its helper with one (the math operator
   methods). The cases come from `macros.server.ts` and `macros2.server.ts` in agent 4's private oracle copy
   (`.t3\scratch\2026-10-29-act-as-the-implementation-sub-cb82ac38\oracle\tests`).
-- End-to-end runs (`go run ./cmd/goblox-fixtures`) of the macro fixtures stop in agent 1's stubs: `transformVariableStatement`,
-  `transformCallExpression` (and its `*Inner` functions), `transformIdentifier`, `transformPropertyAccessExpression`,
-  `transformExpressionStatement`, `transformNewExpression`, `transformStringLiteral`, `wrapReturnIfLuaTuple`, and
-  `getImportParts` (for `$getModuleTree`).
+- End-to-end runs (`go run ./cmd/goblox-fixtures`) of both macro fixtures panic in agent 1's
+  `transformCallExpression` stub. Still stubs after it on the macro path: the `transformCallExpression` `*Inner`
+  functions, `transformPropertyAccessExpression`, `transformNewExpression`, `transformStringLiteral`.
