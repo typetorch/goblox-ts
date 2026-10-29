@@ -1,4 +1,4 @@
-# Agent 3 notes (classes, destructuring)
+# Agent 3 notes (classes, destructuring, then the stubs taken over from agent 1)
 
 ## Ported
 
@@ -11,36 +11,64 @@
 - `nodes/class/*`: transformClassLikeDeclaration, transformClassConstructor (both functions),
   transformPropertyDeclaration, transformDecorators. Also transformClassDeclaration,
   transformClassExpression, `util/findConstructor.ts` and `util/getExtendsNode.ts`.
+- Taken over from agent 1 (phase 2): `util/evaluation/*` (effects, facts, bindings, builtins, substitute,
+  events, plan), `util/validateIdentifier.ts`, transformPropertyName, transformParameters,
+  transformReturnStatement, transformFunctionDeclaration, transformFunctionExpression (function expressions
+  and arrow functions), transformMethodDeclaration, transformVariableStatement (with transformVariable,
+  transformVariableDeclaration, transformVariableDeclarationList). transformExportAssignment was already
+  ported by agent 1, so it was skipped.
+- Shared helpers ported because the files above needed them: `util/wrapExpressionStatement.ts`,
+  `util/isMethod.ts`, `util/ensureTransformOrder.ts`, `util/arrayLikeExpressionContainsSpread.ts`,
+  `util/wrapStatementsAsGenerator.ts`, `util/checkVariableHoist.ts`,
+  `util/arrayBindingPatternContainsHoists.ts`, `util/validateNotAny.ts`, `nodes/transformInitializer.ts` and
+  `transformIdentifierDefined` (only that function; `transformIdentifier` itself is still agent 1's stub).
 
 ## Shared additions
 
-- `internal/checker/roblox_exports.go`: `(*Checker).GetNumberLiteralType(jsnum.Number)`, needed by
-  getAssignmentPatternType (TypeScript's `checker.getNumberLiteralType`).
-- `agent3_shims.go`: `getStatementsEffects(*luau.List)`. In TS, `getEffects` also accepts a
-  `luau.List` and returns the joined effects of its statements. The Go `getEffects` only takes a
-  `luau.Node`, so the list case lives here. If `getEffects` is widened to `luau.ListOrNode`, replace the
-  callers and delete the shim.
+- `internal/checker/roblox_exports.go`: `(*Checker).GetNumberLiteralType(jsnum.Number)` (getAssignmentPatternType),
+  and `ConditionalType.Root`, `ConditionalRoot.Node`, `ConditionalRoot.CheckType` (isMethod's
+  canChangeReceiverConvention; agent 5 added the same three at the same time and dropped its copy).
+- `internal/roblox/luau/node.go`: `NodeBase` has a `facts any` field with `luau.GetFacts` / `luau.SetFacts`.
+  It holds the evaluation facts that TS stores in symbol-keyed node fields. A clone (including the
+  clone `luau.Create` makes of an already parented child) copies them, as the TS spread does.
+  `luau.ShallowClone(node)` is TS's `{ ...node }` (used by substitute and transformIdentifierDefined).
+- `NO_EFFECTS` / `UNKNOWN_EFFECTS` are pointer constants; compare with `==`. `getEffects` takes a
+  `luau.Node`; the TS list case is `getStatementsEffects(*luau.List)` (or `getEffectsOfListOrNode`).
+  The old `agent3_shims.go` is gone.
+- `EvaluationEvent.OperandIndex` / `EvaluationReference.OperandIndex` are -1 when absent.
+- A `Binding` is `any`: a `*BindingKey`, a `string` (identifier name), an `int` (temp id) or the
+  `USER_READS` / `USER_WRITES` sentinels.
+- `ensureTransformOrder` treats a nil transformer as the TS default, `transformExpression`.
+- `propertyCallMacrosJoin_test.go`: `checkedCalls` now gives its TransformState a `MultiTransformState`.
+  TestConstructorMacrosWithArguments reached transformExpression once ensureTransformOrder was ported and
+  dereferenced the nil field.
 
 ## Signature notes (not changed)
 
 - `getSimpleAssignmentOperator` returns `luau.AssignmentOperator`. TypeScript returns `undefined` when there
   is no simple operator. transformBinaryExpression reads `""` as `undefined`, so the port must return `""`
   in that case.
-- `transformIdentifierDefined` returns `luau.AnyIdentifier`. TypeScript returns `luau.Identifier`.
-  transformClassConstructor casts to `*luau.Identifier` for `.Name` (parameter properties). That matches
-  TS as long as the port really returns an `*luau.Identifier`.
-- `NO_EFFECTS` is not defined in Go. transformBinaryExpression's optimized array assignment joins the
-  effects of each write target. It skips the property-access index (NO_EFFECTS in TS), because joining
-  it is the identity.
+- `transformIdentifierDefined` returns `luau.AnyIdentifier`. For a symbol in `state.SymbolToIdMap` it is a
+  `*luau.TemporaryIdentifier` (as in TS). transformClassConstructor casts to `*luau.Identifier` for `.Name`
+  (parameter properties); constructor parameters are never in SymbolToIdMap (only for-loop variables are),
+  so the cast holds.
+- `transformVariable` returns `luau.Expression` (TS: the identifier or the `exports` access) and takes a nil
+  `right` for TS's `undefined`.
 - `BindingAccessor` (createArrayBindingAccessor.go) keeps the stub's interface shape: `Read(prereqs,
   index, omitted)` / `Rest(prereqs, index)`.
+
+## Known driver issue (not agent 3's files)
+
+- `cmd/goblox-fixtures` deadlocks once a file reaches transformImportDeclaration: `compileFiles` holds the
+  checker through `GetTypeCheckerForFileExclusive`, and `EmitResolver.IsReferencedAliasDeclaration` locks
+  the same `checker.mu` (`EmitResolver.checkerMu = &checker.mu`). For measurement only, agent 3 ran the
+  harness with `GetTypeCheckerForFile` in compileFiles (not committed).
 
 ## Tests
 
 - `agent3_class_test.go` covers findConstructor, getExtendsNode, countDecorators and
   transformImplicitClassConstructor (rendered output, checked against `class.spec.luau`).
-- Everything else waits for end-to-end fixtures. class.spec, decorator.spec, destructure.spec,
-  restDestructure.spec and assignment.spec need agent 1's transformIdentifier, transformVariableStatement,
-  transformParameters, transformMethodDeclaration, transformBlock, transformPropertyName, transformWritable,
-  transformInitializer, validateIdentifier, validateMethodAssignment, expressionMightMutate,
-  getSimpleAssignmentOperator and evaluation/*.
+- `agent3_evaluation_test.go` covers facts surviving clones, effects, substitute and planEvaluation.
+- Fixtures (with the driver workaround above): class.spec, decorator.spec, assignment.spec and
+  restDestructure.spec stop at agent 1's transformCallExpression stub; destructure.spec stops at
+  transformIdentifier.
