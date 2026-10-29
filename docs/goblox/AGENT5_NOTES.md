@@ -48,3 +48,17 @@ Port notes:
   output with `NODE_PATH=<oracle>/out node <oracle>/out/CLI/cli.js build -p <dir>/tests`, then run
   `go run ./cmd/goblox-fixtures -oracle <dir>`. Rerun it once agent 1's statement and expression
   transforms land.
+
+## Array binding holes (for agent 3)
+
+typescript-go parses a hole in an array *binding* pattern (`const [, b] = t`, `for (const [, v] of m)`) as a
+`BindingElement` whose `Name()` is nil, not as an `OmittedExpression` (see `parseArrayBindingElement`).
+Array *literal* / assignment-pattern holes are still `OmittedExpression`s. Every port of
+`ts.isOmittedExpression(element)` over `ArrayBindingPattern.elements` must use the shared
+`isOmittedBindingElement(element)` (`internal/roblox/transform/isOmittedBindingElement.go`), otherwise
+`ast.IsIdentifier(element.Name())` dereferences nil. Fixed in `arrayBindingPatternContainsHoists` and
+`transformForOfStatement`. Still open in agent 3's files, and these panic on the oracle `destructure`, `map`,
+`restDestructure` and `loop` specs:
+- `transformVariableStatement.go` `transformOptimizedArrayBindingPattern`
+- `transformArrayBindingPattern.go`
+- `transformBindingName` (reached with a nil name)

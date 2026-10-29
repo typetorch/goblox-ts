@@ -117,7 +117,7 @@ func transformInLineArrayBindingPattern(
 	initializers *luau.List,
 ) {
 	for _, element := range pattern.AsBindingPattern().Elements.Nodes {
-		if ast.IsOmittedExpression(element) {
+		if isOmittedBindingElement(element) {
 			ids.Push(luau.TempId())
 		} else {
 			id := transformBindingName(state, element.Name(), initializers)

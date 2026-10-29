@@ -12,7 +12,7 @@ func arrayBindingPatternContainsHoists(state *TransformState, arrayBindingPatter
 		// If it's not a ts.BindingElement, it must be a ts.OmittedExpression. In that case, doesn't create a variable.
 		// For non-identifiers, element.name must be a nested array/object binding pattern.
 		// For those cases, the hoisting logic is handled elsewhere and the variable here will be a tempId.
-		if ast.IsBindingElement(element) && ast.IsIdentifier(element.Name()) {
+		if !isOmittedBindingElement(element) && ast.IsBindingElement(element) && ast.IsIdentifier(element.Name()) {
 			symbol := state.TypeChecker.GetSymbolAtLocation(element.Name())
 			assert(symbol != nil)
 			// isHoisted is marked inside checkVariableHoist
