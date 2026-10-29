@@ -52,3 +52,12 @@ func (c *Checker) GetAwaitedType(t *Type) *Type {
 func (c *Checker) GetNumberLiteralType(value jsnum.Number) *Type {
 	return c.getNumberLiteralType(value)
 }
+
+// Root is TypeScript's ConditionalType.root.
+func (t *ConditionalType) Root() *ConditionalRoot { return t.root }
+
+// Node is TypeScript's ConditionalRoot.node.
+func (r *ConditionalRoot) Node() *ast.ConditionalTypeNode { return r.node }
+
+// CheckType is TypeScript's ConditionalRoot.checkType.
+func (r *ConditionalRoot) CheckType() *Type { return r.checkType }
