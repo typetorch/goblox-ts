@@ -1,0 +1,301 @@
+# goblox release: build the CLI for every platform, publish it to npm, and create a GitHub Release.
+# See docs/goblox/RELEASING.md.
+#
+# - Pushing a tag vX.Y.Z (or vX.Y.Z-pre.N) releases that version. A prerelease goes to the npm dist-tag
+#   "next", a plain version to "latest".
+# - workflow_dispatch with dry_run (the default) builds, smoke tests and runs `npm publish --dry-run`.
+#   Dispatching it on a v* tag with dry_run unticked publishes that tag (to retry a failed release).
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run: build and test, `npm publish --dry-run`, no GitHub Release. Real publishes need a v* tag ref.'
+        type: boolean
+        default: true
+      version:
+        description: 'Version for a dry run from a branch (default 0.0.0-dryrun.<run number>). Ignored on tags.'
+        type: string
+        default: ''
+      transformer_ref:
+        description: 'typetorch/transformer ref to link (default: TRANSFORMER_REF below).'
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # The Go port of @typetorch/transformer (folder go/), linked with -tags typetorch through a go.work
+  # (docs/goblox/CLI.md, option A). Pinned to a commit; bump it with the transformer.
+  TRANSFORMER_REPO: typetorch/transformer
+  TRANSFORMER_REF: 5c33da73306b46699f8b98d012fa5fcfbdacec52 # go-port
+  NODE_VERSION: '24'
+
+jobs:
+  meta:
+    name: Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      npm_tag: ${{ steps.meta.outputs.npm_tag }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+      publish: ${{ steps.meta.outputs.publish }}
+      transformer_ref: ${{ steps.meta.outputs.transformer_ref }}
+    steps:
+      - id: meta
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_TRANSFORMER_REF: ${{ inputs.transformer_ref }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          if [[ "$REF_TYPE" == tag && "$REF_NAME" == v* ]]; then
+            version="${REF_NAME#v}"
+          elif [[ "$EVENT" == workflow_dispatch && "$DRY_RUN" == true ]]; then
+            version="${INPUT_VERSION:-0.0.0-dryrun.$RUN_NUMBER}"
+            version="${version#v}"
+          else
+            echo "::error::Real releases run from a v* tag. Push a tag, or dispatch with dry_run."
+            exit 1
+          fi
+          semver='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
+          if [[ ! "$version" =~ $semver ]]; then
+            echo "::error::'$version' is not a semver version (expected vX.Y.Z or vX.Y.Z-pre.N)"
+            exit 1
+          fi
+          if [[ "$version" == *-* ]]; then prerelease=true; npm_tag=next; else prerelease=false; npm_tag=latest; fi
+          if [[ "$EVENT" == push || "$DRY_RUN" == false ]]; then publish=true; else publish=false; fi
+          {
+            echo "version=$version"
+            echo "npm_tag=$npm_tag"
+            echo "prerelease=$prerelease"
+            echo "publish=$publish"
+            echo "transformer_ref=${INPUT_TRANSFORMER_REF:-$TRANSFORMER_REF}"
+          } >> "$GITHUB_OUTPUT"
+          echo "goblox $version, npm dist-tag $npm_tag, publish=$publish" >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    name: Build ${{ matrix.npm }}
+    needs: meta
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { npm: linux-x64, goos: linux, goarch: amd64, exe: goblox }
+          - { npm: linux-arm64, goos: linux, goarch: arm64, exe: goblox }
+          - { npm: darwin-x64, goos: darwin, goarch: amd64, exe: goblox }
+          - { npm: darwin-arm64, goos: darwin, goarch: arm64, exe: goblox }
+          - { npm: win32-x64, goos: windows, goarch: amd64, exe: goblox.exe }
+          - { npm: win32-arm64, goos: windows, goarch: arm64, exe: goblox.exe }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: goblox-ts
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ env.TRANSFORMER_REPO }}
+          ref: ${{ needs.meta.outputs.transformer_ref }}
+          path: transformer
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: goblox-ts/go.mod
+          cache-dependency-path: |
+            goblox-ts/go.sum
+            transformer/go/go.sum
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+          VERSION: ${{ needs.meta.outputs.version }}
+          OUT: dist/${{ matrix.npm }}/${{ matrix.exe }}
+        run: |
+          set -euo pipefail
+          go work init ./goblox-ts ./transformer/go
+          go build -tags typetorch -trimpath -ldflags "-s -w -X main.version=$VERSION" -o "$OUT" ./goblox-ts/cmd/goblox
+          go version -m "$OUT" | grep -E 'build\s+-tags=typetorch' || { echo "::error::$OUT was not built with -tags typetorch"; exit 1; }
+          ls -l "$OUT"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bin-${{ matrix.npm }}
+          path: dist/${{ matrix.npm }}
+          if-no-files-found: error
+          retention-days: 7
+
+  package:
+    name: Package
+    needs: [meta, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: bin-*
+          path: dist/bin
+      - name: Assemble the npm packages
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          # download-artifact puts each artifact in dist/bin/bin-<platform>/.
+          for dir in dist/bin/bin-*; do mv "$dir" "dist/bin/${dir#dist/bin/bin-}"; done
+          node npm/scripts/assemble.mjs --version "$VERSION" --binaries dist/bin --out dist/npm
+          mkdir -p dist/tarballs
+          # packages.tsv: "<name>\t<tarball>" in publish order (platform packages, goblox, @typetorch/goblox).
+          while read -r pkg; do
+            npm pack "./dist/npm/$pkg" --pack-destination dist/tarballs --json < /dev/null \
+              | node -e 'for (const p of JSON.parse(require("fs").readFileSync(0, "utf8"))) console.log(`${p.name}\t${p.filename}`)'
+          done < dist/npm/publish-order.txt > dist/tarballs/packages.tsv
+          cat dist/tarballs/packages.tsv
+      - name: Release assets and checksums
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist/release
+          for dir in dist/bin/*/; do
+            platform="$(basename "$dir")"
+            for exe in "$dir"goblox*; do
+              ext="${exe##*/goblox}"
+              cp "$exe" "dist/release/goblox-$VERSION-$platform$ext"
+            done
+          done
+          (cd dist/release && sha256sum goblox-* > SHA256SUMS)
+          cat dist/release/SHA256SUMS
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: npm-tarballs
+          path: dist/tarballs
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-assets
+          path: dist/release
+          if-no-files-found: error
+          retention-days: 7
+
+  smoke:
+    name: Smoke test (linux-x64)
+    needs: [meta, package]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: npm-tarballs
+          path: dist/tarballs
+      - name: Install the tarballs and run goblox --version
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/install && cd /tmp/install && npm init -y > /dev/null
+          tarballs="$GITHUB_WORKSPACE/dist/tarballs"
+          tgz() { awk -F '\t' -v n="$1" '$1 == n { print $2 }' "$tarballs/packages.tsv"; }
+          # The platform packages aren't on npm yet: install this platform's from its tarball, so it satisfies
+          # goblox's optionalDependency. The other platforms' are skipped (wrong os/cpu).
+          npm install --no-audit --no-fund \
+            "$tarballs/$(tgz @typetorch/goblox-linux-x64)" "$tarballs/$(tgz goblox)" "$tarballs/$(tgz @typetorch/goblox)"
+          ls node_modules/@typetorch
+          out="$(npx --no-install goblox --version)"
+          echo "$out"
+          [[ "$out" == "goblox $VERSION "* ]] || { echo "::error::unexpected --version output: $out"; exit 1; }
+          node -p 'require("goblox").getBinaryPath()'
+      - name: Compile the fixture project
+        run: npm/smoke/check.sh /tmp/install/node_modules/.bin/goblox
+
+  publish:
+    name: Publish to npm
+    needs: [meta, package, smoke]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # npm trusted publishing (OIDC) and provenance
+    steps:
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: npm with trusted publishing
+        # Trusted publishing needs npm 11.5.1 or later.
+        run: npm install -g npm@^11.5.1 && npm --version
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: npm-tarballs
+          path: dist/tarballs
+      - name: Publish (platform packages, goblox, @typetorch/goblox)
+        working-directory: dist/tarballs
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+          NPM_TAG: ${{ needs.meta.outputs.npm_tag }}
+          PUBLISH: ${{ needs.meta.outputs.publish }}
+        run: |
+          set -euo pipefail
+          # npm reads stdin, so every npm call in these loops gets < /dev/null.
+          while IFS=$'\t' read -r name tgz; do
+            if [[ "$PUBLISH" != true ]]; then
+              echo "::group::dry run: $name@$VERSION ($NPM_TAG)"
+              npm publish "./$tgz" --dry-run --access public --tag "$NPM_TAG" < /dev/null
+              echo "::endgroup::"
+            elif npm view "$name@$VERSION" version < /dev/null > /dev/null 2>&1; then
+              # A re-run after a partial failure: skip what is already on npm.
+              echo "$name@$VERSION is already published, skipped"
+            else
+              npm publish "./$tgz" --provenance --access public --tag "$NPM_TAG" < /dev/null
+            fi
+          done < packages.tsv
+
+  github-release:
+    name: GitHub Release
+    needs: [meta, package, publish]
+    if: needs.meta.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-assets
+          path: dist/release
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.meta.outputs.version }}
+          PRERELEASE: ${{ needs.meta.outputs.prerelease }}
+          NPM_TAG: ${{ needs.meta.outputs.npm_tag }}
+        run: |
+          set -euo pipefail
+          notes="npm: \`npm i -D goblox@$VERSION\` (dist-tag \`$NPM_TAG\`). The binaries below are the same as in the @typetorch/goblox-<os>-<arch> packages; SHA256SUMS has their checksums."
+          flags=(--repo "$GITHUB_REPOSITORY" --title "goblox $VERSION" --notes "$notes" --verify-tag)
+          [[ "$PRERELEASE" == true ]] && flags+=(--prerelease)
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release upload "$TAG" dist/release/* --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" dist/release/* "${flags[@]}"
+          fi

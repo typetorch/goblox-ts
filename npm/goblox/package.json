@@ -1,0 +1,23 @@
+{
+	"name": "goblox",
+	"version": "0.0.0",
+	"description": "goblox: a fast Go port of the roblox-ts compiler (TypeScript to Luau), built on typescript-go. Drop-in replacement for rbxtsc.",
+	"keywords": ["roblox", "roblox-ts", "rbxtsc", "luau", "typescript", "compiler", "typetorch"],
+	"homepage": "https://github.com/typetorch/goblox-ts/tree/goblox/docs/goblox",
+	"bugs": "https://github.com/typetorch/goblox-ts/issues",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/typetorch/goblox-ts.git",
+		"directory": "npm/goblox"
+	},
+	"license": "Apache-2.0",
+	"main": "lib/index.js",
+	"bin": {
+		"goblox": "bin/goblox.js"
+	},
+	"files": ["bin", "lib"],
+	"engines": {
+		"node": ">=18"
+	},
+	"optionalDependencies": {}
+}
