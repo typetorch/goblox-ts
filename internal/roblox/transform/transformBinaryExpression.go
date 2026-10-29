@@ -74,8 +74,7 @@ func transformOptimizedArrayAssignmentPattern(
 	writes.ForEach(func(target luau.Node) {
 		switch target := target.(type) {
 		case *luau.PropertyAccessExpression:
-			// joining NO_EFFECTS (the index of a property access) is the identity
-			targetEffects = joinEffects(targetEffects, getEffects(target.Expression))
+			targetEffects = joinEffects(targetEffects, getEffects(target.Expression), NO_EFFECTS)
 		case *luau.ComputedIndexExpression:
 			targetEffects = joinEffects(targetEffects, getEffects(target.Expression), getEffects(target.Index))
 		}
