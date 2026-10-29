@@ -96,3 +96,8 @@ func (c *Checker) IsReferencedAliasDeclaration(node *ast.Node) bool {
 	}
 	return false
 }
+
+// GetContextualSignature is TypeScript's checker.getContextualSignature.
+func (c *Checker) GetContextualSignature(node *ast.Node) *Signature {
+	return c.getContextualSignature(node)
+}

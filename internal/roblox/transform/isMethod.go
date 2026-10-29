@@ -70,12 +70,43 @@ func isMethodDeclaration(node *ast.Node) bool {
 	return ast.IsFunctionExpression(node) && ast.IsPropertyAssignment(skipUpwards(node).Parent)
 }
 
+// hasImplicitContextualThis reports whether TypeScript 5.9 (the checker roblox-ts uses) treats declaration as
+// context sensitive only because of its implicit `this`, so that assignContextualParameterTypes gives its
+// signature the contextual signature's `this` parameter. typescript-go's ast.HasContextSensitiveParameters also
+// requires the body to contain `this`, so without this check `function () {}` typed as
+// `(this: defined) => void` would lose its receiver.
+func hasImplicitContextualThis(declaration *ast.Node) bool {
+	if !ast.IsFunctionExpression(declaration) &&
+		!(ast.IsMethodDeclaration(declaration) && ast.IsObjectLiteralExpression(declaration.Parent)) {
+		return false
+	}
+	if declaration.TypeParameters() != nil {
+		return false
+	}
+	parameters := declaration.Parameters()
+	for _, parameter := range parameters {
+		if parameter.Type() == nil {
+			// context sensitive in typescript-go too
+			return false
+		}
+	}
+	if len(parameters) > 0 && ast.IsThisParameter(parameters[0]) {
+		return false
+	}
+	return declaration.Flags&ast.NodeFlagsContainsThis == 0
+}
+
 func isMethodInner(state *TransformState, node *ast.Node, type_ *checker.Type) bool {
 	hasMethodDefinition := false
 	hasCallbackDefinition := false
 
 	for _, callSignature := range state.TypeChecker.GetCallSignatures(type_) {
 		thisParameter := callSignature.ThisParameter()
+		if thisParameter == nil && callSignature.Declaration() != nil && hasImplicitContextualThis(callSignature.Declaration()) {
+			if contextualSignature := state.TypeChecker.GetContextualSignature(callSignature.Declaration()); contextualSignature != nil {
+				thisParameter = contextualSignature.ThisParameter()
+			}
+		}
 		if thisParameter != nil {
 			thisType := state.TypeChecker.GetTypeOfSymbolAtLocation(thisParameter, node)
 			if canChangeReceiverConvention(state, thisType) {
