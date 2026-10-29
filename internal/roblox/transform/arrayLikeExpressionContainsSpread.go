@@ -1,6 +1,6 @@
 package transform
 
-// Port of TSTransformer/util/arrayLikeExpressionContainsSpread.ts. TODO(port): stub, the signatures are fixed.
+// Port of TSTransformer/util/arrayLikeExpressionContainsSpread.ts.
 
 import (
 	"github.com/microsoft/typescript-go/internal/ast"
@@ -8,5 +8,10 @@ import (
 
 // arrayLikeExpressionContainsSpread is TSTransformer/util/arrayLikeExpressionContainsSpread.ts arrayLikeExpressionContainsSpread.
 func arrayLikeExpressionContainsSpread(exp *ast.Node) bool {
-	panic(todo("util/arrayLikeExpressionContainsSpread.ts", "arrayLikeExpressionContainsSpread"))
+	for _, element := range exp.Elements() {
+		if (ast.IsBindingElement(element) && element.AsBindingElement().DotDotDotToken != nil) || ast.IsSpreadElement(element) {
+			return true
+		}
+	}
+	return false
 }
