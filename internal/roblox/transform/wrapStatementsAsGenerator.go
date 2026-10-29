@@ -1,6 +1,6 @@
 package transform
 
-// Port of TSTransformer/util/wrapStatementsAsGenerator.ts. TODO(port): stub, the signatures are fixed.
+// Port of TSTransformer/util/wrapStatementsAsGenerator.ts.
 
 import (
 	"github.com/microsoft/typescript-go/internal/ast"
@@ -9,5 +9,15 @@ import (
 
 // wrapStatementsAsGenerator is TSTransformer/util/wrapStatementsAsGenerator.ts wrapStatementsAsGenerator.
 func wrapStatementsAsGenerator(state *TransformState, node *ast.Node, statements *luau.List) *luau.List {
-	panic(todo("util/wrapStatementsAsGenerator.ts", "wrapStatementsAsGenerator"))
+	return luau.MakeList(
+		luau.Create(&luau.ReturnStatement{
+			Expression: luau.Call(state.TS(node, "generator"),
+				luau.Create(&luau.FunctionExpression{
+					HasDotDotDot: false,
+					Parameters:   luau.MakeList(),
+					Statements:   statements,
+				}),
+			),
+		}),
+	)
 }
