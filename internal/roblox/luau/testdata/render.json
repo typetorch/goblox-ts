@@ -1,0 +1,2650 @@
+[
+	{
+		"name": "literals",
+		"ast": {
+			"list": [
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "a"
+					},
+					"right": {
+						"kind": "NilLiteral"
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "b"
+					},
+					"right": {
+						"kind": "TrueLiteral"
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "c"
+					},
+					"right": {
+						"kind": "FalseLiteral"
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "d"
+					},
+					"right": {
+						"kind": "NumberLiteral",
+						"value": "1.5"
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "e"
+					},
+					"right": {
+						"kind": "UnaryExpression",
+						"operator": "-",
+						"expression": {
+							"kind": "NumberLiteral",
+							"value": "3"
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "f"
+					},
+					"right": {
+						"kind": "NumberLiteral",
+						"value": "1e+21"
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "g"
+					},
+					"right": {
+						"kind": "NumberLiteral",
+						"value": "0.30000000000000004"
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "h"
+					},
+					"right": {
+						"kind": "NumberLiteral",
+						"value": "0x_FF"
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "i"
+					},
+					"right": {
+						"kind": "NumberLiteral",
+						"value": "1_000"
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "j"
+					},
+					"right": {
+						"kind": "NumberLiteral",
+						"value": "1__0e_5"
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "k"
+					},
+					"right": {
+						"kind": "NumberLiteral",
+						"value": "0b1010"
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "l"
+					},
+					"right": {
+						"kind": "NumberLiteral",
+						"value": "08"
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "m"
+					},
+					"right": {
+						"kind": "NumberLiteral",
+						"value": "1e+400"
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "n"
+					},
+					"right": {
+						"kind": "VarArgsLiteral"
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "o"
+					},
+					"right": {
+						"kind": "NumberLiteral",
+						"value": "123456789012"
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "p"
+					},
+					"right": {
+						"kind": "NumberLiteral",
+						"value": "5e-7"
+					}
+				}
+			]
+		},
+		"output": "local a = nil\nlocal b = true\nlocal c = false\nlocal d = 1.5\nlocal e = -3\nlocal f = 1e+21\nlocal g = 0.30000000000000004\nlocal h = 0x_FF\nlocal i = 1_000\nlocal j = 1__0e_5\nlocal k = 0b1010\nlocal l = 08\nlocal m = 1e+400\nlocal n = ...\nlocal o = 123456789012\nlocal p = 5e-7\n"
+	},
+	{
+		"name": "strings",
+		"ast": {
+			"list": [
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "a"
+					},
+					"right": {
+						"kind": "StringLiteral",
+						"value": "plain"
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "b"
+					},
+					"right": {
+						"kind": "StringLiteral",
+						"value": "has \"double\""
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "c"
+					},
+					"right": {
+						"kind": "StringLiteral",
+						"value": "has 'single' and \"double\""
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "d"
+					},
+					"right": {
+						"kind": "StringLiteral",
+						"value": "multi\nline"
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "e"
+					},
+					"right": {
+						"kind": "StringLiteral",
+						"value": "tricky ]] and ]=] end]"
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "f"
+					},
+					"right": {
+						"kind": "StringLiteral",
+						"value": "ends with ]"
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "g"
+					},
+					"right": {
+						"kind": "StringLiteral",
+						"value": "explicit",
+						"quote": "'"
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "h"
+					},
+					"right": {
+						"kind": "StringLiteral",
+						"value": ""
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "i"
+					},
+					"right": {
+						"kind": "ComputedIndexExpression",
+						"expression": {
+							"kind": "Identifier",
+							"name": "t"
+						},
+						"index": {
+							"kind": "StringLiteral",
+							"value": "a\nb"
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "j"
+					},
+					"right": {
+						"kind": "Set",
+						"members": {
+							"list": [
+								{
+									"kind": "StringLiteral",
+									"value": "ok"
+								},
+								{
+									"kind": "StringLiteral",
+									"value": "not ok"
+								},
+								{
+									"kind": "StringLiteral",
+									"value": "x\ny"
+								},
+								{
+									"kind": "NumberLiteral",
+									"value": "1"
+								}
+							]
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "k"
+					},
+					"right": {
+						"kind": "Map",
+						"fields": {
+							"list": [
+								{
+									"kind": "MapField",
+									"index": {
+										"kind": "StringLiteral",
+										"value": "a\nb"
+									},
+									"value": {
+										"kind": "NumberLiteral",
+										"value": "1"
+									}
+								},
+								{
+									"kind": "MapField",
+									"index": {
+										"kind": "StringLiteral",
+										"value": "key"
+									},
+									"value": {
+										"kind": "StringLiteral",
+										"value": "v"
+									}
+								},
+								{
+									"kind": "MapField",
+									"index": {
+										"kind": "StringLiteral",
+										"value": "end"
+									},
+									"value": {
+										"kind": "NumberLiteral",
+										"value": "2"
+									}
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		"output": "local a = \"plain\"\nlocal b = 'has \"double\"'\nlocal c = [[has 'single' and \"double\"]]\nlocal d = [[multi\nline]]\nlocal e = \"tricky ]] and ]=] end]\"\nlocal f = \"ends with ]\"\nlocal g = 'explicit'\nlocal h = \"\"\nlocal i = t[ [[a\nb]] ]\nlocal j = {\n\tok = true,\n\t[\"not ok\"] = true,\n\t[ [[x\ny]] ] = true,\n\t[1] = true,\n}\nlocal k = {\n\t[ [[a\nb]] ] = 1,\n\tkey = \"v\",\n\t[\"end\"] = 2,\n}\n"
+	},
+	{
+		"name": "identifiers and indexing",
+		"ast": {
+			"list": [
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "a"
+					},
+					"right": {
+						"kind": "PropertyAccessExpression",
+						"expression": {
+							"kind": "Identifier",
+							"name": "game"
+						},
+						"name": "Workspace"
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "b"
+					},
+					"right": {
+						"kind": "PropertyAccessExpression",
+						"expression": {
+							"kind": "Identifier",
+							"name": "t"
+						},
+						"name": "not valid"
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "c"
+					},
+					"right": {
+						"kind": "PropertyAccessExpression",
+						"expression": {
+							"kind": "Identifier",
+							"name": "t"
+						},
+						"name": "end"
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "d"
+					},
+					"right": {
+						"kind": "ComputedIndexExpression",
+						"expression": {
+							"kind": "Identifier",
+							"name": "t"
+						},
+						"index": {
+							"kind": "StringLiteral",
+							"value": "valid"
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "e"
+					},
+					"right": {
+						"kind": "ComputedIndexExpression",
+						"expression": {
+							"kind": "Identifier",
+							"name": "t"
+						},
+						"index": {
+							"kind": "NumberLiteral",
+							"value": "1"
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "f"
+					},
+					"right": {
+						"kind": "MethodCallExpression",
+						"expression": {
+							"kind": "Identifier",
+							"name": "obj"
+						},
+						"name": "Method",
+						"args": {
+							"list": [
+								{
+									"kind": "NumberLiteral",
+									"value": "1"
+								},
+								{
+									"kind": "StringLiteral",
+									"value": "x"
+								}
+							]
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "g"
+					},
+					"right": {
+						"kind": "CallExpression",
+						"expression": {
+							"kind": "PropertyAccessExpression",
+							"expression": {
+								"kind": "Identifier",
+								"name": "a"
+							},
+							"name": "b"
+						},
+						"args": {
+							"list": []
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "h"
+					},
+					"right": {
+						"kind": "CallExpression",
+						"expression": {
+							"kind": "ParenthesizedExpression",
+							"expression": {
+								"kind": "FunctionExpression",
+								"parameters": {
+									"list": []
+								},
+								"hasDotDotDot": false,
+								"statements": {
+									"list": []
+								}
+							}
+						},
+						"args": {
+							"list": []
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "i"
+					},
+					"right": {
+						"kind": "ParenthesizedExpression",
+						"expression": {
+							"kind": "ParenthesizedExpression",
+							"expression": {
+								"kind": "Identifier",
+								"name": "x"
+							}
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "j"
+					},
+					"right": {
+						"kind": "ParenthesizedExpression",
+						"expression": {
+							"kind": "BinaryExpression",
+							"left": {
+								"kind": "Identifier",
+								"name": "x"
+							},
+							"operator": "+",
+							"right": {
+								"kind": "Identifier",
+								"name": "y"
+							}
+						}
+					}
+				},
+				{
+					"kind": "CallStatement",
+					"expression": {
+						"kind": "CallExpression",
+						"expression": {
+							"kind": "Identifier",
+							"name": "print"
+						},
+						"args": {
+							"list": [
+								{
+									"kind": "Identifier",
+									"name": "TS"
+								},
+								{
+									"kind": "PropertyAccessExpression",
+									"expression": {
+										"kind": "Identifier",
+										"name": "table"
+									},
+									"name": "insert"
+								},
+								{
+									"kind": "StringLiteral",
+									"value": "__index"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		"output": "local a = game.Workspace\nlocal b = t[\"not valid\"]\nlocal c = t[\"end\"]\nlocal d = t.valid\nlocal e = t[1]\nlocal f = obj:Method(1, \"x\")\nlocal g = a.b()\nlocal h = (function() end)()\nlocal i = x\nlocal j = (x + y)\nprint(TS, table.insert, \"__index\")\n"
+	},
+	{
+		"name": "precedence",
+		"ast": {
+			"list": [
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "a"
+					},
+					"right": {
+						"kind": "BinaryExpression",
+						"left": {
+							"kind": "BinaryExpression",
+							"left": {
+								"kind": "Identifier",
+								"name": "a"
+							},
+							"operator": "+",
+							"right": {
+								"kind": "Identifier",
+								"name": "b"
+							}
+						},
+						"operator": "*",
+						"right": {
+							"kind": "Identifier",
+							"name": "c"
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "b"
+					},
+					"right": {
+						"kind": "BinaryExpression",
+						"left": {
+							"kind": "Identifier",
+							"name": "a"
+						},
+						"operator": "-",
+						"right": {
+							"kind": "BinaryExpression",
+							"left": {
+								"kind": "Identifier",
+								"name": "b"
+							},
+							"operator": "-",
+							"right": {
+								"kind": "Identifier",
+								"name": "c"
+							}
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "c"
+					},
+					"right": {
+						"kind": "BinaryExpression",
+						"left": {
+							"kind": "BinaryExpression",
+							"left": {
+								"kind": "Identifier",
+								"name": "a"
+							},
+							"operator": "-",
+							"right": {
+								"kind": "Identifier",
+								"name": "b"
+							}
+						},
+						"operator": "-",
+						"right": {
+							"kind": "Identifier",
+							"name": "c"
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "d"
+					},
+					"right": {
+						"kind": "BinaryExpression",
+						"left": {
+							"kind": "Identifier",
+							"name": "a"
+						},
+						"operator": "^",
+						"right": {
+							"kind": "BinaryExpression",
+							"left": {
+								"kind": "Identifier",
+								"name": "b"
+							},
+							"operator": "^",
+							"right": {
+								"kind": "Identifier",
+								"name": "c"
+							}
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "e"
+					},
+					"right": {
+						"kind": "UnaryExpression",
+						"operator": "-",
+						"expression": {
+							"kind": "UnaryExpression",
+							"operator": "-",
+							"expression": {
+								"kind": "Identifier",
+								"name": "x"
+							}
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "f"
+					},
+					"right": {
+						"kind": "UnaryExpression",
+						"operator": "not",
+						"expression": {
+							"kind": "BinaryExpression",
+							"left": {
+								"kind": "Identifier",
+								"name": "a"
+							},
+							"operator": "and",
+							"right": {
+								"kind": "Identifier",
+								"name": "b"
+							}
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "g"
+					},
+					"right": {
+						"kind": "UnaryExpression",
+						"operator": "#",
+						"expression": {
+							"kind": "Identifier",
+							"name": "t"
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "h"
+					},
+					"right": {
+						"kind": "BinaryExpression",
+						"left": {
+							"kind": "UnaryExpression",
+							"operator": "-",
+							"expression": {
+								"kind": "Identifier",
+								"name": "a"
+							}
+						},
+						"operator": "^",
+						"right": {
+							"kind": "Identifier",
+							"name": "b"
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "i"
+					},
+					"right": {
+						"kind": "BinaryExpression",
+						"left": {
+							"kind": "Identifier",
+							"name": "a"
+						},
+						"operator": "or",
+						"right": {
+							"kind": "BinaryExpression",
+							"left": {
+								"kind": "Identifier",
+								"name": "b"
+							},
+							"operator": "and",
+							"right": {
+								"kind": "Identifier",
+								"name": "c"
+							}
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "j"
+					},
+					"right": {
+						"kind": "BinaryExpression",
+						"left": {
+							"kind": "BinaryExpression",
+							"left": {
+								"kind": "Identifier",
+								"name": "a"
+							},
+							"operator": "or",
+							"right": {
+								"kind": "Identifier",
+								"name": "b"
+							}
+						},
+						"operator": "and",
+						"right": {
+							"kind": "Identifier",
+							"name": "c"
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "k"
+					},
+					"right": {
+						"kind": "BinaryExpression",
+						"left": {
+							"kind": "Identifier",
+							"name": "s"
+						},
+						"operator": "..",
+						"right": {
+							"kind": "BinaryExpression",
+							"left": {
+								"kind": "Identifier",
+								"name": "t"
+							},
+							"operator": "..",
+							"right": {
+								"kind": "Identifier",
+								"name": "u"
+							}
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "l"
+					},
+					"right": {
+						"kind": "BinaryExpression",
+						"left": {
+							"kind": "Identifier",
+							"name": "x"
+						},
+						"operator": "//",
+						"right": {
+							"kind": "NumberLiteral",
+							"value": "2"
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "m"
+					},
+					"right": {
+						"kind": "BinaryExpression",
+						"left": {
+							"kind": "IfExpression",
+							"condition": {
+								"kind": "Identifier",
+								"name": "a"
+							},
+							"expression": {
+								"kind": "NumberLiteral",
+								"value": "1"
+							},
+							"alternative": {
+								"kind": "NumberLiteral",
+								"value": "2"
+							}
+						},
+						"operator": "+",
+						"right": {
+							"kind": "NumberLiteral",
+							"value": "3"
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "n"
+					},
+					"right": {
+						"kind": "IfExpression",
+						"condition": {
+							"kind": "Identifier",
+							"name": "a"
+						},
+						"expression": {
+							"kind": "NumberLiteral",
+							"value": "1"
+						},
+						"alternative": {
+							"kind": "IfExpression",
+							"condition": {
+								"kind": "Identifier",
+								"name": "b"
+							},
+							"expression": {
+								"kind": "NumberLiteral",
+								"value": "2"
+							},
+							"alternative": {
+								"kind": "NumberLiteral",
+								"value": "3"
+							}
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "o"
+					},
+					"right": {
+						"kind": "UnaryExpression",
+						"operator": "-",
+						"expression": {
+							"kind": "UnaryExpression",
+							"operator": "-",
+							"expression": {
+								"kind": "NumberLiteral",
+								"value": "5"
+							}
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "p"
+					},
+					"right": {
+						"kind": "BinaryExpression",
+						"left": {
+							"kind": "Identifier",
+							"name": "a"
+						},
+						"operator": "~=",
+						"right": {
+							"kind": "BinaryExpression",
+							"left": {
+								"kind": "Identifier",
+								"name": "b"
+							},
+							"operator": "==",
+							"right": {
+								"kind": "Identifier",
+								"name": "c"
+							}
+						}
+					}
+				}
+			]
+		},
+		"output": "local a = (a + b) * c\nlocal b = a - (b - c)\nlocal c = a - b - c\nlocal d = a ^ (b ^ c)\nlocal e = - -x\nlocal f = not (a and b)\nlocal g = #t\nlocal h = (-a) ^ b\nlocal i = a or b and c\nlocal j = (a or b) and c\nlocal k = s .. (t .. u)\nlocal l = x // 2\nlocal m = (if a then 1 else 2) + 3\nlocal n = if a then 1 elseif b then 2 else 3\nlocal o = - -5\nlocal p = a ~= (b == c)\n"
+	},
+	{
+		"name": "tables",
+		"ast": {
+			"list": [
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "a"
+					},
+					"right": {
+						"kind": "Array",
+						"members": {
+							"list": []
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "b"
+					},
+					"right": {
+						"kind": "Array",
+						"members": {
+							"list": [
+								{
+									"kind": "NumberLiteral",
+									"value": "1"
+								},
+								{
+									"kind": "NumberLiteral",
+									"value": "2"
+								},
+								{
+									"kind": "StringLiteral",
+									"value": "x"
+								}
+							]
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "c"
+					},
+					"right": {
+						"kind": "Map",
+						"fields": {
+							"list": []
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "d"
+					},
+					"right": {
+						"kind": "Map",
+						"fields": {
+							"list": [
+								{
+									"kind": "MapField",
+									"index": {
+										"kind": "StringLiteral",
+										"value": "x"
+									},
+									"value": {
+										"kind": "NumberLiteral",
+										"value": "1"
+									}
+								},
+								{
+									"kind": "MapField",
+									"index": {
+										"kind": "NumberLiteral",
+										"value": "2"
+									},
+									"value": {
+										"kind": "Array",
+										"members": {
+											"list": [
+												{
+													"kind": "NumberLiteral",
+													"value": "3"
+												}
+											]
+										}
+									}
+								},
+								{
+									"kind": "MapField",
+									"index": {
+										"kind": "Identifier",
+										"name": "k"
+									},
+									"value": {
+										"kind": "Map",
+										"fields": {
+											"list": [
+												{
+													"kind": "MapField",
+													"index": {
+														"kind": "StringLiteral",
+														"value": "nested"
+													},
+													"value": {
+														"kind": "TrueLiteral"
+													}
+												}
+											]
+										}
+									}
+								}
+							]
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "e"
+					},
+					"right": {
+						"kind": "Set",
+						"members": {
+							"list": []
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "f"
+					},
+					"right": {
+						"kind": "MixedTable",
+						"fields": {
+							"list": [
+								{
+									"kind": "NumberLiteral",
+									"value": "1"
+								},
+								{
+									"kind": "MapField",
+									"index": {
+										"kind": "StringLiteral",
+										"value": "a"
+									},
+									"value": {
+										"kind": "NumberLiteral",
+										"value": "2"
+									}
+								},
+								{
+									"kind": "NumberLiteral",
+									"value": "3"
+								}
+							]
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "g"
+					},
+					"right": {
+						"kind": "MixedTable",
+						"fields": {
+							"list": []
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "h"
+					},
+					"right": {
+						"kind": "FunctionExpression",
+						"parameters": {
+							"list": [
+								{
+									"kind": "Identifier",
+									"name": "x"
+								}
+							]
+						},
+						"hasDotDotDot": false,
+						"statements": {
+							"list": [
+								{
+									"kind": "ReturnStatement",
+									"expression": {
+										"kind": "Map",
+										"fields": {
+											"list": [
+												{
+													"kind": "MapField",
+													"index": {
+														"kind": "StringLiteral",
+														"value": "y"
+													},
+													"value": {
+														"kind": "Identifier",
+														"name": "x"
+													}
+												}
+											]
+										}
+									}
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		"output": "local a = {}\nlocal b = { 1, 2, \"x\" }\nlocal c = {}\nlocal d = {\n\tx = 1,\n\t[2] = { 3 },\n\t[k] = {\n\t\tnested = true,\n\t},\n}\nlocal e = {}\nlocal f = {\n\t1,\n\ta = 2,\n\t3,\n}\nlocal g = {}\nlocal h = function(x)\n\treturn {\n\t\ty = x,\n\t}\nend\n"
+	},
+	{
+		"name": "interpolated strings",
+		"ast": {
+			"list": [
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "a"
+					},
+					"right": {
+						"kind": "InterpolatedString",
+						"parts": {
+							"list": [
+								{
+									"kind": "InterpolatedStringPart",
+									"text": "hello "
+								},
+								{
+									"kind": "Identifier",
+									"name": "name"
+								},
+								{
+									"kind": "InterpolatedStringPart",
+									"text": "! {braces} \\{escaped\\} \\\\u{41} \\u{41} line\nbreak\r\nwin"
+								},
+								{
+									"kind": "Array",
+									"members": {
+										"list": [
+											{
+												"kind": "NumberLiteral",
+												"value": "1"
+											}
+										]
+									}
+								},
+								{
+									"kind": "BinaryExpression",
+									"left": {
+										"kind": "Identifier",
+										"name": "a"
+									},
+									"operator": "+",
+									"right": {
+										"kind": "Identifier",
+										"name": "b"
+									}
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		"output": "local a = `hello {name}! \\{braces\\} \\{escaped\\} \\\\u\\{41\\} \\u{41} line\\\nbreak\\\r\nwin{({ 1 })}{a + b}`\n"
+	},
+	{
+		"name": "statements",
+		"ast": {
+			"list": [
+				{
+					"kind": "Comment",
+					"text": " single line"
+				},
+				{
+					"kind": "Comment",
+					"text": "multi\n  line ]] comment\n\n   \nend"
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "x"
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"list": [
+							{
+								"kind": "Identifier",
+								"name": "a"
+							},
+							{
+								"kind": "Identifier",
+								"name": "b"
+							}
+						]
+					},
+					"right": {
+						"list": [
+							{
+								"kind": "NumberLiteral",
+								"value": "1"
+							},
+							{
+								"kind": "NumberLiteral",
+								"value": "2"
+							}
+						]
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"list": [
+							{
+								"kind": "Identifier",
+								"name": "c"
+							},
+							{
+								"kind": "Identifier",
+								"name": "d"
+							}
+						]
+					}
+				},
+				{
+					"kind": "Assignment",
+					"left": {
+						"kind": "Identifier",
+						"name": "x"
+					},
+					"operator": "=",
+					"right": {
+						"kind": "NumberLiteral",
+						"value": "1"
+					}
+				},
+				{
+					"kind": "Assignment",
+					"left": {
+						"kind": "Identifier",
+						"name": "x"
+					},
+					"operator": "+=",
+					"right": {
+						"kind": "NumberLiteral",
+						"value": "1"
+					}
+				},
+				{
+					"kind": "Assignment",
+					"left": {
+						"kind": "Identifier",
+						"name": "x"
+					},
+					"operator": "..=",
+					"right": {
+						"kind": "StringLiteral",
+						"value": "s"
+					}
+				},
+				{
+					"kind": "Assignment",
+					"left": {
+						"list": [
+							{
+								"kind": "Identifier",
+								"name": "a"
+							},
+							{
+								"kind": "PropertyAccessExpression",
+								"expression": {
+									"kind": "Identifier",
+									"name": "t"
+								},
+								"name": "b"
+							}
+						]
+					},
+					"operator": "=",
+					"right": {
+						"list": [
+							{
+								"kind": "Identifier",
+								"name": "b"
+							},
+							{
+								"kind": "Identifier",
+								"name": "a"
+							}
+						]
+					}
+				},
+				{
+					"kind": "DoStatement",
+					"statements": {
+						"list": [
+							{
+								"kind": "CallStatement",
+								"expression": {
+									"kind": "CallExpression",
+									"expression": {
+										"kind": "Identifier",
+										"name": "f"
+									},
+									"args": {
+										"list": []
+									}
+								}
+							},
+							{
+								"kind": "DoStatement",
+								"statements": {
+									"list": []
+								}
+							}
+						]
+					}
+				},
+				{
+					"kind": "WhileStatement",
+					"condition": {
+						"kind": "TrueLiteral"
+					},
+					"statements": {
+						"list": [
+							{
+								"kind": "BreakStatement"
+							}
+						]
+					}
+				},
+				{
+					"kind": "RepeatStatement",
+					"condition": {
+						"kind": "Identifier",
+						"name": "done"
+					},
+					"statements": {
+						"list": [
+							{
+								"kind": "CallStatement",
+								"expression": {
+									"kind": "CallExpression",
+									"expression": {
+										"kind": "Identifier",
+										"name": "step"
+									},
+									"args": {
+										"list": []
+									}
+								}
+							},
+							{
+								"kind": "ContinueStatement"
+							}
+						]
+					}
+				},
+				{
+					"kind": "NumericForStatement",
+					"id": {
+						"kind": "Identifier",
+						"name": "i"
+					},
+					"start": {
+						"kind": "NumberLiteral",
+						"value": "1"
+					},
+					"end": {
+						"kind": "NumberLiteral",
+						"value": "10"
+					},
+					"statements": {
+						"list": [
+							{
+								"kind": "CallStatement",
+								"expression": {
+									"kind": "CallExpression",
+									"expression": {
+										"kind": "Identifier",
+										"name": "print"
+									},
+									"args": {
+										"list": [
+											{
+												"kind": "Identifier",
+												"name": "i"
+											}
+										]
+									}
+								}
+							}
+						]
+					}
+				},
+				{
+					"kind": "NumericForStatement",
+					"id": {
+						"kind": "Identifier",
+						"name": "i"
+					},
+					"start": {
+						"kind": "NumberLiteral",
+						"value": "1"
+					},
+					"end": {
+						"kind": "NumberLiteral",
+						"value": "10"
+					},
+					"step": {
+						"kind": "NumberLiteral",
+						"value": "1"
+					},
+					"statements": {
+						"list": []
+					}
+				},
+				{
+					"kind": "NumericForStatement",
+					"id": {
+						"kind": "Identifier",
+						"name": "i"
+					},
+					"start": {
+						"kind": "NumberLiteral",
+						"value": "10"
+					},
+					"end": {
+						"kind": "NumberLiteral",
+						"value": "1"
+					},
+					"step": {
+						"kind": "UnaryExpression",
+						"operator": "-",
+						"expression": {
+							"kind": "NumberLiteral",
+							"value": "1"
+						}
+					},
+					"statements": {
+						"list": []
+					}
+				},
+				{
+					"kind": "NumericForStatement",
+					"id": {
+						"kind": "Identifier",
+						"name": "i"
+					},
+					"start": {
+						"kind": "NumberLiteral",
+						"value": "0"
+					},
+					"end": {
+						"kind": "NumberLiteral",
+						"value": "1"
+					},
+					"step": {
+						"kind": "NumberLiteral",
+						"value": "1.0"
+					},
+					"statements": {
+						"list": []
+					}
+				},
+				{
+					"kind": "ForStatement",
+					"ids": {
+						"list": [
+							{
+								"kind": "Identifier",
+								"name": "k"
+							},
+							{
+								"kind": "Identifier",
+								"name": "v"
+							}
+						]
+					},
+					"expression": {
+						"kind": "CallExpression",
+						"expression": {
+							"kind": "Identifier",
+							"name": "pairs"
+						},
+						"args": {
+							"list": [
+								{
+									"kind": "Identifier",
+									"name": "t"
+								}
+							]
+						}
+					},
+					"statements": {
+						"list": [
+							{
+								"kind": "CallStatement",
+								"expression": {
+									"kind": "CallExpression",
+									"expression": {
+										"kind": "Identifier",
+										"name": "print"
+									},
+									"args": {
+										"list": [
+											{
+												"kind": "Identifier",
+												"name": "k"
+											},
+											{
+												"kind": "Identifier",
+												"name": "v"
+											}
+										]
+									}
+								}
+							}
+						]
+					}
+				},
+				{
+					"kind": "ForStatement",
+					"ids": {
+						"list": []
+					},
+					"expression": {
+						"kind": "Identifier",
+						"name": "iter"
+					},
+					"statements": {
+						"list": []
+					}
+				},
+				{
+					"kind": "IfStatement",
+					"condition": {
+						"kind": "Identifier",
+						"name": "a"
+					},
+					"statements": {
+						"list": [
+							{
+								"kind": "CallStatement",
+								"expression": {
+									"kind": "CallExpression",
+									"expression": {
+										"kind": "Identifier",
+										"name": "f"
+									},
+									"args": {
+										"list": []
+									}
+								}
+							}
+						]
+					},
+					"elseBody": {
+						"list": []
+					}
+				},
+				{
+					"kind": "IfStatement",
+					"condition": {
+						"kind": "Identifier",
+						"name": "a"
+					},
+					"statements": {
+						"list": [
+							{
+								"kind": "CallStatement",
+								"expression": {
+									"kind": "CallExpression",
+									"expression": {
+										"kind": "Identifier",
+										"name": "f"
+									},
+									"args": {
+										"list": []
+									}
+								}
+							}
+						]
+					},
+					"elseBody": {
+						"list": [
+							{
+								"kind": "CallStatement",
+								"expression": {
+									"kind": "CallExpression",
+									"expression": {
+										"kind": "Identifier",
+										"name": "g"
+									},
+									"args": {
+										"list": []
+									}
+								}
+							}
+						]
+					}
+				},
+				{
+					"kind": "IfStatement",
+					"condition": {
+						"kind": "Identifier",
+						"name": "a"
+					},
+					"statements": {
+						"list": [
+							{
+								"kind": "CallStatement",
+								"expression": {
+									"kind": "CallExpression",
+									"expression": {
+										"kind": "Identifier",
+										"name": "f"
+									},
+									"args": {
+										"list": []
+									}
+								}
+							}
+						]
+					},
+					"elseBody": {
+						"kind": "IfStatement",
+						"condition": {
+							"kind": "Identifier",
+							"name": "b"
+						},
+						"statements": {
+							"list": [
+								{
+									"kind": "CallStatement",
+									"expression": {
+										"kind": "CallExpression",
+										"expression": {
+											"kind": "Identifier",
+											"name": "g"
+										},
+										"args": {
+											"list": []
+										}
+									}
+								}
+							]
+						},
+						"elseBody": {
+							"kind": "IfStatement",
+							"condition": {
+								"kind": "Identifier",
+								"name": "c"
+							},
+							"statements": {
+								"list": []
+							},
+							"elseBody": {
+								"list": [
+									{
+										"kind": "CallStatement",
+										"expression": {
+											"kind": "CallExpression",
+											"expression": {
+												"kind": "Identifier",
+												"name": "h"
+											},
+											"args": {
+												"list": []
+											}
+										}
+									}
+								]
+							}
+						}
+					}
+				},
+				{
+					"kind": "FunctionDeclaration",
+					"localize": true,
+					"name": {
+						"kind": "Identifier",
+						"name": "foo"
+					},
+					"parameters": {
+						"list": [
+							{
+								"kind": "Identifier",
+								"name": "a"
+							},
+							{
+								"kind": "Identifier",
+								"name": "b"
+							}
+						]
+					},
+					"hasDotDotDot": true,
+					"statements": {
+						"list": [
+							{
+								"kind": "ReturnStatement",
+								"expression": {
+									"kind": "Identifier",
+									"name": "a"
+								}
+							}
+						]
+					}
+				},
+				{
+					"kind": "FunctionDeclaration",
+					"localize": false,
+					"name": {
+						"kind": "PropertyAccessExpression",
+						"expression": {
+							"kind": "Identifier",
+							"name": "M"
+						},
+						"name": "bar"
+					},
+					"parameters": {
+						"list": []
+					},
+					"hasDotDotDot": false,
+					"statements": {
+						"list": []
+					}
+				},
+				{
+					"kind": "MethodDeclaration",
+					"expression": {
+						"kind": "Identifier",
+						"name": "Class"
+					},
+					"name": "method",
+					"parameters": {
+						"list": [
+							{
+								"kind": "Identifier",
+								"name": "x"
+							}
+						]
+					},
+					"hasDotDotDot": false,
+					"statements": {
+						"list": [
+							{
+								"kind": "ReturnStatement",
+								"expression": {
+									"list": [
+										{
+											"kind": "Identifier",
+											"name": "self"
+										},
+										{
+											"kind": "Identifier",
+											"name": "x"
+										}
+									]
+								}
+							}
+						]
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "fe"
+					},
+					"right": {
+						"kind": "FunctionExpression",
+						"parameters": {
+							"list": []
+						},
+						"hasDotDotDot": true,
+						"statements": {
+							"list": []
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "fe2"
+					},
+					"right": {
+						"kind": "FunctionExpression",
+						"parameters": {
+							"list": [
+								{
+									"kind": "Identifier",
+									"name": "a"
+								}
+							]
+						},
+						"hasDotDotDot": true,
+						"statements": {
+							"list": [
+								{
+									"kind": "CallStatement",
+									"expression": {
+										"kind": "CallExpression",
+										"expression": {
+											"kind": "Identifier",
+											"name": "print"
+										},
+										"args": {
+											"list": [
+												{
+													"kind": "Identifier",
+													"name": "a"
+												},
+												{
+													"kind": "VarArgsLiteral"
+												}
+											]
+										}
+									}
+								}
+							]
+						}
+					}
+				},
+				{
+					"kind": "ReturnStatement",
+					"expression": {
+						"list": []
+					}
+				}
+			]
+		},
+		"output": "-- single line\n--[=[\n\tmulti\n\t  line ]] comment\n\n\n\tend\n]=]\nlocal x\nlocal a, b = 1, 2\nlocal c, d\nx = 1\nx += 1\nx ..= \"s\"\na, t.b = b, a\ndo\n\tf()\n\tdo\n\tend\nend\nwhile true do\n\tbreak\nend\nrepeat\n\tstep()\n\tcontinue\nuntil done\nfor i = 1, 10 do\n\tprint(i)\nend\nfor i = 1, 10 do\nend\nfor i = 10, 1, -1 do\nend\nfor i = 0, 1 do\nend\nfor k, v in pairs(t) do\n\tprint(k, v)\nend\nfor _ in iter do\nend\nif a then\n\tf()\nend\nif a then\n\tf()\nelse\n\tg()\nend\nif a then\n\tf()\nelseif b then\n\tg()\nelseif c then\nelse\n\th()\nend\nlocal function foo(a, b, ...)\n\treturn a\nend\nfunction M.bar()\nend\nfunction Class:method(x)\n\treturn self, x\nend\nlocal fe = function(...) end\nlocal fe2 = function(a, ...)\n\tprint(a, ...)\nend\nreturn \n"
+	},
+	{
+		"name": "semicolons",
+		"ast": {
+			"list": [
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "a"
+					},
+					"right": {
+						"kind": "Identifier",
+						"name": "b"
+					}
+				},
+				{
+					"kind": "CallStatement",
+					"expression": {
+						"kind": "CallExpression",
+						"expression": {
+							"kind": "ParenthesizedExpression",
+							"expression": {
+								"kind": "FunctionExpression",
+								"parameters": {
+									"list": []
+								},
+								"hasDotDotDot": false,
+								"statements": {
+									"list": []
+								}
+							}
+						},
+						"args": {
+							"list": []
+						}
+					}
+				},
+				{
+					"kind": "CallStatement",
+					"expression": {
+						"kind": "CallExpression",
+						"expression": {
+							"kind": "Identifier",
+							"name": "f"
+						},
+						"args": {
+							"list": []
+						}
+					}
+				},
+				{
+					"kind": "Comment",
+					"text": "comment between"
+				},
+				{
+					"kind": "CallStatement",
+					"expression": {
+						"kind": "MethodCallExpression",
+						"expression": {
+							"kind": "ParenthesizedExpression",
+							"expression": {
+								"kind": "Identifier",
+								"name": "x"
+							}
+						},
+						"name": "m",
+						"args": {
+							"list": []
+						}
+					}
+				},
+				{
+					"kind": "Assignment",
+					"left": {
+						"kind": "Identifier",
+						"name": "y"
+					},
+					"operator": "=",
+					"right": {
+						"kind": "BinaryExpression",
+						"left": {
+							"kind": "Identifier",
+							"name": "a"
+						},
+						"operator": "+",
+						"right": {
+							"kind": "Identifier",
+							"name": "b"
+						}
+					}
+				},
+				{
+					"kind": "Assignment",
+					"left": {
+						"kind": "PropertyAccessExpression",
+						"expression": {
+							"kind": "ParenthesizedExpression",
+							"expression": {
+								"kind": "BinaryExpression",
+								"left": {
+									"kind": "Identifier",
+									"name": "p"
+								},
+								"operator": "or",
+								"right": {
+									"kind": "Identifier",
+									"name": "q"
+								}
+							}
+						},
+						"name": "z"
+					},
+					"operator": "=",
+					"right": {
+						"kind": "NumberLiteral",
+						"value": "1"
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "u"
+					}
+				},
+				{
+					"kind": "Assignment",
+					"left": {
+						"list": [
+							{
+								"kind": "ComputedIndexExpression",
+								"expression": {
+									"kind": "ParenthesizedExpression",
+									"expression": {
+										"kind": "CallExpression",
+										"expression": {
+											"kind": "Identifier",
+											"name": "g"
+										},
+										"args": {
+											"list": []
+										}
+									}
+								},
+								"index": {
+									"kind": "NumberLiteral",
+									"value": "1"
+								}
+							}
+						]
+					},
+					"operator": "=",
+					"right": {
+						"kind": "NumberLiteral",
+						"value": "2"
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"list": [
+							{
+								"kind": "Identifier",
+								"name": "m"
+							},
+							{
+								"kind": "Identifier",
+								"name": "n"
+							}
+						]
+					}
+				},
+				{
+					"kind": "CallStatement",
+					"expression": {
+						"kind": "CallExpression",
+						"expression": {
+							"kind": "ParenthesizedExpression",
+							"expression": {
+								"kind": "Identifier",
+								"name": "simple"
+							}
+						},
+						"args": {
+							"list": []
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "v"
+					},
+					"right": {
+						"kind": "NumberLiteral",
+						"value": "1"
+					}
+				},
+				{
+					"kind": "CallStatement",
+					"expression": {
+						"kind": "CallExpression",
+						"expression": {
+							"kind": "ParenthesizedExpression",
+							"expression": {
+								"kind": "FunctionExpression",
+								"parameters": {
+									"list": []
+								},
+								"hasDotDotDot": false,
+								"statements": {
+									"list": []
+								}
+							}
+						},
+						"args": {
+							"list": []
+						}
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "w"
+					},
+					"right": {
+						"kind": "IfExpression",
+						"condition": {
+							"kind": "Identifier",
+							"name": "a"
+						},
+						"expression": {
+							"kind": "NumberLiteral",
+							"value": "1"
+						},
+						"alternative": {
+							"kind": "Identifier",
+							"name": "b"
+						}
+					}
+				},
+				{
+					"kind": "CallStatement",
+					"expression": {
+						"kind": "CallExpression",
+						"expression": {
+							"kind": "ParenthesizedExpression",
+							"expression": {
+								"kind": "FunctionExpression",
+								"parameters": {
+									"list": []
+								},
+								"hasDotDotDot": false,
+								"statements": {
+									"list": []
+								}
+							}
+						},
+						"args": {
+							"list": []
+						}
+					}
+				}
+			]
+		},
+		"output": "local a = b;\n(function() end)()\nf();\n--comment between\nx:m()\ny = a + b;\n(p or q).z = 1\nlocal u;\n(g())[1] = 2\nlocal m, n;\nsimple()\nlocal v = 1\n(function() end)()\nlocal w = if a then 1 else b;\n(function() end)()\n"
+	},
+	{
+		"name": "temp ids",
+		"ast": {
+			"list": [
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "_value"
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "TemporaryIdentifier",
+						"name": "value",
+						"id": 0
+					},
+					"right": {
+						"kind": "NumberLiteral",
+						"value": "1"
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "TemporaryIdentifier",
+						"name": "value",
+						"id": 1
+					},
+					"right": {
+						"kind": "NumberLiteral",
+						"value": "2"
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "TemporaryIdentifier",
+						"name": "",
+						"id": 2
+					},
+					"right": {
+						"kind": "NumberLiteral",
+						"value": "3"
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "TemporaryIdentifier",
+						"name": "",
+						"id": 3
+					},
+					"right": {
+						"kind": "TemporaryIdentifier",
+						"name": "",
+						"id": 2
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "Identifier",
+						"name": "_result_1"
+					}
+				},
+				{
+					"kind": "VariableDeclaration",
+					"left": {
+						"kind": "TemporaryIdentifier",
+						"name": "result",
+						"id": 4
+					},
+					"right": {
+						"kind": "BinaryExpression",
+						"left": {
+							"kind": "TemporaryIdentifier",
+							"name": "value",
+							"id": 0
+						},
+						"operator": "+",
+						"right": {
+							"kind": "TemporaryIdentifier",
+							"name": "value",
+							"id": 1
+						}
+					}
+				},
+				{
+					"kind": "DoStatement",
+					"statements": {
+						"list": [
+							{
+								"kind": "VariableDeclaration",
+								"left": {
+									"kind": "TemporaryIdentifier",
+									"name": "value",
+									"id": 5
+								},
+								"right": {
+									"kind": "TemporaryIdentifier",
+									"name": "value",
+									"id": 0
+								}
+							},
+							{
+								"kind": "CallStatement",
+								"expression": {
+									"kind": "CallExpression",
+									"expression": {
+										"kind": "Identifier",
+										"name": "print"
+									},
+									"args": {
+										"list": [
+											{
+												"kind": "TemporaryIdentifier",
+												"name": "value",
+												"id": 5
+											}
+										]
+									}
+								}
+							}
+						]
+					}
+				},
+				{
+					"kind": "FunctionDeclaration",
+					"localize": true,
+					"name": {
+						"kind": "Identifier",
+						"name": "f"
+					},
+					"parameters": {
+						"list": [
+							{
+								"kind": "Identifier",
+								"name": "_value"
+							},
+							{
+								"kind": "TemporaryIdentifier",
+								"name": "i",
+								"id": 6
+							}
+						]
+					},
+					"hasDotDotDot": false,
+					"statements": {
+						"list": [
+							{
+								"kind": "VariableDeclaration",
+								"left": {
+									"kind": "TemporaryIdentifier",
+									"name": "value",
+									"id": 7
+								},
+								"right": {
+									"kind": "TemporaryIdentifier",
+									"name": "i",
+									"id": 6
+								}
+							},
+							{
+								"kind": "ReturnStatement",
+								"expression": {
+									"kind": "TemporaryIdentifier",
+									"name": "i",
+									"id": 6
+								}
+							}
+						]
+					}
+				},
+				{
+					"kind": "IfStatement",
+					"condition": {
+						"kind": "TemporaryIdentifier",
+						"name": "result",
+						"id": 4
+					},
+					"statements": {
+						"list": [
+							{
+								"kind": "VariableDeclaration",
+								"left": {
+									"kind": "TemporaryIdentifier",
+									"name": "x",
+									"id": 8
+								},
+								"right": {
+									"kind": "NumberLiteral",
+									"value": "1"
+								}
+							}
+						]
+					},
+					"elseBody": {
+						"list": [
+							{
+								"kind": "VariableDeclaration",
+								"left": {
+									"kind": "TemporaryIdentifier",
+									"name": "x",
+									"id": 9
+								},
+								"right": {
+									"kind": "NumberLiteral",
+									"value": "2"
+								}
+							},
+							{
+								"kind": "VariableDeclaration",
+								"left": {
+									"kind": "Identifier",
+									"name": "_x"
+								}
+							},
+							{
+								"kind": "VariableDeclaration",
+								"left": {
+									"kind": "TemporaryIdentifier",
+									"name": "x",
+									"id": 10
+								},
+								"right": {
+									"kind": "NumberLiteral",
+									"value": "3"
+								}
+							}
+						]
+					}
+				},
+				{
+					"kind": "NumericForStatement",
+					"id": {
+						"kind": "TemporaryIdentifier",
+						"name": "i",
+						"id": 11
+					},
+					"start": {
+						"kind": "NumberLiteral",
+						"value": "1"
+					},
+					"end": {
+						"kind": "NumberLiteral",
+						"value": "2"
+					},
+					"statements": {
+						"list": [
+							{
+								"kind": "VariableDeclaration",
+								"left": {
+									"kind": "TemporaryIdentifier",
+									"name": "i",
+									"id": 12
+								}
+							}
+						]
+					}
+				},
+				{
+					"kind": "ForStatement",
+					"ids": {
+						"list": [
+							{
+								"kind": "TemporaryIdentifier",
+								"name": "k",
+								"id": 13
+							},
+							{
+								"kind": "TemporaryIdentifier",
+								"name": "v",
+								"id": 14
+							}
+						]
+					},
+					"expression": {
+						"kind": "CallExpression",
+						"expression": {
+							"kind": "Identifier",
+							"name": "pairs"
+						},
+						"args": {
+							"list": [
+								{
+									"kind": "TemporaryIdentifier",
+									"name": "result",
+									"id": 4
+								}
+							]
+						}
+					},
+					"statements": {
+						"list": [
+							{
+								"kind": "CallStatement",
+								"expression": {
+									"kind": "CallExpression",
+									"expression": {
+										"kind": "Identifier",
+										"name": "print"
+									},
+									"args": {
+										"list": [
+											{
+												"kind": "TemporaryIdentifier",
+												"name": "result",
+												"id": 4
+											}
+										]
+									}
+								}
+							}
+						]
+					}
+				},
+				{
+					"kind": "WhileStatement",
+					"condition": {
+						"kind": "TrueLiteral"
+					},
+					"statements": {
+						"list": [
+							{
+								"kind": "VariableDeclaration",
+								"left": {
+									"kind": "TemporaryIdentifier",
+									"name": "value",
+									"id": 15
+								}
+							},
+							{
+								"kind": "BreakStatement"
+							}
+						]
+					}
+				},
+				{
+					"kind": "ReturnStatement",
+					"expression": {
+						"list": [
+							{
+								"kind": "TemporaryIdentifier",
+								"name": "value",
+								"id": 0
+							},
+							{
+								"kind": "TemporaryIdentifier",
+								"name": "value",
+								"id": 1
+							},
+							{
+								"kind": "TemporaryIdentifier",
+								"name": "",
+								"id": 2
+							},
+							{
+								"kind": "TemporaryIdentifier",
+								"name": "",
+								"id": 3
+							},
+							{
+								"kind": "TemporaryIdentifier",
+								"name": "result",
+								"id": 4
+							}
+						]
+					}
+				}
+			]
+		},
+		"output": "local _value\nlocal _value_1 = 1\nlocal _value_2 = 2\nlocal _ = 3\nlocal _1 = _\nlocal _result_1\nlocal _result = _value_1 + _value_2\ndo\n\tlocal _value_3 = _value_1\n\tprint(_value_3)\nend\nlocal function f(_value, _i)\n\tlocal _value_3 = _i\n\treturn _i\nend\nif _result then\n\tlocal _x = 1\nelse\n\tlocal _x_1 = 2\n\tlocal _x\n\tlocal _x_2 = 3\nend\nfor _i = 1, 2 do\n\tlocal _i_1\nend\nfor _k, _v in pairs(_result) do\n\tprint(_result)\nend\nwhile true do\n\tlocal _value_3\n\tbreak\nend\nreturn _value_1, _value_2, _, _1, _result\n"
+	},
+	{
+		"name": "final statement then comment",
+		"ast": {
+			"list": [
+				{
+					"kind": "CallStatement",
+					"expression": {
+						"kind": "CallExpression",
+						"expression": {
+							"kind": "Identifier",
+							"name": "f"
+						},
+						"args": {
+							"list": []
+						}
+					}
+				},
+				{
+					"kind": "ReturnStatement",
+					"expression": {
+						"kind": "NumberLiteral",
+						"value": "1"
+					}
+				},
+				{
+					"kind": "Comment",
+					"text": "trailing"
+				}
+			]
+		},
+		"output": "f()\nreturn 1\n--trailing\n"
+	}
+]
