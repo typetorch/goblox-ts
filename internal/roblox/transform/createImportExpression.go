@@ -213,8 +213,7 @@ func getImportParts(state *TransformState, sourceFile *ast.SourceFile, moduleSpe
 	if virtualPath == "" {
 		virtualPath = moduleFile.FileName()
 	}
-	// goblox does not build project references: state.data.projectReferencePaths is always undefined
-	referencePath, hasReferencePath := "", false
+	referencePath, hasReferencePath := state.Data.ProjectReferencePaths[state.getCanonicalFileName(nodepath.Normalize(virtualPath))]
 
 	if !hasReferencePath && isInsideNodeModules(virtualPath) {
 		mappedPath, ok := state.NodeModulesPathMapping[state.getCanonicalFileName(nodepath.Normalize(virtualPath))]
