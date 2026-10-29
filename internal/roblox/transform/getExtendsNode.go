@@ -1,6 +1,6 @@
 package transform
 
-// Port of TSTransformer/util/getExtendsNode.ts. TODO(port): stub, the signatures are fixed.
+// Port of TSTransformer/util/getExtendsNode.ts.
 
 import (
 	"github.com/microsoft/typescript-go/internal/ast"
@@ -8,5 +8,14 @@ import (
 
 // getExtendsNode is TSTransformer/util/getExtendsNode.ts getExtendsNode.
 func getExtendsNode(node *ast.Node) *ast.Node {
-	panic(todo("util/getExtendsNode.ts", "getExtendsNode"))
+	heritageClauses := node.ClassLikeData().HeritageClauses
+	if heritageClauses == nil {
+		return nil
+	}
+	for _, clause := range heritageClauses.Nodes {
+		if clause.AsHeritageClause().Token == ast.KindExtendsKeyword {
+			return clause.AsHeritageClause().Types.Nodes[0]
+		}
+	}
+	return nil
 }

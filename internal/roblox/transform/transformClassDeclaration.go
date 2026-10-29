@@ -1,6 +1,6 @@
 package transform
 
-// Port of TSTransformer/nodes/statements/transformClassDeclaration.ts. TODO(port): stub, the signatures are fixed.
+// Port of TSTransformer/nodes/statements/transformClassDeclaration.ts.
 
 import (
 	"github.com/microsoft/typescript-go/internal/ast"
@@ -9,5 +9,6 @@ import (
 
 // transformClassDeclaration is TSTransformer/nodes/statements/transformClassDeclaration.ts transformClassDeclaration.
 func transformClassDeclaration(state *TransformState, node *ast.Node) *luau.List {
-	panic(todo("nodes/statements/transformClassDeclaration.ts", "transformClassDeclaration"))
+	statements, _ := transformClassLikeDeclaration(state, node)
+	return statements
 }

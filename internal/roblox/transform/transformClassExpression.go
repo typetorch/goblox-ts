@@ -1,6 +1,6 @@
 package transform
 
-// Port of TSTransformer/nodes/expressions/transformClassExpression.ts. TODO(port): stub, the signatures are fixed.
+// Port of TSTransformer/nodes/expressions/transformClassExpression.ts.
 
 import (
 	"github.com/microsoft/typescript-go/internal/ast"
@@ -9,5 +9,7 @@ import (
 
 // transformClassExpression is TSTransformer/nodes/expressions/transformClassExpression.ts transformClassExpression.
 func transformClassExpression(state *TransformState, prereqs *Prereqs, node *ast.Node) luau.Expression {
-	panic(todo("nodes/expressions/transformClassExpression.ts", "transformClassExpression"))
+	statements, name := transformClassLikeDeclaration(state, node)
+	prereqs.PushList(statements)
+	return name
 }
