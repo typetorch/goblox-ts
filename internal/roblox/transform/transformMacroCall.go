@@ -19,7 +19,7 @@ func transformMacroCall(macro CallMacro, state *TransformState, prereqs *Prereqs
 		value := transformExpression(state, valuePrereqs, argument)
 		if !ast.IsSpreadElement(argument) {
 			// scalar arguments must supply one nil even when an inlined call returns no values
-			if _, isCall := value.(*luau.CallExpression); isCall && isPossiblyType(state.GetType(argument), isUndefinedType) {
+			if luau.IsCall(value) && isPossiblyType(state.GetType(argument), isUndefinedType) {
 				value = luau.Create(&luau.ParenthesizedExpression{Expression: value})
 			}
 			operands = append(operands, &EvaluationOperand{Expression: value, Prereqs: valuePrereqs.Statements})
