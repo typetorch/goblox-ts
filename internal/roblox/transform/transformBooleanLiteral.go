@@ -1,6 +1,6 @@
 package transform
 
-// Port of TSTransformer/nodes/expressions/transformBooleanLiteral.ts. TODO(port): stub, the signatures are fixed.
+// Port of TSTransformer/nodes/expressions/transformBooleanLiteral.ts.
 
 import (
 	"github.com/microsoft/typescript-go/internal/roblox/luau"
@@ -8,10 +8,10 @@ import (
 
 // transformTrueKeyword is TSTransformer/nodes/expressions/transformBooleanLiteral.ts transformTrueKeyword.
 func transformTrueKeyword() *luau.TrueLiteral {
-	panic(todo("nodes/expressions/transformBooleanLiteral.ts", "transformTrueKeyword"))
+	return luau.Create(&luau.TrueLiteral{})
 }
 
 // transformFalseKeyword is TSTransformer/nodes/expressions/transformBooleanLiteral.ts transformFalseKeyword.
 func transformFalseKeyword() *luau.FalseLiteral {
-	panic(todo("nodes/expressions/transformBooleanLiteral.ts", "transformFalseKeyword"))
+	return luau.Create(&luau.FalseLiteral{})
 }

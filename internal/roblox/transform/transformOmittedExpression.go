@@ -1,6 +1,6 @@
 package transform
 
-// Port of TSTransformer/nodes/expressions/transformOmittedExpression.ts. TODO(port): stub, the signatures are fixed.
+// Port of TSTransformer/nodes/expressions/transformOmittedExpression.ts.
 
 import (
 	"github.com/microsoft/typescript-go/internal/roblox/luau"
@@ -8,5 +8,5 @@ import (
 
 // transformOmittedExpression is TSTransformer/nodes/expressions/transformOmittedExpression.ts transformOmittedExpression.
 func transformOmittedExpression() *luau.NilLiteral {
-	panic(todo("nodes/expressions/transformOmittedExpression.ts", "transformOmittedExpression"))
+	return luau.Nil()
 }

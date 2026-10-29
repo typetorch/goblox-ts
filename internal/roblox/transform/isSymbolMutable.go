@@ -1,6 +1,6 @@
 package transform
 
-// Port of TSTransformer/util/isSymbolMutable.ts. TODO(port): stub, the signatures are fixed.
+// Port of TSTransformer/util/isSymbolMutable.ts.
 
 import (
 	"github.com/microsoft/typescript-go/internal/ast"
@@ -8,5 +8,16 @@ import (
 
 // isSymbolMutable is TSTransformer/util/isSymbolMutable.ts isSymbolMutable.
 func isSymbolMutable(state *TransformState, idSymbol *ast.Symbol) bool {
-	panic(todo("util/isSymbolMutable.ts", "isSymbolMutable"))
+	return getOrSetDefault(state.MultiTransformState.IsDefinedAsLetCache, idSymbol, func() bool {
+		if idSymbol.ValueDeclaration != nil {
+			if ast.IsParameterDeclaration(idSymbol.ValueDeclaration) {
+				return true
+			}
+			varDecList := getAncestor(idSymbol.ValueDeclaration, ast.IsVariableDeclarationList)
+			if varDecList != nil {
+				return varDecList.Flags&ast.NodeFlagsLet != 0
+			}
+		}
+		return false
+	})
 }

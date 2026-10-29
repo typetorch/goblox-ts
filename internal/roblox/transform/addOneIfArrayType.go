@@ -1,6 +1,6 @@
 package transform
 
-// Port of TSTransformer/util/addOneIfArrayType.ts. TODO(port): stub, the signatures are fixed.
+// Port of TSTransformer/util/addOneIfArrayType.ts.
 
 import (
 	"github.com/microsoft/typescript-go/internal/checker"
@@ -9,5 +9,9 @@ import (
 
 // addOneIfArrayType is TSTransformer/util/addOneIfArrayType.ts addOneIfArrayType.
 func addOneIfArrayType(state *TransformState, type_ *checker.Type, expression luau.Expression) luau.Expression {
-	panic(todo("util/addOneIfArrayType.ts", "addOneIfArrayType"))
+	if isDefinitelyType(type_, isArrayType(state), isUndefinedType) {
+		return offset(expression, 1)
+	} else {
+		return expression
+	}
 }

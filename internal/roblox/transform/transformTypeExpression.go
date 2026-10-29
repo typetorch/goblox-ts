@@ -1,6 +1,6 @@
 package transform
 
-// Port of TSTransformer/nodes/expressions/transformTypeExpression.ts. TODO(port): stub, the signatures are fixed.
+// Port of TSTransformer/nodes/expressions/transformTypeExpression.ts.
 
 import (
 	"github.com/microsoft/typescript-go/internal/ast"
@@ -9,5 +9,5 @@ import (
 
 // transformTypeExpression is TSTransformer/nodes/expressions/transformTypeExpression.ts transformTypeExpression.
 func transformTypeExpression(state *TransformState, prereqs *Prereqs, node *ast.Node) luau.Expression {
-	panic(todo("nodes/expressions/transformTypeExpression.ts", "transformTypeExpression"))
+	return transformExpression(state, prereqs, node.Expression())
 }

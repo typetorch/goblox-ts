@@ -1,13 +1,16 @@
 package transform
 
-// Port of TSTransformer/nodes/expressions/transformNumericLiteral.ts. TODO(port): stub, the signatures are fixed.
+// Port of TSTransformer/nodes/expressions/transformNumericLiteral.ts.
 
 import (
 	"github.com/microsoft/typescript-go/internal/ast"
 	"github.com/microsoft/typescript-go/internal/roblox/luau"
+	"github.com/microsoft/typescript-go/internal/scanner"
 )
 
 // transformNumericLiteral is TSTransformer/nodes/expressions/transformNumericLiteral.ts transformNumericLiteral.
 func transformNumericLiteral(state *TransformState, node *ast.Node) *luau.NumberLiteral {
-	panic(todo("nodes/expressions/transformNumericLiteral.ts", "transformNumericLiteral"))
+	return luau.Create(&luau.NumberLiteral{
+		Value: scanner.GetTextOfNode(node),
+	})
 }

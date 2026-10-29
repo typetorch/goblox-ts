@@ -1,6 +1,6 @@
 package transform
 
-// Port of TSTransformer/nodes/expressions/transformParenthesizedExpression.ts. TODO(port): stub, the signatures are fixed.
+// Port of TSTransformer/nodes/expressions/transformParenthesizedExpression.ts.
 
 import (
 	"github.com/microsoft/typescript-go/internal/ast"
@@ -9,5 +9,10 @@ import (
 
 // transformParenthesizedExpression is TSTransformer/nodes/expressions/transformParenthesizedExpression.ts transformParenthesizedExpression.
 func transformParenthesizedExpression(state *TransformState, prereqs *Prereqs, node *ast.Node) luau.Expression {
-	panic(todo("nodes/expressions/transformParenthesizedExpression.ts", "transformParenthesizedExpression"))
+	expression := transformExpression(state, prereqs, skipDownwards(node.Expression()))
+	if luau.IsSimple(expression) {
+		return expression
+	} else {
+		return luau.Create(&luau.ParenthesizedExpression{Expression: expression})
+	}
 }
