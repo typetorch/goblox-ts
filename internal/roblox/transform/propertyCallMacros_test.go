@@ -296,9 +296,50 @@ local x = _valueExisted
 		{"x = v3.idiv(v3)", "Vector3", "idiv", []luau.Expression{testId("v3")}, "local x = v3 // v3\n"},
 		{"x = n.idiv(2)", "Number", "idiv", []luau.Expression{luau.Number(2)}, "local x = n // 2\n"},
 		{"x = p.then(cb)", "Promise", "then", []luau.Expression{cb}, "local x = p:andThen(cb)\n"},
+		{"arr.insert(n, 5);", "Array", "insert", []luau.Expression{testId("n"), luau.Number(5)}, "table.insert(arr, n + 1, 5)\n"},
+		{"x = m.size()", "ReadonlyMap", "size", nil, `
+-- ▼ ReadonlyMap.size ▼
+local _size = 0
+for _ in m do
+    _size += 1
+end
+-- ▲ ReadonlyMap.size ▲
+local x = _size
+`},
+		// macros2.server.ts: the String macros returning LuaTuple are wrapped in { } by transformMacroCall, not the macro
+		{`x = m.has("a")`, "ReadonlyMap", "has", []luau.Expression{luau.String("a")}, "local x = m.a ~= nil\n"},
+		{"x = m.isEmpty()", "ReadonlyMap", "isEmpty", nil, "local x = next(m) == nil\n"},
+		{`m.delete("a");`, "Map", "delete", []luau.Expression{luau.String("a")}, "m.a = nil\n"},
+		{`x = m.delete("b")`, "Map", "delete", []luau.Expression{luau.String("b")}, `
+-- ▼ Map.delete ▼
+local _valueExisted = m.b ~= nil
+m.b = nil
+-- ▲ Map.delete ▲
+local x = _valueExisted
+`},
+		{"m.clear();", "Map", "clear", nil, "table.clear(m)\n"},
+		{"x = str.byte(1, 2)", "String", "byte", []luau.Expression{luau.Number(1), luau.Number(2)}, "local x = string.byte(str, 1, 2)\n"},
+		{`x = str.find("a", 1, true)`, "String", "find", []luau.Expression{luau.String("a"), luau.Number(1), luau.Bool(true)}, "local x = string.find(str, \"a\", 1, true)\n"},
+		{"x = str.format(1)", "String", "format", []luau.Expression{luau.Number(1)}, "local x = string.format(str, 1)\n"},
+		{`x = str.gmatch("a")`, "String", "gmatch", []luau.Expression{luau.String("a")}, "local x = string.gmatch(str, \"a\")\n"},
+		{`x = str.gsub("a", "b")`, "String", "gsub", []luau.Expression{luau.String("a"), luau.String("b")}, "local x = string.gsub(str, \"a\", \"b\")\n"},
+		{"x = str.lower()", "String", "lower", nil, "local x = string.lower(str)\n"},
+		{`x = str.match("a")`, "String", "match", []luau.Expression{luau.String("a")}, "local x = string.match(str, \"a\")\n"},
+		{"x = str.rep(3)", "String", "rep", []luau.Expression{luau.Number(3)}, "local x = string.rep(str, 3)\n"},
+		{"x = str.reverse()", "String", "reverse", nil, "local x = string.reverse(str)\n"},
+		{`x = str.split(",")`, "String", "split", []luau.Expression{luau.String(",")}, "local x = string.split(str, \",\")\n"},
+		{"x = v3.sub(v3)", "Vector3", "sub", []luau.Expression{testId("v3")}, "local x = v3 - v3\n"},
+		{"x = v3.mul(2)", "Vector3", "mul", []luau.Expression{luau.Number(2)}, "local x = v3 * 2\n"},
+		{"x = v3.div(n)", "Vector3", "div", []luau.Expression{testId("n")}, "local x = v3 / n\n"},
+		{"x = v2.add(v2)", "Vector2", "add", []luau.Expression{testId("v2")}, "local x = v2 + v2\n"},
+		{"x = v2i.mul(v2i)", "Vector2int16", "mul", []luau.Expression{testId("v2i")}, "local x = v2i * v2i\n"},
+		{"x = cf.mul(cf)", "CFrame", "mul", []luau.Expression{testId("cf")}, "local x = cf * cf\n"},
+		{"x = cf.add(v3)", "CFrame", "add", []luau.Expression{testId("v3")}, "local x = cf + v3\n"},
+		{"x = u.sub(u)", "UDim", "sub", []luau.Expression{testId("u")}, "local x = u - u\n"},
+		{"x = u2.add(u2)", "UDim2", "add", []luau.Expression{testId("u2")}, "local x = u2 + u2\n"},
 	}
 
-	receivers := map[string]luau.Expression{"arr": arr, "s": testId("s"), "m": testId("m"), "str": testId("str"), "v3": testId("v3"), "n": testId("n"), "p": testId("p")}
+	receivers := map[string]luau.Expression{"arr": arr, "s": testId("s"), "m": testId("m"), "str": testId("str"), "v3": testId("v3"), "n": testId("n"), "p": testId("p"), "v2": testId("v2"), "v2i": testId("v2i"), "cf": testId("cf"), "u": testId("u"), "u2": testId("u2")}
 	for _, c := range cases {
 		t.Run(c.source, func(t *testing.T) {
 			node := parseCallExpression(t, c.source)
