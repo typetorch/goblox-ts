@@ -379,3 +379,60 @@ tests twice).
   Only 158 of the 407 files (22% of the bytes) have an import closure free of changed files, and that ignores global
   declarations. In the best case the check took 1.44 s against 1.59 s (median of 7, under load, within the noise),
   without counting the warm checkers transform would lose.
+
+## Transform CPU (2026-10-30)
+
+Cold gnome-game builds on the 12-thread desktop, interleaved. "Without" is the same `main` with these commits reverted,
+so the other agents' work is in both columns. `-checkers 4` is the median of 7, `-checkers 2` the median of 3.
+
+| | transform and render | render sum | type check | total |
+| --- | --- | --- | --- | --- |
+| 4 checkers, without | 408 ms (min 363) | 134 ms | 443 ms | 2.30 s |
+| 4 checkers, with | 368 ms (min 342) | 135 ms | 417 ms | 2.20 s |
+| 2 checkers, without | 714 ms (min 711) | 119 ms | 518 ms | 2.61 s |
+| 2 checkers, with | 629 ms (min 626) | 124 ms | 523 ms | 2.49 s |
+
+CPU in `transformFiles`, from 4 merged profiles at 4 checkers: 2.40 s per build before these commits and the quick wins,
+1.40 s after both (nodepath 0.86 s to 0.06 s, mostly the quick wins; checker 0.77 s to 0.64 s).
+
+What helped, in the order they landed. The machine was shared with other builds, so read the minimums (5 interleaved
+rounds, each row includes the ones above it):
+
+| commit | transform min | transform median |
+| --- | --- | --- |
+| `isRobloxType` cached by symbol, `hasCallSignatures` by type | 639 ms | 930 ms |
+| + no checker call for types known from the syntax | 531 ms | 604 ms |
+| + `ensureTransformOrder` skips the effects of the last expressions | 491 ms | 665 ms |
+| + closing brace of a block without `lsutil.GetLastToken` | 488 ms | 703 ms |
+
+The last row is about allocation, 23 MB per build at the time, rather than time. The medians are noise: use the table at
+the top of this section for the total effect.
+
+Output: identical to the commit before apart from `builtAt` and the build info file, harness 73/73. Race detector:
+gnome-game at 4 checkers and the `transform` and `project` tests are clean. On Windows this took a linked import library
+for `WaitOnAddress` and clearing `DYNAMIC_BASE` and `HIGH_ENTROPY_VA` in the binary's header.
+
+The `GetLastToken` commit broke comments in constructors with a statement after `super()`: it took the position of the
+closing brace from the last statement it was given, not the last one in the block. gnome-game and the fixtures have no
+such comment, so identity checks passed. Fixed in the next commit, with a test that compares every split of the statement
+lists against the search.
+
+**Tried and dropped:**
+
+- *Skipping `validateNotAnyType` for syntactic primitives, and memoizing `guessVirtualPath`.* Transform median 462 ms
+  against 391 ms, minimum 377 ms against 370 ms (5 rounds), CPU within noise. They saved about 9 MB of allocation per
+  build and no measurable time.
+
+**Measured and not tried:**
+
+- *Single-buffer renderer.* Render is about 0.135 s of the 1.40 s of CPU and 55 MB of 234 MB of allocation. `SolveTempIds`
+  is 0.04 s of that and wouldn't change. Rewriting about 25 render functions could save about 0.03 s of CPU at best.
+- *Macro symbol fields instead of the string map.* `GetSymbolOrThrow` is about 2.5 ms of CPU per build.
+- *Lazy binding sets in `getEffectsOfListOrNode`.* About 4 MB and 10 ms of CPU per build.
+- *Memoizing `GetSymbolAtLocation`.* 335k calls for 161k identifiers at about 420 ns each; the map would take back about
+  half of the 70 ms of CPU it could save. This estimate comes from counts, not a run.
+
+**What's left is the checker.** It is 0.64 s of the 1.40 s, nearly all `GetTypeAtLocation`, which checks nested expressions
+again each time, so its cost is quadratic in chain depth. That can't be cached from the transform: the fix belongs in
+`checker.go`. Checker groups also finish unevenly (0.93 to 1.13 s of wall with 85 to 115 files each, measured with
+instrumentation), which is for the driver to balance.
