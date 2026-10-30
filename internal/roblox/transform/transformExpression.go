@@ -115,10 +115,35 @@ func withoutPrereqs[U luau.Expression](transform func(state *TransformState, nod
 	}
 }
 
+// isSyntacticallyPrimitive is whether the type of node is a boolean, number or string whatever the checker
+// says. Such a type has no call signatures either, so transformExpression doesn't need to ask for it.
+func isSyntacticallyPrimitive(node *ast.Node) bool {
+	switch node.Kind {
+	case ast.KindNumericLiteral, ast.KindStringLiteral, ast.KindNoSubstitutionTemplateLiteral,
+		ast.KindTrueKeyword, ast.KindFalseKeyword:
+		return true
+	case ast.KindPrefixUnaryExpression:
+		return node.AsPrefixUnaryExpression().Operator == ast.KindExclamationToken
+	case ast.KindBinaryExpression:
+		switch node.AsBinaryExpression().OperatorToken.Kind {
+		case ast.KindEqualsEqualsToken, ast.KindEqualsEqualsEqualsToken,
+			ast.KindExclamationEqualsToken, ast.KindExclamationEqualsEqualsToken,
+			ast.KindLessThanToken, ast.KindLessThanEqualsToken,
+			ast.KindGreaterThanToken, ast.KindGreaterThanEqualsToken:
+			return true
+		}
+	}
+	return false
+}
+
 func transformExpression(state *TransformState, prereqs *Prereqs, node *ast.Node) luau.Expression {
 	transformer := expressionTransformerByKind[node.Kind]
 	if transformer != nil {
 		expression := transformer(state, prereqs, node)
+		if isSyntacticallyPrimitive(node) {
+			markPrimitiveValue(expression)
+			return expression
+		}
 		t := state.GetType(node)
 		validateMethodExpression(state, node, t)
 		if getOrSetDefault(state.MultiTransformState.IsPrimitiveTypeCache, t, func() bool {

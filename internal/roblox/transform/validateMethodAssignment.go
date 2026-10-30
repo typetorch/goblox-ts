@@ -108,6 +108,16 @@ func validateMethodExpression(state *TransformState, node *ast.Node, type_ *chec
 }
 
 func validateObjectLiteralElement(state *TransformState, node *ast.Node) {
+	// validateTypes only looks at call signatures, and these initializers have none. Their types are not
+	// cheap: the type of `a: { ... }` checks the whole literal again, at every level of nesting.
+	if ast.IsPropertyAssignment(node) {
+		switch node.Initializer().Kind {
+		case ast.KindObjectLiteralExpression, ast.KindArrayLiteralExpression, ast.KindTemplateExpression,
+			ast.KindNumericLiteral, ast.KindStringLiteral, ast.KindNoSubstitutionTemplateLiteral,
+			ast.KindTrueKeyword, ast.KindFalseKeyword:
+			return
+		}
+	}
 	t := state.GetType(node)
 	contextualType := state.TypeChecker.GetContextualTypeForObjectLiteralElement(node, checker.ContextFlagsNone)
 	if contextualType != nil && contextualType != t {
