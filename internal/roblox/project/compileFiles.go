@@ -32,6 +32,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/roblox/transform"
 	"github.com/microsoft/typescript-go/internal/tspath"
 	"github.com/microsoft/typescript-go/internal/vfs"
+	"github.com/microsoft/typescript-go/internal/vfs/cachedvfs"
 )
 
 // EmitResult is ts.EmitResult, plus the files whose transform panicked.
@@ -314,11 +315,15 @@ func compileFiles(ctx context.Context, fs vfs.FS, program *compiler.Program, dat
 	outDir := compilerOptions.OutDir
 
 	rojoStart := time.Now()
+	// The resolvers walk their directories and ask for the real path of every entry several times
+	// (Realpath opens the file on Windows). Cache those answers while the resolvers are built; the cache
+	// is dropped before the transform, so later queries and watch rebuilds see the file system as it is.
+	rojoFS := cachedvfs.From(fs)
 	var rojoResolver *rojo.RojoResolver
 	if data.RojoConfigPath != "" {
-		rojoResolver = rojo.FromPath(fs, data.RojoConfigPath)
+		rojoResolver = rojo.FromPath(rojoFS, data.RojoConfigPath)
 	} else {
-		rojoResolver = rojo.Synthetic(fs, outDir)
+		rojoResolver = rojo.Synthetic(rojoFS, outDir)
 	}
 
 	for _, warning := range rojoResolver.GetWarnings() {
@@ -343,9 +348,10 @@ func compileFiles(ctx context.Context, fs vfs.FS, program *compiler.Program, dat
 
 	var pkgRojoResolvers []*rojo.RojoResolver
 	for _, typeRoot := range compilerOptions.TypeRoots {
-		pkgRojoResolvers = append(pkgRojoResolvers, rojo.Synthetic(fs, typeRoot))
+		pkgRojoResolvers = append(pkgRojoResolvers, rojo.Synthetic(rojoFS, typeRoot))
 	}
 	nodeModulesPathMapping := createNodeModulesPathMapping(fs, compilerOptions.TypeRoots)
+	rojoFS.DisableAndClearCache()
 	if LogService.Verbose {
 		LogService.Write("load rojo configs and package paths")
 		benchmarkEnd(rojoStart)
