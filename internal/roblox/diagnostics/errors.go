@@ -1,6 +1,7 @@
 package diagnostics
 
 import (
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -213,7 +214,8 @@ var Errors = ErrorsCatalogue{
 		"roblox-ts does not support importing regular npm packages.",
 	),
 	FailedSymlinkResolve: errorWithContext(func(context ...any) []string {
-		nodeModulesPath, moduleFilename, virtualPath, relativePath := context[0].(string), context[1].(string), context[2].(string), context[3].(string)
+		// path.join and path.relative results use the platform's separators
+		nodeModulesPath, moduleFilename, virtualPath, relativePath := filepath.FromSlash(context[0].(string)), context[1].(string), context[2].(string), filepath.FromSlash(context[3].(string))
 		virtual := ""
 		if virtualPath != "" {
 			virtual = "roblox-ts thinks it should be imported through this symlink: " + virtualPath
@@ -243,7 +245,8 @@ var Errors = ErrorsCatalogue{
 
 	// files
 	NoRojoData: errorWithContext(func(context ...any) []string {
-		path, isPackage := context[0].(string), context[1].(bool)
+		// path.relative results use the platform's separators
+		path, isPackage := filepath.FromSlash(context[0].(string)), context[1].(bool)
 		packageSuggestion := ""
 		if isPackage {
 			packageSuggestion = suggestion("Did you forget to add a custom npm scope to your default.project.json?")
@@ -254,7 +257,8 @@ var Errors = ErrorsCatalogue{
 		}
 	}),
 	NoPackageImportWithoutScope: errorWithContext(func(context ...any) []string {
-		path, rbxPath := context[0].(string), context[1].([]string)
+		// path.relative results use the platform's separators
+		path, rbxPath := filepath.FromSlash(context[0].(string)), context[1].([]string)
 		return []string{
 			"Imported package Roblox path is missing an npm scope!",
 			"Package path: " + path,
@@ -276,9 +280,10 @@ var Errors = ErrorsCatalogue{
 		)
 	},
 	RojoPathInSrc: func(partitionPath, suggestedPath string) *ast.Diagnostic {
+		// path.relative results use the platform's separators
 		return errorText(
 			"Invalid Rojo configuration. $path fields should be relative to out directory.",
-			suggestion(`Change the value of $path from "`+partitionPath+`" to "`+suggestedPath+`".`),
+			suggestion(`Change the value of $path from "`+filepath.FromSlash(partitionPath)+`" to "`+filepath.FromSlash(suggestedPath)+`".`),
 		)
 	},
 	NoMixedStringIndex: errorFactory(

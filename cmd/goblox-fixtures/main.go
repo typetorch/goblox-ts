@@ -7,6 +7,11 @@
 //
 //	go run ./cmd/goblox-fixtures -oracle <oracle dir> -lune [-compiler rbxtsc] [-optimizedLoops]
 //
+// With -diagnostic-fixtures it compiles each diagnostic fixture with both compilers and compares what
+// they print (see diagnostics.go):
+//
+//	go run ./cmd/goblox-fixtures -oracle <oracle dir> -diagnostic-fixtures [-v] [-run <regexp>]
+//
 // The test project (<oracle>/tests) is copied to a temporary directory first, without its out/, so the
 // oracle's expected output is never touched and the Rojo paths (out/...) still resolve. Each file prints
 // one line: `match`, `differs` (a unified diff follows with -v), `missing` (goblox wrote no file),
@@ -49,6 +54,7 @@ func run() int {
 	rojoBin := flag.String("rojo-bin", "rojo", "rojo 7.4.4 executable (-lune)")
 	compiler := flag.String("compiler", "goblox", `compiler for -lune: "goblox", or "rbxtsc" for the oracle's roblox-ts (the baseline)`)
 	optimizedLoops := flag.Bool("optimizedLoops", false, "compile with --optimizedLoops, as compile.test.ts does (-lune)")
+	diagnosticFixtures := flag.Bool("diagnostic-fixtures", false, "compile each diagnostic fixture with goblox and rbxtsc and compare their output")
 	flag.Parse()
 	if *oracle == "" {
 		fmt.Fprintln(os.Stderr, "goblox-fixtures: -oracle is required")
@@ -68,6 +74,9 @@ func run() int {
 	var filter *regexp.Regexp
 	if *runPattern != "" {
 		filter = regexp.MustCompile(*runPattern)
+	}
+	if *diagnosticFixtures {
+		return runDiagnosticFixtures(*oracle, filter, *verbose)
 	}
 
 	testsDir := filepath.Join(*oracle, "tests")

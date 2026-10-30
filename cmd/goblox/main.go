@@ -221,10 +221,18 @@ func runBuild(args []string) int {
 	return 0
 }
 
+// newLine is ts.sys.newLine.
+var newLine = func() string {
+	if runtime.GOOS == "windows" {
+		return "\r\n"
+	}
+	return "\n"
+}()
+
 // newReporter is ts.createDiagnosticReporter(ts.sys, true).
 func newReporter(cwd string, useCaseSensitiveFileNames bool) func([]*ast.Diagnostic) {
 	formatOpts := &diagnosticwriter.FormattingOptions{
-		NewLine: "\n",
+		NewLine: newLine,
 		ComparePathsOptions: tspath.ComparePathsOptions{
 			CurrentDirectory:          cwd,
 			UseCaseSensitiveFileNames: useCaseSensitiveFileNames,
@@ -232,8 +240,8 @@ func newReporter(cwd string, useCaseSensitiveFileNames bool) func([]*ast.Diagnos
 	}
 	return func(diags []*ast.Diagnostic) {
 		for _, d := range diags {
-			diagnosticwriter.FormatDiagnosticWithColorAndContext(os.Stdout, diagnosticwriter.WrapASTDiagnostic(d), formatOpts)
-			fmt.Fprint(os.Stdout, "\n")
+			diagnostics.WriteWithColorAndContext(os.Stdout, d, formatOpts)
+			fmt.Fprint(os.Stdout, newLine)
 		}
 	}
 }

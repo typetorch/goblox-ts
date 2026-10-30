@@ -87,8 +87,8 @@ options, as in roblox-ts.
 ### Output and exit codes
 
 - Diagnostics are written to stdout through `ts.createDiagnosticReporter(ts.sys, true)`. That means the
-  colored, pretty format with source context, always colored, as in rbxtsc. roblox-ts errors keep their
-  `roblox-ts-<n>` codes and messages byte for byte.
+  colored, pretty format with source context, always colored, as in rbxtsc. roblox-ts errors print as
+  `error TS roblox-ts: <message>`, and their messages are byte-identical.
 - **0**: the build had no error diagnostics. Warnings don't change the exit code.
 - **1**: one of the following.
   - An error diagnostic (TypeScript or roblox-ts).
