@@ -47,6 +47,8 @@ type BuildOptions struct {
 	SingleThreaded bool
 	// SourceFileCache, when set, keeps parsed and bound source files between builds (watch mode).
 	SourceFileCache *SourceFileCache
+	// Incremental, when set, compiles only what changed since the last good build of the session.
+	Incremental *IncrementalSession
 }
 
 // CLIError is CLI/errors/CLIError.ts.
@@ -266,9 +268,10 @@ func getProjectOutputs(fs vfs.FS, program *compiler.Program, data *transform.Pro
 	if !isPackageProject(data) {
 		excluded = append(excluded[:len(excluded):len(excluded)], data.ProjectOptions.IncludePath)
 	}
-	buildInfoPath := ""
+	buildInfoPath, cachePath := "", ""
 	if pathTranslator.BuildInfoOutputPath != "" {
 		buildInfoPath = projectPathKey(fs, pathTranslator.BuildInfoOutputPath)
+		cachePath = projectPathKey(fs, incrementalCachePath(pathTranslator.BuildInfoOutputPath))
 	}
 
 	var walk func(input string)
@@ -293,7 +296,7 @@ func getProjectOutputs(fs vfs.FS, program *compiler.Program, data *transform.Pro
 		} else {
 			// a composite root can include deployment configs beside tsconfig, not just source assets
 			isDeploymentConfig := nodepath.Dirname(input) == data.ProjectPath && deploymentConfigRegex.MatchString(nodepath.Basename(input))
-			if configPaths[projectPathKey(fs, input)] || (buildInfoPath != "" && projectPathKey(fs, input) == buildInfoPath) || isDeploymentConfig {
+			if configPaths[projectPathKey(fs, input)] || (buildInfoPath != "" && (projectPathKey(fs, input) == buildInfoPath || projectPathKey(fs, input) == cachePath)) || isDeploymentConfig {
 				return
 			}
 			if strings.HasSuffix(input, ".ts") || strings.HasSuffix(input, ".tsx") {
@@ -319,6 +322,7 @@ func getProjectOutputs(fs vfs.FS, program *compiler.Program, data *transform.Pro
 	}
 	if pathTranslator.BuildInfoOutputPath != "" {
 		outputs.files[buildInfoPath] = ""
+		outputs.files[cachePath] = ""
 	}
 	if data.RojoConfigPath != "" {
 		key := projectPathKey(fs, data.RojoConfigPath)
@@ -535,12 +539,19 @@ func build(ctx context.Context, fs vfs.FS, cwd string, tsConfigPath string, opts
 		}
 	}
 
+	var inc *incrementalBuild
+	if incrementalEligible(opts, data, program.Options()) {
+		benchmarkIfVerbose("compare with the last build", func() {
+			inc = opts.Incremental.begin(fs, loaded, data, pathTranslator, program, sourceFiles, outputs)
+		})
+	}
+
 	// compileFiles checks the rebound plugin output, which can differ from the original TypeScript
-	result = compileFiles(ctx, fs, program, data, pathTranslator, sourceFiles, opts.KeepGoing)
+	result = compileFiles(ctx, fs, program, data, pathTranslator, sourceFiles, opts.KeepGoing, inc)
 	result.OutputRoots = append(getOutputRoots(pathTranslator, program.Options()), data.ProjectOptions.IncludePath)
 	if !result.EmitSkipped || opts.KeepGoing {
 		benchmarkIfVerbose("copy non-compiled files", func() {
-			err = syncProjectOutputs(fs, outputs, data.ProjectOptions.WriteOnlyChanged)
+			err = syncProjectOutputs(fs, outputs, data.ProjectOptions.WriteOnlyChanged || inc != nil)
 		})
 		if err != nil {
 			return nil, err

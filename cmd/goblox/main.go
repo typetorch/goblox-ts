@@ -71,6 +71,8 @@ type buildFlags struct {
 	timing      *bool
 	cpuProfile  *string
 	memProfile  *string
+	// noIncremental compiles every file, without the cache and without watch mode's state
+	noIncremental *bool
 }
 
 func newBuildFlags() *buildFlags {
@@ -98,6 +100,7 @@ func newBuildFlags() *buildFlags {
 	f.timing = flags.Bool("timing", false, "print the build time")
 	f.cpuProfile = flags.String("cpuprofile", "", "write a Go CPU profile to this file (goblox only)")
 	f.memProfile = flags.String("memprofile", "", "write a Go heap profile to this file at exit (goblox only)")
+	f.noIncremental = flags.Bool("noIncremental", false, "compile every file, ignoring what the last build left (goblox only)")
 	flags.Usage = func() {
 		fmt.Fprintf(flags.Output(), "%s\n\nUsage: goblox [build|watch] [flags]\n       goblox check [flags]\n\nFlags:\n", versionString())
 		flags.PrintDefaults()
@@ -167,7 +170,7 @@ func runBuild(args []string) int {
 	flags.Visit(func(f *flag.Flag) {
 		getter := f.Value.(flag.Getter)
 		switch f.Name {
-		case "project", "p", "checkers", "timing", "cpuprofile", "memprofile", "logTruncatedPaths", "usePolling":
+		case "project", "p", "checkers", "timing", "cpuprofile", "memprofile", "logTruncatedPaths", "usePolling", "noIncremental":
 		case "w", "watch":
 			watch = getter.Get().(bool)
 		case "i":
@@ -192,6 +195,9 @@ func runBuild(args []string) int {
 		FS:               fs,
 		Overrides:        overrides,
 		Checkers:         *f.checkers,
+	}
+	if !*f.noIncremental {
+		opts.Incremental = &project.IncrementalSession{Persist: true}
 	}
 	if watch {
 		return runWatch(opts, report)
