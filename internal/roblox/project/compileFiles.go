@@ -601,8 +601,21 @@ func compileFilesPrinting(ctx context.Context, fs vfs.FS, program *compiler.Prog
 		return &EmitResult{EmitSkipped: true, Diagnostics: diags, Panics: panics}
 	}
 
-	if compilerOptions.GetEmitDeclarations() {
-		LogService.Warn("goblox does not emit declaration files yet")
+	// declaration errors must not leave Luau and declaration outputs from different builds
+	var declarationWrites []declarationWrite
+	if compilerOptions.GetEmitDeclarations() && len(fileWriteQueue) > 0 {
+		declarationFiles := make([]*ast.SourceFile, len(fileWriteQueue))
+		for i, write := range fileWriteQueue {
+			declarationFiles[i] = write.sourceFile
+		}
+		var declarationDiagnostics []*ast.Diagnostic
+		benchmarkIfVerbose("emit declaration files", func() {
+			declarationWrites, declarationDiagnostics = emitDeclarations(ctx, program, proxyProgram, declarationFiles)
+		})
+		diags = append(diags, declarationDiagnostics...)
+		if hasErrors(diags) && !keepGoing {
+			return &EmitResult{EmitSkipped: true, Diagnostics: diags, Panics: panics}
+		}
 	}
 
 	var emittedFiles []string
@@ -623,6 +636,18 @@ func compileFilesPrinting(ctx context.Context, fs vfs.FS, program *compiler.Prog
 				return
 			}
 			emittedFiles = append(emittedFiles, outPath)
+		}
+		for _, write := range declarationWrites {
+			if data.ProjectOptions.WriteOnlyChanged {
+				if existing, err := os.ReadFile(write.fileName); err == nil && string(existing) == write.text {
+					continue
+				}
+			}
+			if err := outputFile(write.fileName, []byte(write.text)); err != nil {
+				writeErr = err
+				return
+			}
+			emittedFiles = append(emittedFiles, write.fileName)
 		}
 	})
 	if writeErr != nil {

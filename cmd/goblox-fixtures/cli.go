@@ -67,11 +67,94 @@ type cliScenario struct {
 	name  string
 	flags []string
 	files map[string]*string
+	// mustWrite and mustPrint are what rbxtsc has to do for the scenario to test what it says it tests
+	mustWrite string
+	mustPrint string
 	// intentional names a difference that docs/goblox/CLI.md documents; only the exit code is compared
 	intentional string
 }
 
 func text(s string) *string { return &s }
+
+// declarationFiles is a small @rbxts-style package: module and global types, baseUrl imports, a hand-written
+// declaration file, comments, classes and generics.
+func declarationFiles(overrides map[string]*string) map[string]*string {
+	files := map[string]*string{
+		"default.project.json": nil,
+		"src/main.server.ts":   nil,
+		"tsconfig.json":        text(strings.Replace(cliTsconfig, `"baseUrl": "src"`, `"baseUrl": "src", "declaration": true`, 1)),
+		"src/index.ts": text(`/** The package's entry point. */
+export * from "shared/util";
+export { helper as renamedHelper } from "lib/helper";
+import { Thing, type Options } from "lib/thing";
+import Other = require("lib/other");
+
+// not kept in the output
+export function add(a: number, b: number) {
+	return a + b;
+}
+
+export const part = new Instance("Part");
+export const players = game.GetService("Players");
+
+export function makeThing(options: Options) {
+	return new Thing(options);
+}
+
+export const other = Other.other;
+export type Pair<T> = [T, T];
+export type Lazy = typeof import("lib/thing");
+`),
+		"src/lib/helper.ts": text("export function helper<T>(value: T): T {\n\treturn value;\n}\n"),
+		"src/lib/other.ts":  text("const other = { a: 1, b: \"two\" } as const;\nexport = { other };\n"),
+		"src/lib/thing.ts": text(`export interface Options {
+	readonly name: string;
+	size?: number;
+}
+
+export class Thing {
+	public static count = 0;
+	private secret = 1;
+	protected kept = "a";
+
+	constructor(public readonly options: Options) {}
+
+	/** Doubles it. */
+	public double(this: Thing, value = 2) {
+		return value * this.secret;
+	}
+
+	public name() {
+		return this.options.name;
+	}
+}
+
+export enum Kind {
+	A,
+	B = "b",
+}
+
+export abstract class Base<T extends defined> {
+	abstract value(): T;
+}
+`),
+		"src/lib/data.json":   text("{ \"a\": 1 }\n"),
+		"src/lib/usesData.ts": text("import data from \"lib/data.json\";\nexport const copy = data;\n"),
+		// hand-written: printed again, comments stay, its specifiers are rewritten too
+		"src/types.d.ts": text(`// a comment
+import { Options } from 'lib/thing';
+    declare global {
+  interface Extra { options: Options; }
+}
+export type { Options };
+declare const   service :string;
+`),
+	}
+	for name, contents := range overrides {
+		files[name] = contents
+	}
+	return files
+}
 
 func cliScenarios() []cliScenario {
 	withoutTsconfig := map[string]*string{"tsconfig.json": nil}
@@ -123,7 +206,23 @@ func cliScenarios() []cliScenario {
 		{name: "--type model", flags: []string{"--type", "model"}, files: modelRojo},
 		{name: "--type model, game rojo", flags: []string{"--type", "model"}},
 		{name: "inferred model", files: modelRojo},
-		{name: "--type package", flags: []string{"--type", "package"}, files: packageFiles},
+		{name: "--type package", flags: []string{"--type", "package"}, files: packageFiles, mustWrite: "out/index.d.ts"},
+		{name: "package: declarations", flags: []string{"--type", "package"}, files: declarationFiles(nil), mustWrite: "out/lib/thing.d.ts"},
+		{name: "package: inferred", files: declarationFiles(nil), mustWrite: "out/types.d.ts"},
+		{name: "package: declarationDir", mustWrite: "out/types/index.d.ts.map", files: declarationFiles(map[string]*string{
+			"tsconfig.json": text(strings.Replace(cliTsconfig, `"baseUrl": "src"`, `"baseUrl": "src", "declaration": true, "declarationDir": "out/types", "declarationMap": true`, 1)),
+		})},
+		{name: "package: no declaration", files: declarationFiles(map[string]*string{"tsconfig.json": text(cliTsconfig)}), mustWrite: "out/init.luau"},
+		{name: "package: paths", mustWrite: "out/uses.d.ts", files: declarationFiles(map[string]*string{
+			"src/index.ts":        text("export const unused = 1;\n"),
+			"src/lib/usesData.ts": nil,
+			"src/types.d.ts":      nil,
+			"tsconfig.json":       text(strings.Replace(cliTsconfig, `"baseUrl": "src"`, `"declaration": true, "paths": { "lib/*": ["./src/lib/*"], "~shared": ["./src/shared/util.ts"] }`, 1)),
+			"src/uses.ts":         text("import { helper } from 'lib/helper';\nimport { value } from '~shared';\nexport const a = helper(value);\nexport type B = typeof import('lib/helper');\n"),
+		})},
+		{name: "package: declaration error", mustPrint: "TS4", files: declarationFiles(map[string]*string{
+			"src/bad.ts": text("export const value = class {\n\tprivate hidden = 1;\n};\n"),
+		})},
 		{name: "--type game, no rojo", flags: []string{"--type", "game"}, files: packageFiles},
 		{name: "--rojo path", flags: []string{"--rojo", "other.project.json"}, files: otherRojo},
 		{name: "--rojo missing path", flags: []string{"--rojo", "missing.project.json"}},
@@ -179,7 +278,7 @@ func runCliScenarios(oracle string, filter *regexp.Regexp, verbose bool) int {
 			fmt.Fprintln(os.Stderr, "goblox-fixtures:", err)
 			return 2
 		}
-		differences, sameExitCode, err := compareCli(dir, oracle, goblox, scenario.flags)
+		differences, sameExitCode, err := compareCli(dir, oracle, goblox, scenario)
 		switch {
 		case err != nil:
 			fmt.Printf("%-32s error: %v\n", scenario.name, err)
@@ -288,6 +387,8 @@ func compareOutputs(want map[string]string, got map[string]string) string {
 			fmt.Fprintf(&differences, "only goblox wrote %s\n", name)
 		case !inGot:
 			fmt.Fprintf(&differences, "only rbxtsc wrote %s\n", name)
+		case strings.HasSuffix(name, ".d.ts.map"):
+			// typescript-go's source map generator picks other mappings, the files only have to exist
 		case wantContents != gotContents:
 			fmt.Fprintf(&differences, "%s differs\n%s", name, unifiedDiff("rbxtsc "+name, "goblox "+name, wantContents, gotContents))
 		}
@@ -296,7 +397,8 @@ func compareOutputs(want map[string]string, got map[string]string) string {
 }
 
 // compareCli runs both compilers on the project in dir, each from the same clean tree.
-func compareCli(dir string, oracle string, goblox string, flags []string) (string, bool, error) {
+func compareCli(dir string, oracle string, goblox string, scenario cliScenario) (string, bool, error) {
+	flags := scenario.flags
 	sources, err := projectOutputs(dir, nil)
 	if err != nil {
 		return "", false, err
@@ -327,6 +429,13 @@ func compareCli(dir string, oracle string, goblox string, flags []string) (strin
 	if err != nil {
 		return "", false, err
 	}
+	var unproven string
+	if _, wrote := wantOutputs[scenario.mustWrite]; scenario.mustWrite != "" && !wrote {
+		unproven += fmt.Sprintf("rbxtsc did not write %s\n%s", scenario.mustWrite, want.stdout)
+	}
+	if !strings.Contains(want.stdout, scenario.mustPrint) {
+		unproven += fmt.Sprintf("rbxtsc did not print %s\n%s", scenario.mustPrint, want.stdout)
+	}
 	got, err := runCompiler(dir, os.Environ(), goblox, flags...)
 	if err != nil {
 		return "", false, err
@@ -335,5 +444,5 @@ func compareCli(dir string, oracle string, goblox string, flags []string) (strin
 	if err != nil {
 		return "", false, err
 	}
-	return describeRunDifferences(want, got) + compareOutputs(wantOutputs, gotOutputs), want.exitCode == got.exitCode, nil
+	return unproven + describeRunDifferences(want, got) + compareOutputs(wantOutputs, gotOutputs), unproven == "" && want.exitCode == got.exitCode, nil
 }

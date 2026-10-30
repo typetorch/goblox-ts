@@ -263,8 +263,13 @@ func getProjectOutputs(fs vfs.FS, program *compiler.Program, data *transform.Pro
 		if data.ProjectOptions.WriteTransformedFiles && len(PluginEntries(program)) > 0 {
 			addOutput(pathTranslator.GetOutputTransformedPath(fileName), fileName)
 		}
-		if pathTranslator.Declaration {
-			addOutput(pathTranslator.GetOutputDeclarationPath(fileName), fileName)
+		// ts.getOutputFileNames, which knows declarationDir
+		if pathTranslator.Declaration && !tspath.IsDeclarationFileName(fileName) {
+			declarationPath := outputpaths.GetOutputDeclarationFileNameWorker(fileName, compilerOptions, program)
+			addOutput(declarationPath, fileName)
+			if compilerOptions.GetAreDeclarationMapsEnabled() {
+				addOutput(declarationPath+".map", fileName)
+			}
 		}
 	}
 
@@ -341,11 +346,21 @@ func isPackageProject(data *transform.ProjectData) bool {
 	return data.ProjectOptions.Type == transform.ProjectTypePackage || (data.ProjectOptions.Type == "" && data.IsPackage)
 }
 
-func syncProjectOutputs(fs vfs.FS, outputs *projectOutputs, writeOnlyChanged bool) error {
+func syncProjectOutputs(fs vfs.FS, program *compiler.Program, outputs *projectOutputs, writeOnlyChanged bool) error {
 	for _, a := range outputs.assets {
 		if tspath.IsDeclarationFileName(a.input) {
-			// TODO: transformDeclarationFile
-			LogService.Warn("goblox does not copy declaration files yet: " + a.input)
+			contents, err := transformDeclarationFile(program, a.input)
+			if err != nil {
+				return err
+			}
+			if writeOnlyChanged {
+				if existing, err := os.ReadFile(a.output); err == nil && string(existing) == contents {
+					continue
+				}
+			}
+			if err := outputFile(a.output, []byte(contents)); err != nil {
+				return err
+			}
 			continue
 		}
 		contents, err := os.ReadFile(a.input)
@@ -567,7 +582,7 @@ func build(ctx context.Context, fs vfs.FS, cwd string, tsConfigPath string, opts
 	result.OutputRoots = append(getOutputRoots(pathTranslator, program.Options()), data.ProjectOptions.IncludePath)
 	if !result.EmitSkipped || keepGoing {
 		benchmarkIfVerbose("copy non-compiled files", func() {
-			err = syncProjectOutputs(fs, outputs, data.ProjectOptions.WriteOnlyChanged || inc != nil)
+			err = syncProjectOutputs(fs, program, outputs, data.ProjectOptions.WriteOnlyChanged || inc != nil)
 		})
 		if err != nil {
 			return nil, err
