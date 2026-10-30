@@ -40,8 +40,10 @@ goblox -v | --version      goblox 0.1.0 (roblox-ts 3.0.0 compatible, typescript 
 goblox -h | --help         flags
 ```
 
-Flags take one dash or two (`-p` and `--project` both work), and values follow either `=` or a space
-(`--type=game`, `--type game`). Booleans take `--flag` or `--flag=false`; `--flag false` does not work.
+Flags are parsed like yargs parses them for rbxtsc: values follow either `=` or a space (`--type=game`,
+`--type game`), booleans also take `--flag false` and `--no-flag`, `--kebab-case` names work, and a string
+flag without a value is the empty string. One difference: a single dash name that is a whole flag
+(`-verbose`) is that flag, where yargs reads the letters `-v -e -r ...`. `build` has to be the first argument.
 
 ### What typetorch runs
 
@@ -92,14 +94,25 @@ options, as in roblox-ts.
 - **0**: the build had no error diagnostics. Warnings don't change the exit code.
 - **1**: one of the following.
   - An error diagnostic (TypeScript or roblox-ts).
-  - A CLI or project error, such as `Unable to find tsconfig.json!` or an invalid `--type`.
-  - An unknown flag or extra argument (yargs `.strict()`; Go's flag package would exit 2, so goblox maps it).
+  - A CLI or project error, such as `Unable to find tsconfig.json!`, or a Rojo project file that can't be read.
+  - A flag check that yargs would fail, printed on stdout as yargs prints it: `Unknown argument: x`, `Invalid
+    values:` for `--type`, and `Missing dependent arguments:` for `--usePolling` without `--watch`.
   - An internal error.
 - When a file's transform panics (an unported construct), the file gets an error diagnostic, the panic is
   printed on stderr as `goblox: <file>: <panic>`, and the exit code is 1. As in roblox-ts, nothing is written
   when there are errors.
 - `--version` prints a single line, `goblox <version> (roblox-ts 3.0.0 compatible, typescript <version>)`.
   rbxtsc prints only its version number. typetorch takes the first line.
+
+`go run ./cmd/goblox-fixtures -oracle <oracle> -cli` compares both compilers on these invocations: exit code,
+stdout, stderr and every file written. It is byte-for-byte, except for these intentional differences, where only
+the exit code is compared:
+
+- `--version`, `--help` and `--verbose` print goblox's own text (see above).
+- A tsconfig.json that isn't valid JSON is reported by typescript-go's parser, which can pick another code than
+  TypeScript 5.9's (TS1005 for TS1136).
+- A Rojo project file that isn't valid JSON gets the same `Unable to read Rojo project` error, but the text after
+  `SyntaxError:` is Go's, not V8's.
 
 ### Watch mode
 

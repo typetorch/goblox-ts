@@ -422,10 +422,11 @@ func Build(ctx context.Context, opts BuildOptions) (*EmitResult, error) {
 		return nil, err
 	}
 
-	result, err := build(ctx, fs, cwd, tsConfigPath, opts)
+	graphLoaded := false
+	result, err := build(ctx, fs, cwd, tsConfigPath, opts, &graphLoaded)
 	var diagnosticError *diagnostics.DiagnosticError
 	if errors.As(err, &diagnosticError) {
-		return &EmitResult{EmitSkipped: true, Diagnostics: diagnosticError.Diagnostics, WatchRoot: nodepath.Dirname(tsConfigPath)}, nil
+		return &EmitResult{EmitSkipped: true, Fatal: !graphLoaded, Diagnostics: diagnosticError.Diagnostics, WatchRoot: nodepath.Dirname(tsConfigPath)}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -436,7 +437,9 @@ func Build(ctx context.Context, opts BuildOptions) (*EmitResult, error) {
 	return result, nil
 }
 
-func build(ctx context.Context, fs vfs.FS, cwd string, tsConfigPath string, opts BuildOptions) (result *EmitResult, err error) {
+// build sets graphLoaded where ProjectBuild's constructor ends and ProjectBuild.build starts: only the latter
+// catches a DiagnosticError.
+func build(ctx context.Context, fs vfs.FS, cwd string, tsConfigPath string, opts BuildOptions, graphLoaded *bool) (result *EmitResult, err error) {
 	defer func() {
 		// ProjectError and DiagnosticError thrown from deep inside the transform helpers
 		if r := recover(); r != nil {
@@ -506,6 +509,14 @@ func build(ctx context.Context, fs vfs.FS, cwd string, tsConfigPath string, opts
 	if err != nil {
 		return nil, err
 	}
+
+	// ProjectGraph.refreshRojoProjects
+	if data.RojoConfigPath != "" {
+		if err := checkRojoProject(fs, data.RojoConfigPath); err != nil {
+			return nil, err
+		}
+	}
+	*graphLoaded = true
 
 	LogService.WriteLineIfVerbose("Building project: " + data.TsConfigPath)
 	if LogService.Verbose {

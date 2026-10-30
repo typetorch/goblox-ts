@@ -124,15 +124,19 @@ func warningText(messages ...string) *ast.Diagnostic {
 // the code to the string " roblox-ts", which TypeScript prints as "TS roblox-ts: ". The code of a goblox
 // diagnostic holds the roblox-ts id, and diagnosticwriter would print it as "roblox-ts<id>: ".
 func WriteWithColorAndContext(output io.Writer, d *ast.Diagnostic, formatOpts *diagnosticwriter.FormattingOptions) {
-	if !IsRobloxTsDiagnostic(d) {
-		diagnosticwriter.FormatDiagnosticWithColorAndContext(output, diagnosticwriter.WrapASTDiagnostic(d), formatOpts)
-		return
-	}
 	var buffer strings.Builder
 	diagnosticwriter.FormatDiagnosticWithColorAndContext(&buffer, diagnosticwriter.WrapASTDiagnostic(d), formatOpts)
-	// the location before the code is colored too, so it can't contain this grey escape sequence
-	written := "\x1b[90m " + Source + strconv.Itoa(int(d.Code())) + ": "
-	io.WriteString(output, strings.Replace(buffer.String(), written, "\x1b[90m TS "+Source+": ", 1))
+	text := buffer.String()
+	if IsRobloxTsDiagnostic(d) {
+		// the location before the code is colored too, so it can't contain this grey escape sequence
+		written := "\x1b[90m " + Source + strconv.Itoa(int(d.Code())) + ": "
+		text = strings.Replace(text, written, "\x1b[90m TS "+Source+": ", 1)
+	}
+	io.WriteString(output, text)
+	// TypeScript ends every diagnostic with a new line, typescript-go only the ones with a file
+	if d.File() == nil {
+		io.WriteString(output, formatOpts.NewLine)
+	}
 }
 
 // IsRobloxTsDiagnostic reports whether d was created by this package.

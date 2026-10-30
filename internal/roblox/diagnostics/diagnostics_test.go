@@ -44,7 +44,7 @@ func TestMessages(t *testing.T) {
 		t.Fatal("source, id or category")
 	}
 	f := Errors.FailedSymlinkResolve.messageText([]any{"/p/node_modules", "/x/index.d.ts", "", "@rbxts/x"})
-	if f != "Cannot resolve package entry point inside the project node_modules!\nCheck the package main field and any package symlinks.\nPackages are expected to be installed under " + filepath.FromSlash("/p/node_modules") + "\nPackage declarations resolved to /x/index.d.ts\nThe path from node_modules to the package would be " + filepath.FromSlash("@rbxts/x") {
+	if f != "Cannot resolve package entry point inside the project node_modules!\nCheck the package main field and any package symlinks.\nPackages are expected to be installed under "+filepath.FromSlash("/p/node_modules")+"\nPackage declarations resolved to /x/index.d.ts\nThe path from node_modules to the package would be "+filepath.FromSlash("@rbxts/x") {
 		t.Fatalf("got %q", f)
 	}
 }
@@ -53,7 +53,7 @@ func TestWriteWithColorAndContextPrintsCodeLikeRobloxTs(t *testing.T) {
 	var output strings.Builder
 	d := CreateTextDiagnostic("Unable to find tsconfig.json!", tsdiagnostics.CategoryError)
 	WriteWithColorAndContext(&output, d, &diagnosticwriter.FormattingOptions{NewLine: "\n"})
-	want := "\x1b[91merror\x1b[0m\x1b[90m TS roblox-ts: \x1b[0mUnable to find tsconfig.json!"
+	want := "\x1b[91merror\x1b[0m\x1b[90m TS roblox-ts: \x1b[0mUnable to find tsconfig.json!\n"
 	if output.String() != want {
 		t.Fatalf("got %q, want %q", output.String(), want)
 	}

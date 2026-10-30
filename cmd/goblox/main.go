@@ -12,6 +12,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"runtime"
 	"runtime/pprof"
@@ -114,16 +115,24 @@ func newBuildFlags() *buildFlags {
 func runBuild(args []string) int {
 	f := newBuildFlags()
 	flags := f.set
-	if err := flags.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			return 0
+	// yargs' .fail() and .help() print to stdout; Go's flag package would print to stderr
+	flags.SetOutput(io.Discard)
+	normalized, failure := normalizeArgs(flags, args)
+	if failure == "" {
+		if err := flags.Parse(normalized); err != nil {
+			if errors.Is(err, flag.ErrHelp) {
+				flags.SetOutput(os.Stdout)
+				flags.Usage()
+				return 0
+			}
+			fmt.Fprintln(os.Stderr, err)
+			return 1
 		}
-		// yargs' .fail(): exit code 1, not Go's 2
-		return 1
+		failure = validateArgs(flags)
 	}
-	if flags.NArg() > 0 {
-		// yargs' .strict()
-		fmt.Fprintf(os.Stderr, "Unknown argument: %s\n", flags.Arg(0))
+	if failure != "" {
+		// LogService.fatal, exit code 1 and not Go's 2
+		fmt.Println(failure)
 		return 1
 	}
 
@@ -186,16 +195,6 @@ func runBuild(args []string) int {
 
 	report := newReporter(cwd, fs.UseCaseSensitiveFileNames())
 
-	if t, ok := overrides["type"].(string); ok && t != "game" && t != "model" && t != "package" {
-		report([]*ast.Diagnostic{diagnostics.CreateTextDiagnostic("Invalid values:\n  Argument: type, Given: \""+t+"\", Choices: \"game\", \"model\", \"package\"", tsdiagnostics.CategoryError)})
-		return 1
-	}
-
-	if *f.emitFirst && !watch {
-		report([]*ast.Diagnostic{diagnostics.CreateTextDiagnostic("--emitFirst needs --watch", tsdiagnostics.CategoryError)})
-		return 1
-	}
-
 	opts := project.BuildOptions{
 		EmitFirst:        *f.emitFirst,
 		Project:          *f.projectPath,
@@ -229,21 +228,34 @@ var newLine = func() string {
 	return "\n"
 }()
 
-// newReporter is ts.createDiagnosticReporter(ts.sys, true).
-func newReporter(cwd string, useCaseSensitiveFileNames bool) func([]*ast.Diagnostic) {
-	formatOpts := &diagnosticwriter.FormattingOptions{
+func formattingOptions(cwd string, useCaseSensitiveFileNames bool) *diagnosticwriter.FormattingOptions {
+	return &diagnosticwriter.FormattingOptions{
 		NewLine: newLine,
 		ComparePathsOptions: tspath.ComparePathsOptions{
 			CurrentDirectory:          cwd,
 			UseCaseSensitiveFileNames: useCaseSensitiveFileNames,
 		},
 	}
+}
+
+// newReporter is ts.createDiagnosticReporter(ts.sys, true).
+func newReporter(cwd string, useCaseSensitiveFileNames bool) func([]*ast.Diagnostic) {
+	formatOpts := formattingOptions(cwd, useCaseSensitiveFileNames)
 	return func(diags []*ast.Diagnostic) {
 		for _, d := range diags {
 			diagnostics.WriteWithColorAndContext(os.Stdout, d, formatOpts)
 			fmt.Fprint(os.Stdout, newLine)
 		}
 	}
+}
+
+// logDiagnostics is LoggableError.log(): LogService.writeLine(formatDiagnostics(diagnostics)).
+func logDiagnostics(opts project.BuildOptions, diags []*ast.Diagnostic) {
+	formatOpts := formattingOptions(opts.CurrentDirectory, opts.FS.UseCaseSensitiveFileNames())
+	for _, d := range diags {
+		diagnostics.WriteWithColorAndContext(os.Stdout, d, formatOpts)
+	}
+	fmt.Fprint(os.Stdout, "\n")
 }
 
 // buildOnce runs one build and reports its diagnostics, and its panics on stderr. ok is false when the
@@ -256,16 +268,20 @@ func buildOnce(opts project.BuildOptions, report func([]*ast.Diagnostic)) (resul
 		var cliError *project.CLIError
 		switch {
 		case errors.As(err, &projectError):
-			report([]*ast.Diagnostic{diagnostics.CreateTextDiagnostic(projectError.Message, tsdiagnostics.CategoryError)})
+			logDiagnostics(opts, []*ast.Diagnostic{diagnostics.CreateTextDiagnostic(projectError.Message, tsdiagnostics.CategoryError)})
 		case errors.As(err, &cliError):
-			report([]*ast.Diagnostic{diagnostics.CreateTextDiagnostic(cliError.Message, tsdiagnostics.CategoryError)})
+			logDiagnostics(opts, []*ast.Diagnostic{diagnostics.CreateTextDiagnostic(cliError.Message, tsdiagnostics.CategoryError)})
 		default:
 			fmt.Fprintln(os.Stderr, err)
 		}
 		return nil, 1, false
 	}
 
-	report(result.Diagnostics)
+	if result.Fatal {
+		logDiagnostics(opts, result.Diagnostics)
+	} else {
+		report(result.Diagnostics)
+	}
 	if len(result.Panics) > 0 {
 		files := make([]string, 0, len(result.Panics))
 		for file := range result.Panics {

@@ -4,6 +4,7 @@ package project
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -139,7 +140,7 @@ func validateCompilerOptions(fs vfs.FS, opts *core.CompilerOptions, projectPath 
 
 	rbxtsModules := nodepath.Join(projectPath, NODE_MODULES, RBXTS_SCOPE)
 	if opts.TypeRoots == nil || !validateTypeRoots(opts.TypeRoots) {
-		errors = append(errors, y(`"typeRoots"`)+" must contain a node_modules/@rbxts directory, such as "+y(rbxtsModules))
+		errors = append(errors, y(`"typeRoots"`)+" must contain a node_modules/@rbxts directory, such as "+y(filepath.FromSlash(rbxtsModules)))
 	}
 
 	for _, typesLocation := range opts.Types {

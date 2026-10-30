@@ -38,6 +38,9 @@ import (
 // EmitResult is ts.EmitResult, plus the files whose transform panicked.
 type EmitResult struct {
 	EmitSkipped bool
+	// Fatal means ProjectBuild's constructor threw these diagnostics, so the CLI logs them as a LoggableError
+	// instead of passing them to its diagnostic reporter.
+	Fatal bool
 	// WatchRoot is the directory of the project's tsconfig.json, and OutputRoots are the directories the
 	// build writes (outDir, the include folder, ...). Watch mode polls WatchRoot without OutputRoots.
 	WatchRoot    string

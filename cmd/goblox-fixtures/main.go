@@ -12,6 +12,10 @@
 //
 //	go run ./cmd/goblox-fixtures -oracle <oracle dir> -diagnostic-fixtures [-v] [-run <regexp>]
 //
+// With -cli it compares both compilers on CLI invocations, including the files written (see cli.go):
+//
+//	go run ./cmd/goblox-fixtures -oracle <oracle dir> -cli [-v] [-run <regexp>]
+//
 // The test project (<oracle>/tests) is copied to a temporary directory first, without its out/, so the
 // oracle's expected output is never touched and the Rojo paths (out/...) still resolve. Each file prints
 // one line: `match`, `differs` (a unified diff follows with -v), `missing` (goblox wrote no file),
@@ -55,6 +59,7 @@ func run() int {
 	compiler := flag.String("compiler", "goblox", `compiler for -lune: "goblox", or "rbxtsc" for the oracle's roblox-ts (the baseline)`)
 	optimizedLoops := flag.Bool("optimizedLoops", false, "compile with --optimizedLoops, as compile.test.ts does (-lune)")
 	diagnosticFixtures := flag.Bool("diagnostic-fixtures", false, "compile each diagnostic fixture with goblox and rbxtsc and compare their output")
+	cli := flag.Bool("cli", false, "compare goblox and rbxtsc on CLI invocations: exit codes, output and written files")
 	flag.Parse()
 	if *oracle == "" {
 		fmt.Fprintln(os.Stderr, "goblox-fixtures: -oracle is required")
@@ -74,6 +79,9 @@ func run() int {
 	var filter *regexp.Regexp
 	if *runPattern != "" {
 		filter = regexp.MustCompile(*runPattern)
+	}
+	if *cli {
+		return runCliScenarios(*oracle, filter, *verbose)
 	}
 	if *diagnosticFixtures {
 		return runDiagnosticFixtures(*oracle, filter, *verbose)
