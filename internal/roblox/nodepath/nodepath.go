@@ -252,3 +252,93 @@ func Extname(p string) string {
 	}
 	return base[i:]
 }
+
+// IsPathDescendantOf is roblox-ts's and rojo-resolver's isPathDescendantOf:
+//
+//	dirPath === filePath || !path.relative(dirPath, filePath).startsWith("..")
+//
+// It gives exactly the same result, quirks included: a path on a different root counts as a
+// descendant (Relative returns the absolute target), and a child whose first segment starts with ".."
+// (such as "/a/..foo" under "/a") does not. For absolute paths without "." or ".." segments, which is what the
+// compiler passes, it compares segments in place and allocates nothing. Other paths go through Relative.
+func IsPathDescendantOf(filePath, dirPath string) bool {
+	if dirPath == filePath {
+		return true
+	}
+	dirRootLen, dirDrive := rootLen(dirPath)
+	fileRootLen, fileDrive := rootLen(filePath)
+	dirRest, fileRest := dirPath[dirRootLen:], filePath[fileRootLen:]
+	if dirRootLen == 0 || fileRootLen == 0 || hasDotSegment(dirRest) || hasDotSegment(fileRest) {
+		return !strings.HasPrefix(Relative(dirPath, filePath), "..")
+	}
+	foldCase := dirDrive != 0 || fileDrive != 0
+	if foldCase && toLowerASCII(dirDrive) != toLowerASCII(fileDrive) {
+		// Relative returns the absolute filePath, which never starts with ".."
+		return true
+	}
+	for {
+		var dirSeg, fileSeg string
+		dirSeg, dirRest = nextSegment(dirRest)
+		if dirSeg == "" {
+			// every dir segment matched: filePath is dirPath or below it, unless its first remaining
+			// segment starts with ".." (Relative would return "..foo/...")
+			fileSeg, _ = nextSegment(fileRest)
+			return !strings.HasPrefix(fileSeg, "..")
+		}
+		fileSeg, fileRest = nextSegment(fileRest)
+		if fileSeg == "" {
+			// filePath is an ancestor of dirPath
+			return false
+		}
+		if dirSeg != fileSeg && !(foldCase && strings.EqualFold(dirSeg, fileSeg)) {
+			return false
+		}
+	}
+}
+
+// rootLen is rootOf without the allocation: the length of the root prefix of p (0 for a relative
+// path) and its drive letter (0 for "/").
+func rootLen(p string) (n int, drive byte) {
+	if strings.HasPrefix(p, "/") {
+		return 1, 0
+	}
+	if len(p) >= 2 && p[1] == ':' && isDriveLetter(p[0]) {
+		if len(p) == 2 {
+			return 2, p[0]
+		}
+		if p[2] == '/' || p[2] == '\\' {
+			return 3, p[0]
+		}
+	}
+	return 0, 0
+}
+
+func toLowerASCII(c byte) byte {
+	if c >= 'A' && c <= 'Z' {
+		return c + 'a' - 'A'
+	}
+	return c
+}
+
+// nextSegment returns the first non-empty "/"-separated segment of p and the rest after it.
+func nextSegment(p string) (segment, rest string) {
+	for len(p) > 0 && p[0] == '/' {
+		p = p[1:]
+	}
+	if i := strings.IndexByte(p, '/'); i >= 0 {
+		return p[:i], p[i:]
+	}
+	return p, ""
+}
+
+// hasDotSegment reports whether p has a "." or ".." segment, which Resolve would rewrite.
+func hasDotSegment(p string) bool {
+	for p != "" {
+		var segment string
+		segment, p = nextSegment(p)
+		if segment == "." || segment == ".." {
+			return true
+		}
+	}
+	return false
+}

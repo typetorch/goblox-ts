@@ -9,6 +9,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/microsoft/typescript-go/internal/roblox/nodepath"
 	"github.com/microsoft/typescript-go/internal/vfs"
@@ -135,7 +136,7 @@ func arrayStartsWith(a, b []string) bool {
 }
 
 func isPathDescendantOf(filePath, dirPath string) bool {
-	return dirPath == filePath || !strings.HasPrefix(nodepath.Relative(dirPath, filePath), "..")
+	return nodepath.IsPathDescendantOf(filePath, dirPath)
 }
 
 func convertToLuau(filePath string) string {
@@ -155,6 +156,11 @@ type RojoResolver struct {
 	filePathToRbxPathMap map[string]RbxPath
 	isolatedContainers   []RbxPath
 	IsGame               bool
+
+	// rbxPathCache memoizes GetRbxPathFromFilePath (file path -> RbxPath). The transform asks for the
+	// same files over and over (every import of a module, from every checker goroutine), and the
+	// resolver never changes after it is built.
+	rbxPathCache sync.Map
 }
 
 func newRojoResolver(fs vfs.FS) *RojoResolver {
@@ -353,7 +359,18 @@ func (r *RojoResolver) searchDirectory(directory string, item string) {
 }
 
 // GetRbxPathFromFilePath returns the instance path of a file, or nil when no partition contains it.
+// The result is shared between callers and must not be modified.
 func (r *RojoResolver) GetRbxPathFromFilePath(filePath string) RbxPath {
+	if cached, ok := r.rbxPathCache.Load(filePath); ok {
+		return cached.(RbxPath)
+	}
+	// clip so that an append by a caller copies instead of writing into the cached array
+	rbxPath := slices.Clip(r.getRbxPathFromFilePath(filePath))
+	r.rbxPathCache.Store(filePath, rbxPath)
+	return rbxPath
+}
+
+func (r *RojoResolver) getRbxPathFromFilePath(filePath string) RbxPath {
 	filePath = nodepath.Resolve(filePath)
 	filePath = convertToLuau(filePath)
 

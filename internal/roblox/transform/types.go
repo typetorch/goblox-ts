@@ -359,10 +359,8 @@ func isRobloxType(state *TransformState) TypeCheck {
 
 // isPathDescendantOf is Shared/util/isPathDescendantOf.ts.
 func isPathDescendantOf(filePath string, dirPath string) bool {
-	return dirPath == filePath || !hasDotDotPrefix(nodepath.Relative(dirPath, filePath))
+	return nodepath.IsPathDescendantOf(filePath, dirPath)
 }
-
-func hasDotDotPrefix(p string) bool { return len(p) >= 2 && p[:2] == ".." }
 
 // type utilities
 
