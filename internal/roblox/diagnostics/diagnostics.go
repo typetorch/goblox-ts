@@ -12,6 +12,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/core"
 	tsdiagnostics "github.com/microsoft/typescript-go/internal/diagnostics"
 	"github.com/microsoft/typescript-go/internal/diagnosticwriter"
+	"github.com/microsoft/typescript-go/internal/locale"
 	"github.com/microsoft/typescript-go/internal/scanner"
 )
 
@@ -124,9 +125,9 @@ func warningText(messages ...string) *ast.Diagnostic {
 // the code to the string " roblox-ts", which TypeScript prints as "TS roblox-ts: ". The code of a goblox
 // diagnostic holds the roblox-ts id, and diagnosticwriter would print it as "roblox-ts<id>: ".
 func WriteWithColorAndContext(output io.Writer, d *ast.Diagnostic, formatOpts *diagnosticwriter.FormattingOptions) {
-	var buffer strings.Builder
-	diagnosticwriter.FormatDiagnosticWithColorAndContext(&buffer, diagnosticwriter.WrapASTDiagnostic(d), formatOpts)
-	text := buffer.String()
+	wrapped := diagnosticwriter.WrapASTDiagnostic(d)
+	base := formatWithRelated(wrapped, nil, formatOpts)
+	text := base
 	if IsRobloxTsDiagnostic(d) {
 		// the location before the code is colored too, so it can't contain this grey escape sequence
 		written := "\x1b[90m " + Source + strconv.Itoa(int(d.Code())) + ": "
@@ -137,6 +138,42 @@ func WriteWithColorAndContext(output io.Writer, d *ast.Diagnostic, formatOpts *d
 	if d.File() == nil {
 		io.WriteString(output, formatOpts.NewLine)
 	}
+	// TypeScript prints a related message under its code, typescript-go next to its location
+	related := wrapped.RelatedInformation()
+	for _, r := range related {
+		entry := strings.TrimPrefix(formatWithRelated(wrapped, []diagnosticwriter.Diagnostic{relatedWithoutMessage{r}}, formatOpts), base)
+		entry = strings.TrimSuffix(strings.Replace(entry, " - "+relatedMessageMark, "", 1), formatOpts.NewLine)
+		if r.File() != nil {
+			io.WriteString(output, entry)
+		}
+		io.WriteString(output, formatOpts.NewLine+"    "+diagnosticwriter.FlattenDiagnosticMessage(r, formatOpts.NewLine, formatOpts.Locale))
+	}
+	if len(related) > 0 {
+		io.WriteString(output, formatOpts.NewLine)
+	}
+}
+
+const relatedMessageMark = "\x00related\x00"
+
+// withRelated is a diagnostic with other related information.
+type withRelated struct {
+	diagnosticwriter.Diagnostic
+	related []diagnosticwriter.Diagnostic
+}
+
+func (d withRelated) RelatedInformation() []diagnosticwriter.Diagnostic { return d.related }
+
+// relatedWithoutMessage prints relatedMessageMark as its message.
+type relatedWithoutMessage struct{ diagnosticwriter.Diagnostic }
+
+func (relatedWithoutMessage) Localize(locale.Locale) string { return relatedMessageMark }
+
+func (relatedWithoutMessage) MessageChain() []diagnosticwriter.Diagnostic { return nil }
+
+func formatWithRelated(d diagnosticwriter.Diagnostic, related []diagnosticwriter.Diagnostic, formatOpts *diagnosticwriter.FormattingOptions) string {
+	var buffer strings.Builder
+	diagnosticwriter.FormatDiagnosticWithColorAndContext(&buffer, withRelated{d, related}, formatOpts)
+	return buffer.String()
 }
 
 // IsRobloxTsDiagnostic reports whether d was created by this package.
