@@ -161,3 +161,60 @@ Wall clock, medians of 3 (whole-project builds, no incremental state yet):
 | warm | 4.01 s | 3.47 / 4.01 / 5.13 |
 | leaf (`grenade.controller.ts`) | 3.71 s | 3.56 / 3.71 / 3.78 |
 | shared (`shared/net.ts`) | 3.69 s | 3.22 / 3.69 / 3.83 |
+
+## Transform/luau allocation (improvement #7/#13, 2026-10-30)
+
+Desktop (6 cores, 32 GB, Windows 11), scratch copy of gnome-game at `b6e33b3` (406 source files, 407 `.luau`
+outputs, `src/shared/build.ts` generated with `bun scripts/build-info.ts --dirty false`). goblox built with
+`-tags typetorch -trimpath` (no `-s -w`). Cold builds (`out/` and `include/` deleted), `goblox build -p .`,
+median of 3. CPU is the process's user+sys time, RSS the peak working set (polled every 20 ms). Alloc is
+`alloc_space` from a separate `-memprofile` run (sampled, so ±~5 MB). Other agents were compiling on the same
+machine for part of the session, so only interleaved runs are compared.
+
+| build | wall | CPU | peak RSS | total alloc |
+| --- | ---: | ---: | ---: | ---: |
+| `5b8df10e` (before) | 2.99 s | 7.78 s | 924 MB | 1,505 MB |
+| `283f997f` (facts in place + effects fast path + render lines) | 2.88 s | 7.48 s | 929 MB | 1,469 MB |
+
+A second interleaved pair ran while the machine was busy (base 3.41 s / 8.59 s, new 4.14 s / 8.67 s), so the
+wall-time difference is within noise. The allocation drop is real. Per commit (alloc_space, cumulative):
+
+| commit | what | measured |
+| --- | --- | --- |
+| `4054e5ef` | evaluation facts are a `*annotated` updated in place (clones copy it through `luau.FactsCloner`) instead of re-boxing the struct into `any` on every mark | `updateAnnotated` 31 MB → 12 MB |
+| `41276bf0` | `getEffectsOfListOrNode` merges identifier reads and assignment/declaration target writes straight into its accumulator (no intermediate `EvaluationEffects` and maps) | 36.5 MB → 24.5 MB |
+| `283f997f` | `RenderState.Line` concatenates once; indents are slices of a constant | `RenderAST` 59.3 MB → 55.7 MB |
+
+All three keep gnome-game byte-identical (only the `builtAt` timestamp in `shared/build.luau` differs), and keep
+the fixtures harness at 73/73.
+
+**Where the allocation actually is (before).** 1,505 MB per cold build: `nodepath.Relative` 554 MB (37%,
+reached from `rojo.isPathDescendantOf`, `transform.isPathDescendantOf` via `isRobloxType`/`isPossiblyType`/
+`fixVoidArgumentsForRobloxFunctions`/`isStableBuiltinMember`, and `getImportParts`). That is the quick-wins item #3,
+not this one. The checker's `checkSourceFile` is ~18%, and checker queries from the transform are ~10–20%. The
+transform's and the renderer's own allocations are only ~210 MB (14%). The largest of those that remain:
+`lsutil.GetLastToken` → `ast.NewNodeVisitor` 17.5 MB (the visitor is allocated per call outside `internal/roblox`),
+the renderer's string-returning functions (~55 MB; a single-buffer renderer would need every `render*` rewritten),
+and the effects accumulator's map growth (~18 MB).
+
+**GC and peak memory.** `GODEBUG=gctrace=1` shows only 15 GCs per cold build. The live heap reaches ~500 MB and the
+heap peaks at ~860 MB just before the end (transform + 4 checkers' caches), so peak RSS is about 2× the live heap.
+The Luau AST and `TransformState` are already per-file locals in `project.transformFiles`, dropped after
+`RenderAST`. Only the rendered string is kept until write. Soft memory limits (env `GOMEMLIMIT`, same binary):
+
+| `GOMEMLIMIT` | wall | CPU | peak RSS |
+| --- | ---: | ---: | ---: |
+| unset | 2.94 s | 7.72 s | 947 MB |
+| 896 MiB | 3.21 s | 8.38 s | 819 MB |
+| 768 MiB | 3.54 s | 9.45 s | 743 MB |
+| 512 MiB | 5.31 s | 30.6 s | 601 MB |
+
+(The 896 MiB row was measured on `283f997f`, during the busy period.) A limit trades ~10–20% wall per 15–20%
+less RSS, and thrashes once it gets near the ~500 MB live heap. On a 32 GB machine that's a pure loss. On
+espresso it only pays off if the build would otherwise swap. So no default was added to `cmd/goblox`. Users on
+small machines can set `GOMEMLIMIT` themselves. A RAM-scaled default (for example total RAM / 4) belongs in the
+npm launcher, with a measurement on espresso. `-checkers 2` (#4) cuts more RSS for less cost.
+
+**Also seen (not in this item's scope).** On Windows, `rojo.(*RojoResolver).parseTree` spends 0.81 s on the main
+goroutine in `Realpath`/`Stat` syscalls before the transform starts (~28% of the 2.9 s wall). It is worth a
+look on Windows.
