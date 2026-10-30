@@ -7,6 +7,10 @@ with what a plugin has to do about it.
 
 All additions; nothing a v2 plugin uses changed.
 
+- `ParallelPlugin`: a `Plugin` with `ForChecker() Plugin`. When every plugin implements it, `RunPlugins`
+  runs the files of each checker on their own goroutine, with the plugin `ForChecker` returned for that
+  checker. A plugin that doesn't implement it, or returns nil, runs on one goroutine as before.
+  `AddDiagnostic` may be called from these goroutines; `PluginResult.Diagnostics` keeps the file order.
 - `PluginOptions.PrintUnchanged`: print and parse again the files no plugin changed too, as rbxtsc does.
   Off by default: `RunPlugins` keeps the parsed and bound `SourceFile` of a file no plugin changed, unless
   a reprint would change the file's Luau. `PluginResult.Transformed` lists the printed files, so it can

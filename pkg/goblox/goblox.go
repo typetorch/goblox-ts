@@ -121,6 +121,17 @@ type TransformContext = project.TransformContext
 //	}
 type Plugin = project.Plugin
 
+// ParallelPlugin is a Plugin that can run on several files at once, one goroutine per checker. RunPlugins
+// runs in parallel when every plugin is one.
+//
+//	type ParallelPlugin interface {
+//		Plugin
+//		// ForChecker returns the plugin that transforms the files of one checker, from a single goroutine.
+//		// nil runs every plugin on one goroutine.
+//		ForChecker() Plugin
+//	}
+type ParallelPlugin = project.ParallelPlugin
+
 // Free functions of typescript-go the port uses.
 
 func GetSourceFileOfNode(node *ast.Node) *ast.SourceFile { return ast.GetSourceFileOfNode(node) }

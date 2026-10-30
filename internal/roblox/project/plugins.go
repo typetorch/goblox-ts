@@ -43,6 +43,16 @@ type Plugin interface {
 	TransformSourceFile(ctx *TransformContext, file *ast.SourceFile) *ast.SourceFile
 }
 
+// ParallelPlugin is a Plugin that can run on several files at once, one goroutine per checker.
+type ParallelPlugin interface {
+	Plugin
+	// ForChecker returns the plugin that transforms the files of one checker, always from a single goroutine and in
+	// the program's file order. RunPlugins calls it once per checker, before it starts any of them. The plugins of
+	// different checkers run concurrently, so they can't share state unsynchronized, and what they output can't depend
+	// on what the others did. Returning nil runs every plugin on one goroutine, as if this method didn't exist.
+	ForChecker() Plugin
+}
+
 // PluginOptions configures RunPlugins.
 type PluginOptions struct {
 	CurrentDirectory string
@@ -88,7 +98,9 @@ func CompilableSourceFiles(program *compiler.Program) []*ast.SourceFile {
 }
 
 // RunPlugins runs every plugin over every file, in order, like `ts.transformNodes` with the plugins'
-// `before` transformers. Plugins run sequentially; a file's nodes may be replaced by several plugins.
+// `before` transformers. A file's nodes may be replaced by several plugins. When every plugin is a
+// ParallelPlugin the files of each checker run on their own goroutine (a checker gets the same queries
+// in the same order as it would on one goroutine); the result doesn't depend on the scheduling.
 //
 // Transformed files are printed and parsed again (roblox-ts does the same: "transformed nodes don't
 // have symbol or type information, there's no way to rebind an existing file, so we have to reprint
@@ -105,36 +117,24 @@ func RunPlugins(ctx context.Context, program *compiler.Program, plugins []Plugin
 		files = CompilableSourceFiles(program)
 	}
 
-	var diagnosticsMu sync.Mutex
-	addDiagnostic := func(d *ast.Diagnostic) {
-		diagnosticsMu.Lock()
-		result.Diagnostics = append(result.Diagnostics, d)
-		diagnosticsMu.Unlock()
+	fileResults := make([]pluginFileResult, len(files))
+	if !runPluginsPerChecker(ctx, program, plugins, opts, files, fileResults) {
+		for i, file := range files {
+			c, done := program.GetTypeCheckerForFile(ctx, file)
+			runPluginsOnFile(program, c, plugins, opts, file, &fileResults[i])
+			done()
+		}
 	}
 
 	result.Transformed = map[string]string{}
-	for _, file := range files {
-		c, done := program.GetTypeCheckerForFile(ctx, file)
-		emitContext := printer.NewEmitContext()
-		tc := &TransformContext{
-			Program:          program,
-			Checker:          c,
-			Options:          program.Options(),
-			EmitContext:      emitContext,
-			Factory:          emitContext.Factory,
-			CurrentDirectory: opts.CurrentDirectory,
-			ProjectType:      opts.ProjectType,
-			Verbose:          opts.Verbose,
-			AddDiagnostic:    addDiagnostic,
+	for i, file := range files {
+		fileResult := &fileResults[i]
+		if fileResult.panicked {
+			panic(fileResult.panicValue)
 		}
-		transformed := file
-		for _, plugin := range plugins {
-			transformed = plugin.TransformSourceFile(tc, transformed)
-		}
-		done()
-		if transformed != file || opts.PrintUnchanged || !reprintKeepsBlockComments(file.Text()) {
-			p := printer.NewPrinter(printer.PrinterOptions{NewLine: core.NewLineKindLF}, printer.PrintHandlers{}, emitContext)
-			result.Transformed[file.FileName()] = removeNonNullAccessParens(file.FileName(), transformed, p.EmitSourceFile(transformed))
+		result.Diagnostics = append(result.Diagnostics, fileResult.diagnostics...)
+		if fileResult.printed {
+			result.Transformed[file.FileName()] = fileResult.text
 		}
 	}
 
@@ -146,6 +146,104 @@ func RunPlugins(ctx context.Context, program *compiler.Program, plugins []Plugin
 	host := &proxyHost{CompilerHost: program.Host(), program: program, transformed: result.Transformed, parse: opts.ParseTransformed}
 	result.Program = compiler.NewProgram(compiler.ProgramOptions{Config: program.CommandLine(), Host: host})
 	return result
+}
+
+// pluginFileResult is what the plugins did to one file.
+type pluginFileResult struct {
+	diagnostics []*ast.Diagnostic
+	// printed is whether text has the file's printed text.
+	printed bool
+	text    string
+	// panicked is whether a plugin panicked with panicValue. RunPlugins panics with it again, for the first such file.
+	panicked   bool
+	panicValue any
+}
+
+// runPluginsPerChecker runs the plugins with one goroutine per checker, false when not every plugin can.
+func runPluginsPerChecker(ctx context.Context, program *compiler.Program, plugins []Plugin, opts PluginOptions, files []*ast.SourceFile, results []pluginFileResult) bool {
+	for _, plugin := range plugins {
+		if _, ok := plugin.(ParallelPlugin); !ok {
+			return false
+		}
+	}
+
+	type group struct {
+		plugins []Plugin
+		indices []int
+	}
+	var groups []*group
+	byChecker := map[*checker.Checker]*group{}
+	for i, file := range files {
+		c, done := program.GetTypeCheckerForFile(ctx, file)
+		done()
+		g := byChecker[c]
+		if g == nil {
+			g = &group{}
+			for _, plugin := range plugins {
+				forChecker := plugin.(ParallelPlugin).ForChecker()
+				if forChecker == nil {
+					return false
+				}
+				g.plugins = append(g.plugins, forChecker)
+			}
+			byChecker[c] = g
+			groups = append(groups, g)
+		}
+		g.indices = append(g.indices, i)
+	}
+
+	var wg sync.WaitGroup
+	for _, g := range groups {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			c, done := program.GetTypeCheckerForFileExclusive(ctx, files[g.indices[0]])
+			defer done()
+			for _, i := range g.indices {
+				result := &results[i]
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							result.panicked = true
+							result.panicValue = r
+						}
+					}()
+					runPluginsOnFile(program, c, g.plugins, opts, files[i], result)
+				}()
+				if result.panicked {
+					// the plugins' state is unknown now, and this file's panic is the one that counts for the rest
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	return true
+}
+
+// runPluginsOnFile runs the plugins over one file and prints it if needed.
+func runPluginsOnFile(program *compiler.Program, c *checker.Checker, plugins []Plugin, opts PluginOptions, file *ast.SourceFile, result *pluginFileResult) {
+	emitContext := printer.NewEmitContext()
+	tc := &TransformContext{
+		Program:          program,
+		Checker:          c,
+		Options:          program.Options(),
+		EmitContext:      emitContext,
+		Factory:          emitContext.Factory,
+		CurrentDirectory: opts.CurrentDirectory,
+		ProjectType:      opts.ProjectType,
+		Verbose:          opts.Verbose,
+		AddDiagnostic:    func(d *ast.Diagnostic) { result.diagnostics = append(result.diagnostics, d) },
+	}
+	transformed := file
+	for _, plugin := range plugins {
+		transformed = plugin.TransformSourceFile(tc, transformed)
+	}
+	if transformed != file || opts.PrintUnchanged || !reprintKeepsBlockComments(file.Text()) {
+		p := printer.NewPrinter(printer.PrinterOptions{NewLine: core.NewLineKindLF}, printer.PrintHandlers{}, emitContext)
+		result.printed = true
+		result.text = removeNonNullAccessParens(file.FileName(), transformed, p.EmitSourceFile(transformed))
+	}
 }
 
 // proxyHost serves the printed text of transformed files and the original program's (already parsed
