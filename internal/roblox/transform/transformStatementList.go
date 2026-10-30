@@ -39,6 +39,18 @@ func getLastToken(state *TransformState, parent *ast.Node, statements []*ast.Nod
 	return nil
 }
 
+// getLastTokenPos is the Pos() of getLastToken, when that doesn't take scanning the parent again. The
+// closing brace of a block starts where its last statement ends.
+func getLastTokenPos(statements []*ast.Node) (int, bool) {
+	if len(statements) > 0 {
+		lastStatement := statements[len(statements)-1]
+		if parent := lastStatement.Parent; parent.Kind == ast.KindBlock || parent.Kind == ast.KindModuleBlock {
+			return lastStatement.End(), true
+		}
+	}
+	return 0, false
+}
+
 // transformStatementList converts a ts.Statement array into a luau.list<...> tree.
 func transformStatementList(state *TransformState, parent *ast.Node, statements []*ast.Node, exportInfo *ExportInfo) *luau.List {
 	// make a new Luau tree
@@ -82,6 +94,10 @@ func transformStatementList(state *TransformState, parent *ast.Node, statements 
 	}
 
 	if !state.CompilerOptions.RemoveComments.IsTrue() {
+		if pos, ok := getLastTokenPos(statements); ok {
+			result.PushList(state.getLeadingCommentsAt(pos))
+			return result
+		}
 		lastToken := getLastToken(state, parent, statements)
 		// see ProjectData.TransformersRan: TypeScript's printer drops the comments before the end of the file
 		if lastToken != nil && !(state.transformersRan() && lastToken.Kind == ast.KindEndOfFile) {

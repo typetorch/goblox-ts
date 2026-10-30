@@ -418,9 +418,13 @@ func (s *TransformState) PopTryUsesStack() {
 
 // GetLeadingComments returns the leading comments of a node as Luau comments.
 func (s *TransformState) GetLeadingComments(node *ast.Node) *luau.List {
+	return s.getLeadingCommentsAt(node.Pos())
+}
+
+func (s *TransformState) getLeadingCommentsAt(pos int) *luau.List {
 	result := luau.MakeList()
 	factory := &ast.NodeFactory{}
-	for commentRange := range scanner.GetLeadingCommentRanges(factory, s.sourceFileText, node.Pos()) {
+	for commentRange := range scanner.GetLeadingCommentRanges(factory, s.sourceFileText, pos) {
 		source := s.sourceFileText[commentRange.Pos():commentRange.End()]
 		var text string
 		if commentRange.Kind == ast.KindSingleLineCommentTrivia {
