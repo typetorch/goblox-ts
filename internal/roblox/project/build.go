@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/microsoft/typescript-go/internal/ast"
 	"github.com/microsoft/typescript-go/internal/compiler"
@@ -440,6 +441,8 @@ func build(ctx context.Context, fs vfs.FS, cwd string, tsConfigPath string, opts
 		}
 	}()
 
+	// roblox-ts does not time this; goblox does (reported once --verbose is known), since watch rebuilds pay it every time
+	setupStart := time.Now()
 	loaded, errs := loadConfig(LoadOptions{
 		Project:          tsConfigPath,
 		CurrentDirectory: cwd,
@@ -495,17 +498,30 @@ func build(ctx context.Context, fs vfs.FS, cwd string, tsConfigPath string, opts
 	}
 
 	LogService.WriteLineIfVerbose("Building project: " + data.TsConfigPath)
-	program := loaded.newProgram()
+	if LogService.Verbose {
+		LogService.Write("parse tsconfig and project data")
+		benchmarkEnd(setupStart)
+	}
+	var program *compiler.Program
+	benchmarkIfVerbose("create program", func() {
+		program = loaded.newProgram()
+		// parse and bind now, so the steps below are timed apart from them
+		program.BindSourceFiles()
+	})
 	pathTranslator := createPathTranslator(loaded.config, data.ProjectOptions.Luau)
 	if err := validateProjectOutputs(pathTranslator, program.Options()); err != nil {
 		return nil, err
 	}
 
-	if err := copyInclude(data); err != nil {
+	benchmarkIfVerbose("copy include files", func() { err = copyInclude(data) })
+	if err != nil {
 		return nil, err
 	}
 
-	outputs, err := getProjectOutputs(fs, program, data, pathTranslator, configPaths)
+	var outputs *projectOutputs
+	benchmarkIfVerbose("collect project outputs", func() {
+		outputs, err = getProjectOutputs(fs, program, data, pathTranslator, configPaths)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -521,7 +537,10 @@ func build(ctx context.Context, fs vfs.FS, cwd string, tsConfigPath string, opts
 	result = compileFiles(ctx, fs, program, data, pathTranslator, sourceFiles, opts.KeepGoing)
 	result.OutputRoots = append(getOutputRoots(pathTranslator, program.Options()), data.ProjectOptions.IncludePath)
 	if !result.EmitSkipped || opts.KeepGoing {
-		if err := syncProjectOutputs(fs, outputs, data.ProjectOptions.WriteOnlyChanged); err != nil {
+		benchmarkIfVerbose("copy non-compiled files", func() {
+			err = syncProjectOutputs(fs, outputs, data.ProjectOptions.WriteOnlyChanged)
+		})
+		if err != nil {
 			return nil, err
 		}
 	}

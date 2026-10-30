@@ -67,7 +67,7 @@ options, as in roblox-ts.
 | `-p`, `--project <path>` | tsconfig.json, or a folder at or below the one that has it | same |
 | `-w`, `--watch` | watch mode | same (see Watch mode) |
 | `--usePolling` | chokidar polling | accepted; goblox always polls |
-| `--verbose` | verbose logs | same |
+| `--verbose` | verbose logs | same, plus a `<step> ( <n> ms )` line for every build step (parse tsconfig, create program, project outputs, rojo, transformers, type check, transform and render, write, copy) |
 | `--noInclude` | don't copy the runtime library | same |
 | `--logTruthyChanges` | log truthiness differences | same |
 | `--writeOnlyChanged` | (hidden) write only outputs whose content changed | same; on by default in watch mode |
