@@ -83,7 +83,8 @@ func transformStatementList(state *TransformState, parent *ast.Node, statements 
 
 	if !state.CompilerOptions.RemoveComments.IsTrue() {
 		lastToken := getLastToken(state, parent, statements)
-		if lastToken != nil {
+		// see ProjectData.TransformersRan: TypeScript's printer drops the comments before the end of the file
+		if lastToken != nil && !(state.transformersRan() && lastToken.Kind == ast.KindEndOfFile) {
 			result.PushList(state.GetLeadingComments(lastToken))
 		}
 	}

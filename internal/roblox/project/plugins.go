@@ -49,6 +49,8 @@ type PluginOptions struct {
 	Verbose          bool
 	// Files are the files to transform. Defaults to CompilableSourceFiles(program).
 	Files []*ast.SourceFile
+	// PrintUnchanged prints and parses again the files no plugin changed too.
+	PrintUnchanged bool
 }
 
 // PluginResult is the outcome of RunPlugins.
@@ -85,6 +87,8 @@ func CompilableSourceFiles(program *compiler.Program) []*ast.SourceFile {
 // Transformed files are printed and parsed again (roblox-ts does the same: "transformed nodes don't
 // have symbol or type information, there's no way to rebind an existing file, so we have to reprint
 // it"). Positions in a changed file therefore refer to the printed text, not the original source.
+// roblox-ts reprints the files no plugin changed as well. Here those keep their parsed and bound
+// SourceFile, unless reprinting them would change their Luau (see reprintKeepsBlockComments).
 func RunPlugins(ctx context.Context, program *compiler.Program, plugins []Plugin, opts PluginOptions) PluginResult {
 	result := PluginResult{Program: program}
 	if len(plugins) == 0 {
@@ -122,7 +126,7 @@ func RunPlugins(ctx context.Context, program *compiler.Program, plugins []Plugin
 			transformed = plugin.TransformSourceFile(tc, transformed)
 		}
 		done()
-		if transformed != file {
+		if transformed != file || opts.PrintUnchanged || !reprintKeepsBlockComments(file.Text()) {
 			p := printer.NewPrinter(printer.PrinterOptions{NewLine: core.NewLineKindLF}, printer.PrintHandlers{}, emitContext)
 			result.Transformed[file.FileName()] = removeNonNullAccessParens(file.FileName(), transformed, p.EmitSourceFile(transformed))
 		}

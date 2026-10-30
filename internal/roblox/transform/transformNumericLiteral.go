@@ -10,6 +10,12 @@ import (
 
 // transformNumericLiteral is TSTransformer/nodes/expressions/transformNumericLiteral.ts transformNumericLiteral.
 func transformNumericLiteral(state *TransformState, node *ast.Node) *luau.NumberLiteral {
+	// see ProjectData.TransformersRan: TypeScript's printer replaces a literal with separators by its value
+	if state.transformersRan() && node.AsNumericLiteral().TokenFlags&ast.TokenFlagsContainsSeparator != 0 {
+		return luau.Create(&luau.NumberLiteral{
+			Value: node.Text(),
+		})
+	}
 	return luau.Create(&luau.NumberLiteral{
 		Value: scanner.GetTextOfNode(node),
 	})

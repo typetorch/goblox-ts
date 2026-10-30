@@ -47,6 +47,8 @@ type EmitResult struct {
 	// Panics maps the file name of every file whose transform panicked (an unported stub or an internal
 	// error) to the panic value and stack. Those files also get an error diagnostic.
 	Panics map[string]string
+	// needsPrintedPositions: see compileFilesPrinting
+	needsPrintedPositions bool
 }
 
 // FILENAME_WARNINGS is Shared/constants.ts FILENAME_WARNINGS.
@@ -310,6 +312,18 @@ func hasErrors(ds []*ast.Diagnostic) bool {
 //
 // writes rendered Luau source to the out directory.
 func compileFiles(ctx context.Context, fs vfs.FS, program *compiler.Program, data *transform.ProjectData, pathTranslator *rojo.PathTranslator, sourceFiles []*ast.SourceFile, keepGoing bool) *EmitResult {
+	result := compileFilesPrinting(ctx, fs, program, data, pathTranslator, sourceFiles, keepGoing, data.ProjectOptions.WriteTransformedFiles)
+	if result.needsPrintedPositions {
+		result = compileFilesPrinting(ctx, fs, program, data, pathTranslator, sourceFiles, keepGoing, true)
+	}
+	return result
+}
+
+// compileFilesPrinting compiles the files. rbxtsc reports a diagnostic the compile finds at its position
+// in the printed text of the file, so a diagnostic in a file that wasn't printed (printUnchanged is off
+// and no plugin changed it) can't be reported as is: the result then only has needsPrintedPositions, and
+// nothing was written. Builds without such a diagnostic, nearly all of them, don't pay for the prints.
+func compileFilesPrinting(ctx context.Context, fs vfs.FS, program *compiler.Program, data *transform.ProjectData, pathTranslator *rojo.PathTranslator, sourceFiles []*ast.SourceFile, keepGoing bool, printUnchanged bool) *EmitResult {
 	compilerOptions := program.Options()
 
 	outDir := compilerOptions.OutDir
@@ -397,6 +411,7 @@ func compileFiles(ctx context.Context, fs vfs.FS, program *compiler.Program, dat
 				transform.DiagnosticService.AddDiagnostic(diagnostics.CreateTextDiagnostic(message, category))
 			}
 		}
+		data.TransformersRan = len(plugins) > 0
 		if len(plugins) > 0 {
 			var result PluginResult
 			benchmarkIfVerbose("running transformers..", func() {
@@ -405,6 +420,7 @@ func compileFiles(ctx context.Context, fs vfs.FS, program *compiler.Program, dat
 					ProjectType:      string(data.ProjectOptions.Type),
 					Verbose:          data.ProjectOptions.Verbose,
 					Files:            sourceFiles,
+					PrintUnchanged:   printUnchanged,
 				})
 			})
 			if len(result.Transformed) > 0 {
@@ -441,19 +457,33 @@ func compileFiles(ctx context.Context, fs vfs.FS, program *compiler.Program, dat
 		configDiagnostics := GetConfigDiagnostics(ctx, proxyProgram)
 		preEmit = getPreEmitDiagnostics(ctx, proxyProgram, proxyFiles, configDiagnostics)
 	})
+	// see compileFilesPrinting
+	needsPrintedPositions := false
+	checkPositions := func(diagnostics []*ast.Diagnostic) {
+		if data.TransformersRan && !printUnchanged && inFileNotPrinted(diagnostics, transformed) {
+			needsPrintedPositions = true
+		}
+	}
 	results := make([]*fileResult, len(sourceFiles))
 	for i, sourceFile := range proxyFiles {
 		proxyDiagnostics := preEmit[i]
-		if _, ok := transformed[sourceFile.FileName()]; ok && hasErrors(proxyDiagnostics) {
+		original := false
+		if data.TransformersRan && hasErrors(proxyDiagnostics) {
 			// The transformed source file has diagnostics, but we want to present the original diagnostic spans.
 			// If the original file doesn't have diagnostics, the diagnostics are caused by a transformer and we display them instead.
 			sourceDiagnostics := GetPreEmitDiagnostics(ctx, program, sourceFiles[i])
 			if hasErrors(sourceDiagnostics) {
 				proxyDiagnostics = sourceDiagnostics
+				original = true
 			}
 		}
+		if !original {
+			checkPositions(proxyDiagnostics)
+		}
+		customDiagnostics := getCustomPreEmitDiagnostics(data, sourceFile)
+		checkPositions(customDiagnostics)
 		results[i] = &fileResult{
-			preEmitDiagnostics: append(proxyDiagnostics, getCustomPreEmitDiagnostics(data, sourceFile)...),
+			preEmitDiagnostics: append(proxyDiagnostics, customDiagnostics...),
 		}
 	}
 
@@ -513,6 +543,7 @@ func compileFiles(ctx context.Context, fs vfs.FS, program *compiler.Program, dat
 			failed = true
 			continue
 		}
+		checkPositions(result.transformDiagnostics)
 		diags = append(diags, result.transformDiagnostics...)
 		if hasErrors(result.transformDiagnostics) {
 			failed = true
@@ -521,7 +552,13 @@ func compileFiles(ctx context.Context, fs vfs.FS, program *compiler.Program, dat
 		fileWriteQueue = append(fileWriteQueue, fileWrite{sourceFile, result.source})
 	}
 	// diagnostics without a file, or reported for another file
-	diags = append(diags, transform.DiagnosticService.Flush()...)
+	lateDiagnostics := transform.DiagnosticService.Flush()
+	checkPositions(lateDiagnostics)
+	diags = append(diags, lateDiagnostics...)
+
+	if needsPrintedPositions {
+		return &EmitResult{needsPrintedPositions: true}
+	}
 
 	if hasErrors(diags) && !keepGoing {
 		return &EmitResult{EmitSkipped: true, Diagnostics: diags, Panics: panics}
@@ -553,6 +590,18 @@ func compileFiles(ctx context.Context, fs vfs.FS, program *compiler.Program, dat
 	}
 
 	return &EmitResult{EmittedFiles: emittedFiles, EmitSkipped: hasErrors(diags), Diagnostics: diags, Panics: panics}
+}
+
+// inFileNotPrinted is whether a diagnostic has a position in a file that isn't in printed.
+func inFileNotPrinted(diagnostics []*ast.Diagnostic, printed map[string]string) bool {
+	for _, d := range diagnostics {
+		if d.File() != nil {
+			if _, ok := printed[d.File().FileName()]; !ok {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // TYPETORCH_TRANSFORMER is the npm package of the transformer whose Go port goblox links by default.

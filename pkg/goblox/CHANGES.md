@@ -3,6 +3,16 @@
 The API is stable once committed. Every change after the first version is listed here, newest first,
 with what a plugin has to do about it.
 
+## v3 (2026-10-30)
+
+All additions; nothing a v2 plugin uses changed.
+
+- `PluginOptions.PrintUnchanged`: print and parse again the files no plugin changed too, as rbxtsc does.
+  Off by default: `RunPlugins` keeps the parsed and bound `SourceFile` of a file no plugin changed, unless
+  a reprint would change the file's Luau. `PluginResult.Transformed` lists the printed files, so it can
+  have a file no plugin changed, and it doesn't have every file a plugin left alone. A plugin that returns
+  its input file when nothing changed saves that file a parse and a bind.
+
 ## v2 (2026-10-29)
 
 All additions; nothing a v1 plugin uses changed.

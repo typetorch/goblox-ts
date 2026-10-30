@@ -63,6 +63,16 @@ type ProjectData struct {
 	// referenced projects to its import path in the referenced project's output (ProjectGraph.ts
 	// mapReferencePaths).
 	ProjectReferencePaths map[string]string
+	// TransformersRan is whether transformer plugins ran for this build. rbxtsc then prints every file
+	// again and compiles the reparsed text, whether the plugin changed the file or not. goblox doesn't
+	// reprint a file no plugin changed, so where that print is not the identity the transform has to
+	// do what it does: numeric separators and comments before the end of the file go away. The other
+	// difference, reindented block comments, is left to a real reprint (project.reprintKeepsBlockComments).
+	TransformersRan bool
+}
+
+func (state *TransformState) transformersRan() bool {
+	return state.Data != nil && state.Data.TransformersRan
 }
 
 // TransformServices is TSTransformer/types.ts TransformServices.
