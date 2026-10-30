@@ -136,7 +136,7 @@ continues. In rbxtsc that kills the watcher. When there is no tsconfig.json, gob
 ### Incremental builds and tsbuildinfo
 
 roblox-ts writes `tsBuildInfoFile` and recompiles the changed files plus their direct importers. goblox recompiles
-the files whose d.ts signature inputs changed, using typescript-go's own incremental engine
+the changed files plus the importers of files whose d.ts signature changed, using typescript-go's own incremental engine
 (`internal/roblox/project/incremental.go`). It leaves the tsbuildinfo path itself alone, and keeps its state in
 `<tsBuildInfoFile minus extension>.goblox.tsbuildinfo` (`out/tsconfig.goblox.tsbuildinfo`). This needs `incremental` or
 `composite` in the tsconfig, like tsc. `--noIncremental` (goblox only) compiles every file and doesn't touch the cache.
@@ -157,7 +157,9 @@ project up to the root, the Rojo project (and `*.project.json` files copied to t
 `typetorch.json`, `TYPETORCH_DEBUG_MACROS`. Also when the Rojo resolvers answer differently. A missing, corrupt or old
 cache file means a full build, never an error. These always compile everything: `--logTruthyChanges`,
 `--writeTransformedFiles`, and the `removeComments`, `declaration` and `assumeChangesOnlyAffectDirectDependencies`
-compiler options.
+compiler options. With tsconfig `plugins`, a diagnostic (a warning too) in a file the plugins didn't print also means a
+full compile of that build, because rbxtsc reports positions in the printed text. That compile saves no state, so the
+next build compares with the last good one.
 
 **Output.** The result is byte-identical to a clean build, apart from volatile macros: `$git()`, `$compileTime()` and UUID
 user macros keep the value of the build that last compiled their file, as in rbxtsc. Delete the cache file, or use

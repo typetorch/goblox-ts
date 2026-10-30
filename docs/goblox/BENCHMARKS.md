@@ -233,12 +233,53 @@ transform/luau commits, so these numbers aren't this branch's work alone:
 | leaf | 2.38 s | 2.37 / 2.38 / 2.40 |
 | shared | 2.37 s | 2.37 / 2.37 / 2.38 |
 
-Every build still compiles the whole project. Items #1 (warm watch) and #2 (on-disk cache) are not done. The
-design worked out for them is in "Incremental design (not implemented yet)" below.
+Every build still compiled the whole project at this point. Items #1 (warm watch) and #2 (on-disk cache) came next:
+see "Incremental builds" below.
 
-## Incremental design (not implemented yet)
+## Incremental builds (2026-10-30, `d1e6e4cbe`)
 
-Notes for whoever takes items #1 and #2 of BENCHMARKS-espresso.md.
+Same desktop (12 threads, 32 GB, Windows), on a copy of gnome-game (407 compiled files; `shared/build.ts` is fixed, so
+it doesn't count as changed), with nothing else running. Times in ms from process start to exit, median of 3.
+goblox-base is `910f3438c`, before this work. rbxtsc is the project's `node_modules/.bin/rbxtsc` with `incremental`.
+
+- **cold:** `out/` deleted. **warm:** no change. **comment:** a comment appended to `shared/net.ts`.
+- **leaf:** an export appended to `client/ui/app.tsx` (3 files compiled).
+- **shared:** an export appended to `shared/net.ts` (160 files compiled).
+
+| one-shot `goblox build` | cold | warm | comment | leaf | shared |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| rbxtsc | 21957 | 6372 | 17701 | 7365 | 18725 |
+| goblox-base | 3723 | 3991 | 2823 | 3294 | 2826 |
+| goblox | 2477 | 323 | 506 | 797 | 2758 |
+| goblox, second pass | 2889 | 357 | 651 | 648 | 1976 |
+
+Runs (first pass): cold 3892 / 2436 / 2477, warm 323 / 334 / 302, comment 485 / 506 / 566, leaf 797 / 795 / 862, shared
+3435 / 2758 / 2191. The first run of a series is often slower, so the spread on cold and shared is large.
+
+`goblox -w`, from saving the file to the "Found N errors" line. This includes up to 250 ms of polling and the 100 ms
+debounce:
+
+| `goblox -w` | runs (ms) |
+| --- | --- |
+| first build, cache present | 352 |
+| leaf | 774 / 507 / 553 |
+| comment in `shared/net.ts` | 595 / 566 / 563 |
+| shared | 2053 / 1921 / 1895 |
+| adding a type error (160 files) | 2489 |
+| another edit, error still reported | 2288 |
+| fixing it | 1166 |
+
+The user's laptop was not measured. These numbers only say that goblox beats rbxtsc on this desktop.
+
+Correctness on the same copy (`gnome_check.sh`, 61 steps: 20 scripted edits plus 30 sampled ones and restores): exit code,
+diagnostics and output of each incremental build matched a `--noIncremental` build, apart from `builtAt` in
+`shared/build.luau`. After the watch runs above, the 407 outputs matched a clean build too.
+
+## Incremental design (implemented, see CLI.md "Incremental builds")
+
+The notes this work followed, for items #1 and #2 of BENCHMARKS-espresso.md. `internal/roblox/project/incremental.go` has
+the code. Where it differs from these notes: a build whose diagnostic lands in a file the plugins didn't print is
+compiled again in full and saves no state (see CLI.md), and the JSON files' signature is their version.
 
 - **Affected files.** Use `internal/execute/incremental` and don't write a new graph. `incremental.NewProgram(program,
   old, ...)` hashes every file's text, diffs references, and `collectAllAffectedFiles` removes the cached semantic
