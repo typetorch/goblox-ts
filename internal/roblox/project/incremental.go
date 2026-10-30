@@ -40,10 +40,12 @@ import (
 	"github.com/microsoft/typescript-go/internal/vfs"
 )
 
-// IncrementalSession keeps the last good state between builds. The zero value keeps it in memory (watch
-// mode); Persist also reads and writes the cache file next to tsBuildInfoFile (one-shot builds).
+// IncrementalSession keeps the last good state between builds. Persist reads and writes the cache file next
+// to tsBuildInfoFile, when the tsconfig has `incremental` or `composite`. Memory keeps the state for the next
+// build of the session in any case (watch mode). With neither, builds are not incremental.
 type IncrementalSession struct {
 	Persist bool
+	Memory  bool
 
 	state *incrementalState
 	// proxyFiles keeps the parsed and bound text of re-printed files between the builds of a session
@@ -106,10 +108,7 @@ func incrementalEligible(opts BuildOptions, data *transform.ProjectData, options
 		return false
 	}
 	// a persisted state follows the tsconfig, like tsc's .tsbuildinfo
-	if opts.Incremental.Persist && (!options.IsIncremental() || options.TsBuildInfoFile == "" && options.OutDir == "") {
-		return false
-	}
-	return true
+	return opts.Incremental.Memory || opts.Incremental.Persist && options.IsIncremental()
 }
 
 // incrementalCachePath is the cache file next to the build info file: out/tsconfig.tsbuildinfo has
@@ -129,12 +128,12 @@ func (s *IncrementalSession) begin(fs vfs.FS, loaded *loadedConfig, data *transf
 	if b.key == "" {
 		return nil
 	}
-	if s.Persist {
+	if s.Persist && program.Options().IsIncremental() {
 		b.cachePath = incrementalCachePath(pathTranslator.BuildInfoOutputPath)
-		if b.cachePath == "" {
+		if b.cachePath == "" && !s.Memory {
 			return nil
 		}
-		if s.state == nil {
+		if b.cachePath != "" && s.state == nil {
 			s.state = readIncrementalCache(b.cachePath, b.key, loaded, program)
 		}
 	}
