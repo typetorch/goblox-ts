@@ -36,7 +36,7 @@ env:
   # The Go port of @typetorch/transformer (folder go/), linked with -tags typetorch through a go.work
   # (docs/goblox/CLI.md, option A). Pinned to a commit; bump it with the transformer.
   TRANSFORMER_REPO: typetorch/transformer
-  TRANSFORMER_REF: 5c33da73306b46699f8b98d012fa5fcfbdacec52 # go-port
+  TRANSFORMER_REF: d3e0c4c1391ae669296d953398fbc63f7890fd1d # go-port
   NODE_VERSION: '24'
 
 jobs:
