@@ -28,14 +28,17 @@ func ensureTransformOrder(state *TransformState, prereqs *Prereqs, nodes []*ast.
 	suffix := NO_EFFECTS
 	for i := len(expressionInfoList) - 1; i >= 0; i-- {
 		info := expressionInfoList[i]
-		effects := getEffects(info.expression)
-		captures[i] = !effectsCommute(effects, suffix)
-		if captures[i] {
-			suffix = joinEffects(effects, suffix)
+		// everything commutes with no effects, and this is every call's last argument
+		if suffix != NO_EFFECTS {
+			effects := getEffects(info.expression)
+			captures[i] = !effectsCommute(effects, suffix)
+			if captures[i] {
+				suffix = joinEffects(effects, suffix)
+			}
 		}
 		suffix = joinEffects(getStatementsEffects(info.prereqStatements), suffix)
 	}
-	result := []luau.Expression{}
+	result := make([]luau.Expression, 0, len(nodes))
 	for i, info := range expressionInfoList {
 		prereqs.PushList(info.prereqStatements)
 
