@@ -113,6 +113,11 @@ the exit code is compared:
   TypeScript 5.9's (TS1005 for TS1136).
 - A Rojo project file that isn't valid JSON gets the same `Unable to read Rojo project` error, but the text after
   `SyntaxError:` is Go's, not V8's.
+- Project references are not built: rbxtsc's `ProjectGraph.ts` builds each referenced project first, goblox reports
+  TS6305 until their outputs exist. Build them with their own `goblox -p <project>` first.
+
+The contents of a `.d.ts.map` aren't compared, as typescript-go's source map generator picks other mappings. See
+[CONFORMANCE.md](CONFORMANCE.md) for the results.
 
 ### Watch mode
 

@@ -251,6 +251,12 @@ func cliScenarios() []cliScenario {
 		{name: "package: declaration error", mustPrint: "TS4", files: declarationFiles(map[string]*string{
 			"src/bad.ts": text("export const value = class {\n\tprivate hidden = 1;\n};\n"),
 		})},
+		{name: "package: consumed", mustWrite: "out/main.server.luau", files: map[string]*string{
+			"node_modules/@rbxts/mypkg/package.json":   text("{ \"name\": \"@rbxts/mypkg\", \"main\": \"out/init.luau\", \"types\": \"out/index.d.ts\" }\n"),
+			"node_modules/@rbxts/mypkg/out/index.d.ts": text("export declare function add(a: number, b: number): number;\n"),
+			"node_modules/@rbxts/mypkg/out/init.luau":  text("return { add = function(a, b) return a + b end }\n"),
+			"src/main.server.ts":                       text("import { add } from \"@rbxts/mypkg\";\nprint(add(1, 2));\n"),
+		}},
 		{name: "--type game, no rojo", flags: []string{"--type", "game"}, files: packageFiles},
 		{name: "--rojo path", flags: []string{"--rojo", "other.project.json"}, files: otherRojo},
 		{name: "--rojo missing path", flags: []string{"--rojo", "missing.project.json"}},
