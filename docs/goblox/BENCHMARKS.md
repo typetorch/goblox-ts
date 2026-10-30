@@ -121,3 +121,36 @@ timestamp. Other differences:
 
 - goblox writes no `tsconfig.rbxtsc.tsbuildinfo`. See CLI.md, "Incremental builds".
 - The plugin-transformed TS (`--writeTransformedFiles`) differed only in those `x!` parens.
+
+## Plugin pipeline: return untouched files unchanged (improvement #6, 2026-10-30, not landed)
+
+typetorch-transformer `perf/untouched` (`c8c6e54`) makes `transformFile` return the input `*SourceFile`
+when every statement is still the original node. `RunPlugins` then reprints and reparses only the changed
+files. The proxy program already reuses the original (parsed and bound) SourceFile of every other file, and
+when no file changed it skips the second program entirely. goblox needs no change for this.
+
+Measured on a scratch copy of gnome-game (407 files) on the 12-thread desktop, cold, with temporary
+`RunPlugins` timing (plugin pass + reprint + proxy program, not committed). Other agents were building at
+the same time, so wall times swung from 2.8 s to 19 s and are not reported.
+
+| | files reprinted | plugin pipeline, median of 6 |
+| --- | ---: | ---: |
+| `go-port` `5c33da7` | 407 / 407 | 667 ms |
+| `perf/untouched` `c8c6e54` | 154 / 407 | 617 ms |
+
+- Diagnostics are identical, checked with a deliberate type error in an untouched file
+  (`premium-currency-config.ts`) and in a plugin-changed file (`ammo-bag.controller.ts`). The same codes,
+  spans and order are reported.
+- **Output is not byte-identical, which is why this is not landed.** `shared/config/premium-currency-config.luau`
+  has `Max = 1_000_000` instead of `1000000`. roblox-ts's `transformNumericLiteral` emits `node.getText()`, and
+  rbxtsc reprints every file with `ts.createPrinter()` (no `target`, so no `AllowNumericSeparator`), which
+  normalizes the literal. The old goblox reprint matched that. An untouched file keeps its source text.
+  To land it, either (a) have the transform emit the literal the way TypeScript's printer prints it
+  (`getLiteralText` without the original text) in files the plugin left untouched, when plugins ran,
+  or (b) have `RunPlugins` still reprint an untouched file whose reprint is not an identity
+  (for example numeric literals with separators).
+- The saving is small because the pipeline is dominated by the plugin pass itself, which runs **sequentially**
+  (one goroutine, and the plugin holds a mutex). It makes a checker query (`GetSymbolAtLocation`) for every
+  call and `new` expression to look for user macros. The bigger next steps are to run the plugin per checker in
+  parallel (one TransformState per checker), and to skip the symbol lookup for callees whose name can't be a
+  macro (a set of macro names built once per program from `@metadata macro` declarations and their aliases).
