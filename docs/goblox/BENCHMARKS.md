@@ -218,3 +218,58 @@ npm launcher, with a measurement on espresso. `-checkers 2` (#4) cuts more RSS f
 **Also seen (not in this item's scope).** On Windows, `rojo.(*RojoResolver).parseTree` spends 0.81 s on the main
 goroutine in `Realpath`/`Stat` syscalls before the transform starts (~28% of the 2.9 s wall). It is worth a
 look on Windows.
+
+### Milestone 2: cached Rojo setup + watch source-file reuse (2026-10-30, `54284a92`)
+
+`load rojo configs and package paths` went from 994 ms to 480 ms (a cachedvfs while the resolvers are built).
+Watch rebuilds reuse unchanged parsed/bound files (create program 138 ms to ~47 ms). Medians of 3, same desktop and
+copy, quieter machine. The binary includes everything on main at the time, including the allocation agent's
+transform/luau commits, so these numbers aren't this branch's work alone:
+
+| scenario | median | runs |
+| --- | ---: | --- |
+| cold | 2.33 s | 2.32 / 2.33 / 2.35 |
+| warm | 2.37 s | 2.36 / 2.37 / 2.39 |
+| leaf | 2.38 s | 2.37 / 2.38 / 2.40 |
+| shared | 2.37 s | 2.37 / 2.37 / 2.38 |
+
+Every build still compiles the whole project. Items #1 (warm watch) and #2 (on-disk cache) are not done. The
+design worked out for them is in "Incremental design (not implemented yet)" below.
+
+## Incremental design (not implemented yet)
+
+Notes for whoever takes items #1 and #2 of BENCHMARKS-espresso.md.
+
+- **Affected files.** Use `internal/execute/incremental` and don't write a new graph. `incremental.NewProgram(program,
+  old, ...)` hashes every file's text, diffs references, and `collectAllAffectedFiles` removes the cached semantic
+  diagnostics of every affected file. "No cached semantic diagnostics" is then exactly the set to re-check *and*
+  re-transform. Affected means: the changed file, plus all transitive importers when its d.ts signature changed
+  (re-exports make the transitive walk necessary), plus everything when a global-scope file changed. A comment edit
+  in `shared/net.ts` re-checks 1 file, where rbxtsc's `getChangedFilePaths` re-checks 183.
+- **Missing exports to add** (in a new `internal/execute/incremental/roblox_exports.go`): a batch "collect semantic
+  diagnostics for these files" (today `GetSemanticDiagnostics(ctx, file)` checks one file at a time, so the parallel
+  check is lost), the list of files without cached diagnostics, and `snapshotToBuildInfo` / `buildInfoToSnapshot`
+  wrappers for goblox's own cache file.
+- **Plugins need two incremental programs.** @typetorch/transformer is type-driven (`buildGuardFromType`, user
+  macros), so its output for a file depends on the types it imports. Keep one incremental state on the *original*
+  program (its affected set = the files to re-run the plugin on; store "plugin done" markers as empty semantic
+  diagnostics), cache each file's printed plugin output, rebuild the proxy program from those texts (reusing parsed
+  proxy files in watch mode), and keep a second incremental state on the *proxy* program, whose affected set is what
+  gets type-checked and transformed.
+- **Per-file cache policy.** Reuse a file's Luau only if its transform reported no diagnostics at all and no
+  panic. Files with warnings or errors run again on every build, so their diagnostics come out identical. If a
+  transform reports a diagnostic for another file, or one without a file, don't cache any transform result from that
+  build. One-shot builds must also check that the `out/` file still hashes to the cached output, and re-transform it
+  when it doesn't. A build with errors writes nothing (as today), so its new results must not be marked as written.
+- **Cache key (invalidate everything on change):** goblox version + VCS revision + executable size/mtime, the parsed
+  compiler options, the tsconfig/extends texts, the resolved project options (including CLI overrides), the
+  package.json, every lockfile (bun.lock/bun.lockb/package-lock.json/yarn.lock/pnpm-lock.yaml), the Rojo project
+  text, the tsconfig `plugins` entries and `TYPETORCH_DEBUG_MACROS`. The @rbxts `.d.ts` files are program files, so
+  the incremental state already tracks them. But `createNodeModulesPathMapping` and the synthetic Rojo resolvers read
+  node_modules directly, so the lockfile has to be in the key.
+- **Cache location:** beside `tsBuildInfoFile` (`out/tsconfig.goblox.tsbuildinfo`), registered as an owned output
+  so `syncProjectOutputs` keeps it. Only when `incremental`/`composite` is on, as with tsc.
+- **Volatile macros:** `$git()`, `$compileTime()` and UUID user macros keep their old value in unaffected files, as
+  in rbxtsc. gnome-game rewrites `shared/build.ts` before every build, so that file always counts as changed.
+- **Checkers can't be kept across programs.** A change makes a new Program and a new checker pool, as in `tsc -w`.
+  Skipping unaffected files is where the savings come from.
