@@ -513,17 +513,36 @@ func getEffectsOfListOrNode(value luau.ListOrNode) *EvaluationEffects {
 			result.Allocates = true
 			return
 		}
-		effects := getIntrinsicEffects(node)
-		for key := range effects.Reads {
-			result.Reads[key] = true
+		// the identifier and assignment-target cases of getIntrinsicEffects, merged without building an
+		// intermediate EvaluationEffects
+		var left luau.ListOrNode
+		switch n := node.(type) {
+		case *luau.Identifier, *luau.TemporaryIdentifier:
+			result.Reads[getBinding(node)] = true
+			forEachChild(node, visit)
+			return
+		case *luau.Assignment:
+			left = n.Left
+		case *luau.VariableDeclaration:
+			left = n.Left
 		}
-		for key := range effects.Writes {
-			result.Writes[key] = true
+		if left != nil {
+			addTarget := func(target luau.Node) {
+				if luau.IsAnyIdentifier(target) {
+					result.Writes[getBinding(target)] = true
+				} else {
+					mergeInto(result, UNKNOWN_EFFECTS)
+				}
+			}
+			if list, ok := left.(*luau.List); ok {
+				list.ForEach(addTarget)
+			} else {
+				addTarget(left.(luau.Node))
+			}
+			forEachChild(node, visit)
+			return
 		}
-		result.ReadsHeap = result.ReadsHeap || effects.ReadsHeap
-		result.WritesHeap = result.WritesHeap || effects.WritesHeap
-		result.Throws = result.Throws || effects.Throws
-		result.Allocates = result.Allocates || effects.Allocates
+		mergeInto(result, getIntrinsicEffects(node))
 		forEachChild(node, visit)
 	}
 	if list, ok := value.(*luau.List); ok {
@@ -532,6 +551,20 @@ func getEffectsOfListOrNode(value luau.ListOrNode) *EvaluationEffects {
 		visit(value.(luau.Node))
 	}
 	return result
+}
+
+// mergeInto adds the bindings and flags of effects to result, which is owned by the caller.
+func mergeInto(result *EvaluationEffects, effects *EvaluationEffects) {
+	for key := range effects.Reads {
+		result.Reads[key] = true
+	}
+	for key := range effects.Writes {
+		result.Writes[key] = true
+	}
+	result.ReadsHeap = result.ReadsHeap || effects.ReadsHeap
+	result.WritesHeap = result.WritesHeap || effects.WritesHeap
+	result.Throws = result.Throws || effects.Throws
+	result.Allocates = result.Allocates || effects.Allocates
 }
 
 // isLateRead is TSTransformer/util/evaluation/effects.ts isLateRead: luau can use a local's register
