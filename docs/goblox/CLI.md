@@ -77,6 +77,8 @@ options, as in roblox-ts.
 | `-i`, `--includePath <dir>` | runtime library folder | same |
 | `--rojo <file>` | Rojo project file | same |
 | `--allowCommentDirectives` | (hidden) allow `@ts-ignore` | same |
+| `--noIncremental` | no | goblox only: compile every file, ignoring what the last build left |
+| `--emitFirst` | no | goblox only, watch mode only: errors don't block the emit (see Watch mode) |
 | `--luau` | `.luau` extension | same |
 | `--logTruncatedPaths` | not in roblox-ts 3.0.0 | accepted and ignored (goblox never truncates paths) |
 | `--checkers <n>` | – | goblox only: type checker count (default 4) |
@@ -103,17 +105,20 @@ options, as in roblox-ts.
 
 roblox-ts watches with chokidar and rebuilds only the changed files. goblox polls file modification times
 under the tsconfig's folder every 250 ms. It skips `node_modules`, `.git` and the build's own outputs (outDir,
-declarationDir and the include folder). It waits 100 ms for changes to settle and then rebuilds the whole
-project.
+declarationDir and the include folder). It waits 100 ms for changes to settle and then compiles the files the
+changes can reach (see Incremental builds).
 
-- A full goblox build of gnome-game takes about 5 s. That is in the range of an incremental rbxtsc rebuild,
-  and it never misses a file that depends on a changed type.
 - Polling needs no file watcher dependency. fsnotify would be a new direct module requirement in go.mod.
 - Files whose modification time and size did not change are not read, parsed or bound again: the watcher
-  keeps them between rebuilds, like `tsc -w` (gnome-game: create program 138 ms → ~47 ms per rebuild). The type
-  check and the transform still cover the whole project.
+  keeps them between rebuilds, like `tsc -w` (gnome-game: create program 138 ms → ~47 ms per rebuild).
+- The first build uses the cache file of the last one-shot or watch build, and every build writes it, when the
+  tsconfig has `incremental`. Without it, the state stays in memory and the first build is a full one.
 - `--writeOnlyChanged` is on by default in watch mode, so Rojo sees only outputs whose content changed.
   `--writeOnlyChanged=false` turns it off.
+- `--emitFirst` (goblox only, watch mode only) doesn't let errors block the emit. Files without errors are written,
+  a file with errors keeps its last output, and the errors are reported after the writes. The affected files are
+  still type-checked first, because the transform needs the checker's results (import elision), so this saves the
+  wait for you to fix an unrelated error, not the check. Without the flag, errors block the emit, as in roblox-ts.
 
 The status lines are `ts.createWatchStatusReporter(ts.sys, true)`'s (time in grey, en-US locale format,
 followed by a blank line):
@@ -130,16 +135,38 @@ continues. In rbxtsc that kills the watcher. When there is no tsconfig.json, gob
 
 ### Incremental builds and tsbuildinfo
 
-roblox-ts writes `tsBuildInfoFile` and recompiles only the changed files (plus their direct importers).
-goblox always compiles the whole project and leaves the tsbuildinfo path alone: it neither writes nor deletes
-it, and it never removes it as a stale output.
+roblox-ts writes `tsBuildInfoFile` and recompiles the changed files plus their direct importers. goblox recompiles
+the files whose d.ts signature inputs changed, using typescript-go's own incremental engine
+(`internal/roblox/project/incremental.go`). It leaves the tsbuildinfo path itself alone, and keeps its state in
+`<tsBuildInfoFile minus extension>.goblox.tsbuildinfo` (`out/tsconfig.goblox.tsbuildinfo`). This needs `incremental` or
+`composite` in the tsconfig, like tsc. `--noIncremental` (goblox only) compiles every file and doesn't touch the cache.
 
-- A cold goblox build is faster than a warm rbxtsc incremental build (gnome-game: about 5 s against about 19 s
-  cold), so there is no incremental state to keep.
-- typetorch's build cache restores `out/` and then runs goblox. goblox rebuilds everything, and with
-  `--writeOnlyChanged` unchanged files keep their timestamps.
-- typetorch adds `compiler goblox <version>` to the cache key, so switching compilers never reuses the other
-  compiler's state.
+**What is compiled.** A file is compiled again when its text changed, when the d.ts signature of something it depends on
+changed (transitively, through importers), when a global-scope file changed, when its last build reported a warning for
+it, or when its output in `out/` is missing or isn't what goblox wrote. So a comment or a function body in
+`shared/net.ts` compiles one file, not its 183 importers. There are two states: the original program decides
+which files the tsconfig `plugins` run on, because their output depends on types, and the program of the plugins' output
+decides what is checked and transformed. The other files reuse their printed text and their output.
+
+**Errors.** A build with an error writes nothing and changes no state, so the next build compares with the same last good
+build, compiles the same files and reports the same errors until they are fixed, also in files you didn't edit.
+
+**Full builds.** Everything is compiled again when any of these changed: goblox (version, revision, executable size and
+time), the compiler options, tsconfig and what it extends, the CLI options, `package.json` and lockfiles from the
+project up to the root, the Rojo project (and `*.project.json` files copied to the output), the plugin entries,
+`typetorch.json`, `TYPETORCH_DEBUG_MACROS`. Also when the Rojo resolvers answer differently. A missing, corrupt or old
+cache file means a full build, never an error. These always compile everything: `--logTruthyChanges`,
+`--writeTransformedFiles`, and the `removeComments`, `declaration` and `assumeChangesOnlyAffectDirectDependencies`
+compiler options.
+
+**Output.** The result is byte-identical to a clean build, apart from volatile macros: `$git()`, `$compileTime()` and UUID
+user macros keep the value of the build that last compiled their file, as in rbxtsc. Delete the cache file, or use
+`--noIncremental`, to refresh all of them. A generated file that changes each time (`shared/build.ts` in typetorch
+projects) is compiled each time, and its importers only when its types change.
+
+typetorch's build cache restores `out/` and then runs goblox; the cache file is restored with it. If the outputs don't
+match what it says, those files are compiled again. typetorch adds `compiler goblox <version>` to the cache key, so
+switching compilers never reuses the other compiler's state.
 
 ### tsconfig `plugins`
 

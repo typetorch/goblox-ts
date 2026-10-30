@@ -49,6 +49,10 @@ type BuildOptions struct {
 	SourceFileCache *SourceFileCache
 	// Incremental, when set, compiles only what changed since the last good build of the session.
 	Incremental *IncrementalSession
+	// EmitFirst writes the outputs of the files without errors and reports the errors afterwards, instead of
+	// blocking the emit (`--emitFirst`, watch mode only). What a build with errors writes is not part of
+	// the incremental state, so those files are compiled again by the next build.
+	EmitFirst bool
 }
 
 // CLIError is CLI/errors/CLIError.ts.
@@ -547,9 +551,10 @@ func build(ctx context.Context, fs vfs.FS, cwd string, tsConfigPath string, opts
 	}
 
 	// compileFiles checks the rebound plugin output, which can differ from the original TypeScript
-	result = compileFiles(ctx, fs, program, data, pathTranslator, sourceFiles, opts.KeepGoing, inc)
+	keepGoing := opts.KeepGoing || opts.EmitFirst
+	result = compileFiles(ctx, fs, program, data, pathTranslator, sourceFiles, keepGoing, inc)
 	result.OutputRoots = append(getOutputRoots(pathTranslator, program.Options()), data.ProjectOptions.IncludePath)
-	if !result.EmitSkipped || opts.KeepGoing {
+	if !result.EmitSkipped || keepGoing {
 		benchmarkIfVerbose("copy non-compiled files", func() {
 			err = syncProjectOutputs(fs, outputs, data.ProjectOptions.WriteOnlyChanged || inc != nil)
 		})
