@@ -3,6 +3,10 @@
 //
 //	go run ./cmd/goblox-fixtures -oracle <oracle dir> [-v] [-run <regexp>]
 //
+// With -lune it compiles the project and runs every spec under Lune instead (see lune.go):
+//
+//	go run ./cmd/goblox-fixtures -oracle <oracle dir> -lune [-compiler rbxtsc] [-optimizedLoops]
+//
 // The test project (<oracle>/tests) is copied to a temporary directory first, without its out/, so the
 // oracle's expected output is never touched and the Rojo paths (out/...) still resolve. Each file prints
 // one line: `match`, `differs` (a unified diff follows with -v), `missing` (goblox wrote no file),
@@ -40,10 +44,26 @@ func run() int {
 	runPattern := flag.String("run", "", "only report files whose path (relative to out/) matches this regexp")
 	keep := flag.Bool("keep", false, "keep the temporary project directory and print its path")
 	showDiagnostics := flag.Bool("diagnostics", false, "print the build diagnostics")
+	runSpecs := flag.Bool("lune", false, "compile the tests project and run every spec under Lune, like roblox-ts's `npm test`")
+	luneBin := flag.String("lune-bin", "lune", "lune 0.8.8 executable (-lune)")
+	rojoBin := flag.String("rojo-bin", "rojo", "rojo 7.4.4 executable (-lune)")
+	compiler := flag.String("compiler", "goblox", `compiler for -lune: "goblox", or "rbxtsc" for the oracle's roblox-ts (the baseline)`)
+	optimizedLoops := flag.Bool("optimizedLoops", false, "compile with --optimizedLoops, as compile.test.ts does (-lune)")
 	flag.Parse()
 	if *oracle == "" {
 		fmt.Fprintln(os.Stderr, "goblox-fixtures: -oracle is required")
 		return 2
+	}
+	if *runSpecs {
+		return runLune(luneOptions{
+			oracle:         *oracle,
+			luneBin:        *luneBin,
+			rojoBin:        *rojoBin,
+			compiler:       *compiler,
+			optimizedLoops: *optimizedLoops,
+			verbose:        *verbose,
+			keep:           *keep,
+		})
 	}
 	var filter *regexp.Regexp
 	if *runPattern != "" {
@@ -92,15 +112,7 @@ func run() int {
 		return 1
 	}
 	if *showDiagnostics {
-		formatOpts := &diagnosticwriter.FormattingOptions{
-			NewLine: "\n",
-			ComparePathsOptions: tspath.ComparePathsOptions{
-				CurrentDirectory: cwd,
-			},
-		}
-		for _, d := range result.Diagnostics {
-			diagnosticwriter.WriteFormatDiagnostic(os.Stdout, diagnosticwriter.WrapASTDiagnostic(d), formatOpts)
-		}
+		printDiagnostics(result, cwd)
 	}
 
 	// panics by output path
@@ -201,6 +213,18 @@ func run() int {
 		return 0
 	}
 	return 1
+}
+
+func printDiagnostics(result *project.EmitResult, cwd string) {
+	formatOpts := &diagnosticwriter.FormattingOptions{
+		NewLine: "\n",
+		ComparePathsOptions: tspath.ComparePathsOptions{
+			CurrentDirectory: cwd,
+		},
+	}
+	for _, d := range result.Diagnostics {
+		diagnosticwriter.WriteFormatDiagnostic(os.Stdout, diagnosticwriter.WrapASTDiagnostic(d), formatOpts)
+	}
 }
 
 func isError(d *ast.Diagnostic) bool {
