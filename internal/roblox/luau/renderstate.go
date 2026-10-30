@@ -1,6 +1,9 @@
 package luau
 
-import "strconv"
+import (
+	"strconv"
+	"strings"
+)
 
 // Port of LuauRenderer/RenderState.ts.
 
@@ -19,8 +22,17 @@ func NewRenderState() *RenderState {
 	return &RenderState{SeenTempNodes: map[int]string{}}
 }
 
-func (s *RenderState) pushIndent() { s.indent += indentCharacter }
-func (s *RenderState) popIndent()  { s.indent = s.indent[len(indentCharacter):] }
+// indents is sliced for indent levels up to its length, so pushIndent does not allocate.
+var indents = strings.Repeat(indentCharacter, 32)
+
+func (s *RenderState) pushIndent() {
+	if n := len(s.indent) + len(indentCharacter); n <= len(indents) {
+		s.indent = indents[:n]
+	} else {
+		s.indent += indentCharacter
+	}
+}
+func (s *RenderState) popIndent() { s.indent = s.indent[len(indentCharacter):] }
 
 // GetTempName returns an unique identifier that is unused in the current scope. SeenTempNodes should
 // already be fully populated by this point; this is a fallback for when solveTempIds() does not catch
@@ -67,11 +79,10 @@ func (s *RenderState) Indented(text string) string { return s.indent + text }
 // Line renders a line, adding the current indent, a semicolon if necessary, and "\n". endNode is used
 // to determine if a semicolon should be added; nil means no semicolon is added.
 func (s *RenderState) Line(text string, endNode ...Statement) string {
-	result := s.Indented(text)
 	if len(endNode) > 0 && endNode[0] != nil {
-		result += getEnding(s, endNode[0])
+		return s.indent + text + getEnding(s, endNode[0]) + "\n"
 	}
-	return s.Newline(result)
+	return s.indent + text + "\n"
 }
 
 // Block renders callback one indent level deeper.
