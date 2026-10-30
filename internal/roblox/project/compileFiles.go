@@ -311,10 +311,11 @@ func hasErrors(ds []*ast.Diagnostic) bool {
 // compileFiles 'transpiles' TypeScript project into a logically identical Luau project.
 //
 // writes rendered Luau source to the out directory.
-func compileFiles(ctx context.Context, fs vfs.FS, program *compiler.Program, data *transform.ProjectData, pathTranslator *rojo.PathTranslator, sourceFiles []*ast.SourceFile, keepGoing bool) *EmitResult {
-	result := compileFilesPrinting(ctx, fs, program, data, pathTranslator, sourceFiles, keepGoing, data.ProjectOptions.WriteTransformedFiles)
+func compileFiles(ctx context.Context, fs vfs.FS, program *compiler.Program, data *transform.ProjectData, pathTranslator *rojo.PathTranslator, sourceFiles []*ast.SourceFile, keepGoing bool, inc *incrementalBuild) *EmitResult {
+	result := compileFilesPrinting(ctx, fs, program, data, pathTranslator, sourceFiles, keepGoing, data.ProjectOptions.WriteTransformedFiles, inc)
 	if result.needsPrintedPositions {
-		result = compileFilesPrinting(ctx, fs, program, data, pathTranslator, sourceFiles, keepGoing, true)
+		// a clean compile that saves no state: the next build diffs from the last good one
+		result = compileFilesPrinting(ctx, fs, program, data, pathTranslator, sourceFiles, keepGoing, true, nil)
 	}
 	return result
 }
@@ -323,10 +324,21 @@ func compileFiles(ctx context.Context, fs vfs.FS, program *compiler.Program, dat
 // in the printed text of the file, so a diagnostic in a file that wasn't printed (printUnchanged is off
 // and no plugin changed it) can't be reported as is: the result then only has needsPrintedPositions, and
 // nothing was written. Builds without such a diagnostic, nearly all of them, don't pay for the prints.
-func compileFilesPrinting(ctx context.Context, fs vfs.FS, program *compiler.Program, data *transform.ProjectData, pathTranslator *rojo.PathTranslator, sourceFiles []*ast.SourceFile, keepGoing bool, printUnchanged bool) *EmitResult {
+func compileFilesPrinting(ctx context.Context, fs vfs.FS, program *compiler.Program, data *transform.ProjectData, pathTranslator *rojo.PathTranslator, sourceFiles []*ast.SourceFile, keepGoing bool, printUnchanged bool, inc *incrementalBuild) *EmitResult {
 	compilerOptions := program.Options()
 
 	outDir := compilerOptions.OutDir
+
+	if inc != nil && !transform.DiagnosticService.HasErrors() && inc.upToDate(program, sourceFiles) {
+		LogService.WriteLineIfVerbose("incremental: nothing changed")
+		inc.session.lastCompiled = 0
+		for _, warning := range inc.old.rojoWarnings {
+			LogService.Warn(warning)
+		}
+		_, errs := PluginsForProgram(program)
+		reportPluginErrors(errs)
+		return &EmitResult{Diagnostics: transform.DiagnosticService.Flush()}
+	}
 
 	rojoStart := time.Now()
 	// The resolvers walk their directories and ask for the real path of every entry several times
@@ -366,6 +378,9 @@ func compileFilesPrinting(ctx context.Context, fs vfs.FS, program *compiler.Prog
 	}
 	nodeModulesPathMapping := createNodeModulesPathMapping(fs, compilerOptions.TypeRoots)
 	rojoFS.DisableAndClearCache()
+	if inc != nil {
+		inc.checkRojo(rojoResolver, pkgRojoResolvers, nodeModulesPathMapping)
+	}
 	if LogService.Verbose {
 		LogService.Write("load rojo configs and package paths")
 		benchmarkEnd(rojoStart)
@@ -402,29 +417,33 @@ func compileFilesPrinting(ctx context.Context, fs vfs.FS, program *compiler.Prog
 	var transformed map[string]string
 	if len(PluginEntries(program)) > 0 {
 		plugins, errs := PluginsForProgram(program)
-		for _, err := range errs {
-			if message, isError := pluginErrorMessage(err); message != "" {
-				category := tsdiagnostics.CategoryWarning
-				if isError {
-					category = tsdiagnostics.CategoryError
-				}
-				transform.DiagnosticService.AddDiagnostic(diagnostics.CreateTextDiagnostic(message, category))
-			}
-		}
+		reportPluginErrors(errs)
 		data.TransformersRan = len(plugins) > 0
 		if len(plugins) > 0 {
+			pluginOptions := PluginOptions{
+				CurrentDirectory: data.ProjectPath,
+				ProjectType:      string(data.ProjectOptions.Type),
+				Verbose:          data.ProjectOptions.Verbose,
+				Files:            sourceFiles,
+				PrintUnchanged:   printUnchanged,
+			}
+			if inc != nil {
+				benchmarkIfVerbose("find the files for the transformers", func() {
+					pluginOptions.Files, pluginOptions.Reused = inc.pluginWork(ctx, program, sourceFiles)
+				})
+				pluginOptions.ParseTransformed = inc.parseTransformed
+				LogService.WriteLineIfVerbose(fmt.Sprintf("incremental: transformers run on %d/%d files", len(pluginOptions.Files), len(sourceFiles)))
+			}
 			var result PluginResult
 			benchmarkIfVerbose("running transformers..", func() {
-				result = RunPlugins(ctx, program, plugins, PluginOptions{
-					CurrentDirectory: data.ProjectPath,
-					ProjectType:      string(data.ProjectOptions.Type),
-					Verbose:          data.ProjectOptions.Verbose,
-					Files:            sourceFiles,
-					PrintUnchanged:   printUnchanged,
-				})
+				result = RunPlugins(ctx, program, plugins, pluginOptions)
 			})
 			if len(result.Transformed) > 0 {
 				LogService.WriteLineIfVerbose(fmt.Sprintf("%d/%d files re-printed", len(result.Transformed), len(sourceFiles)))
+			}
+			if inc != nil && len(result.Diagnostics) > 0 {
+				// a plugin can report on another file than the one it was given, so only a full run reproduces them
+				inc.blocked = true
 			}
 			transform.DiagnosticService.AddDiagnostics(result.Diagnostics)
 			transformed = result.Transformed
@@ -452,10 +471,22 @@ func compileFilesPrinting(ctx context.Context, fs vfs.FS, program *compiler.Prog
 			panic("compileFiles: " + sourceFile.FileName() + " is not in the program")
 		}
 	}
+	configDiagnostics := GetConfigDiagnostics(ctx, proxyProgram)
+	allSourceFiles := sourceFiles
+	if inc != nil {
+		benchmarkIfVerbose("find the files to compile", func() {
+			sourceFiles, proxyFiles = inc.filesToProcess(ctx, proxyProgram, sourceFiles, proxyFiles, configDiagnostics)
+		})
+		LogService.WriteLineIfVerbose(fmt.Sprintf("incremental: compiling %d/%d files", len(proxyFiles), len(allSourceFiles)))
+		inc.session.lastCompiled = len(proxyFiles)
+	}
 	var preEmit [][]*ast.Diagnostic
 	benchmarkIfVerbose(fmt.Sprintf("type check %d files", len(proxyFiles)), func() {
-		configDiagnostics := GetConfigDiagnostics(ctx, proxyProgram)
-		preEmit = getPreEmitDiagnostics(ctx, proxyProgram, proxyFiles, configDiagnostics)
+		if len(proxyFiles) > 0 {
+			preEmit = getPreEmitDiagnostics(ctx, proxyProgram, proxyFiles, configDiagnostics)
+		} else {
+			diags = append(diags, FilterCompatDiagnostics(proxyProgram.GetGlobalDiagnostics(ctx))...)
+		}
 	})
 	// see compileFilesPrinting
 	needsPrintedPositions := false
@@ -554,6 +585,9 @@ func compileFilesPrinting(ctx context.Context, fs vfs.FS, program *compiler.Prog
 	// diagnostics without a file, or reported for another file
 	lateDiagnostics := transform.DiagnosticService.Flush()
 	checkPositions(lateDiagnostics)
+	if inc != nil && len(lateDiagnostics) > 0 {
+		inc.blocked = true
+	}
 	diags = append(diags, lateDiagnostics...)
 
 	if needsPrintedPositions {
@@ -573,6 +607,9 @@ func compileFilesPrinting(ctx context.Context, fs vfs.FS, program *compiler.Prog
 	benchmarkIfVerbose("writing compiled files", func() {
 		for _, write := range fileWriteQueue {
 			outPath := pathTranslator.GetOutputPath(write.sourceFile.FileName())
+			if inc != nil && inc.unchangedOutput(write.sourceFile.FileName(), write.source) {
+				continue
+			}
 			if data.ProjectOptions.WriteOnlyChanged {
 				if existing, err := os.ReadFile(outPath); err == nil && string(existing) == write.source {
 					continue
@@ -589,6 +626,12 @@ func compileFilesPrinting(ctx context.Context, fs vfs.FS, program *compiler.Prog
 		return emitResultFailure(writeErr.Error())
 	}
 
+	if inc != nil && !hasErrors(diags) {
+		benchmarkIfVerbose("save the incremental state", func() {
+			inc.commit(ctx, program, proxyProgram, allSourceFiles, transformed, proxyFiles, results)
+		})
+	}
+
 	return &EmitResult{EmittedFiles: emittedFiles, EmitSkipped: hasErrors(diags), Diagnostics: diags, Panics: panics}
 }
 
@@ -602,6 +645,19 @@ func inFileNotPrinted(diagnostics []*ast.Diagnostic, printed map[string]string) 
 		}
 	}
 	return false
+}
+
+// reportPluginErrors adds the diagnostics of PluginsForProgram's errors.
+func reportPluginErrors(errs []error) {
+	for _, err := range errs {
+		if message, isError := pluginErrorMessage(err); message != "" {
+			category := tsdiagnostics.CategoryWarning
+			if isError {
+				category = tsdiagnostics.CategoryError
+			}
+			transform.DiagnosticService.AddDiagnostic(diagnostics.CreateTextDiagnostic(message, category))
+		}
+	}
 }
 
 // TYPETORCH_TRANSFORMER is the npm package of the transformer whose Go port goblox links by default.

@@ -2,6 +2,7 @@ package project
 
 import (
 	"context"
+	"maps"
 	"sync"
 
 	"github.com/microsoft/typescript-go/internal/ast"
@@ -51,6 +52,11 @@ type PluginOptions struct {
 	Files []*ast.SourceFile
 	// PrintUnchanged prints and parses again the files no plugin changed too.
 	PrintUnchanged bool
+	// Reused maps the file name of files outside of Files to the text the plugins printed for them in an
+	// earlier build (incremental builds).
+	Reused map[string]string
+	// ParseTransformed, when set, parses the printed text of a changed file (incremental builds).
+	ParseTransformed func(opts ast.SourceFileParseOptions, text string) *ast.SourceFile
 }
 
 // PluginResult is the outcome of RunPlugins.
@@ -132,10 +138,12 @@ func RunPlugins(ctx context.Context, program *compiler.Program, plugins []Plugin
 		}
 	}
 
+	maps.Copy(result.Transformed, opts.Reused)
+
 	if len(result.Transformed) == 0 {
 		return result
 	}
-	host := &proxyHost{CompilerHost: program.Host(), program: program, transformed: result.Transformed}
+	host := &proxyHost{CompilerHost: program.Host(), program: program, transformed: result.Transformed, parse: opts.ParseTransformed}
 	result.Program = compiler.NewProgram(compiler.ProgramOptions{Config: program.CommandLine(), Host: host})
 	return result
 }
@@ -146,10 +154,14 @@ type proxyHost struct {
 	compiler.CompilerHost
 	program     *compiler.Program
 	transformed map[string]string
+	parse       func(opts ast.SourceFileParseOptions, text string) *ast.SourceFile
 }
 
 func (h *proxyHost) GetSourceFile(opts ast.SourceFileParseOptions) *ast.SourceFile {
 	if text, ok := h.transformed[opts.FileName]; ok {
+		if h.parse != nil {
+			return h.parse(opts, text)
+		}
 		return parser.ParseSourceFile(opts, text, core.EnsureScriptKindFromFileName(opts.FileName))
 	}
 	if file := h.program.GetSourceFileByPath(opts.Path); file != nil && file.ParseOptions() == opts {

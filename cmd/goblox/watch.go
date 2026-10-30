@@ -2,8 +2,8 @@ package main
 
 // Watch mode: Project/functions/setupProjectWatchProgram.ts. roblox-ts watches with chokidar and rebuilds
 // the changed files; goblox polls modification times (stdlib only, so no new module dependency) and
-// rebuilds the whole project, which is as fast as rbxtsc's incremental rebuild of one file. The status
-// lines are ts.createWatchStatusReporter(ts.sys, true)'s, which `typetorch serve` parses.
+// compiles what the changes can reach (internal/roblox/project/incremental.go). The status lines are
+// ts.createWatchStatusReporter(ts.sys, true)'s, which `typetorch serve` parses.
 
 import (
 	"fmt"
@@ -38,6 +38,10 @@ func runWatch(opts project.BuildOptions, report func([]*ast.Diagnostic)) int {
 
 	// reuse the parsed and bound files that did not change, like tsc -w
 	opts.SourceFileCache = &project.SourceFileCache{}
+	// and compile only what a change can reach
+	if opts.Incremental != nil {
+		opts.Incremental = &project.IncrementalSession{}
+	}
 
 	root := watchRootFallback(opts)
 	var ignored []string

@@ -2,6 +2,9 @@
 package rojo
 
 import (
+	"fmt"
+	"io"
+	"maps"
 	"regexp"
 	"slices"
 	"sort"
@@ -210,6 +213,21 @@ func (r *RojoResolver) warn(str string) {
 // GetWarnings returns the warnings collected while parsing.
 func (r *RojoResolver) GetWarnings() []string {
 	return r.warnings
+}
+
+// WriteFingerprint writes everything the resolver answers from, so two resolvers with the same fingerprint
+// give the same answers.
+func (r *RojoResolver) WriteFingerprint(w io.Writer) {
+	fmt.Fprintf(w, "game=%t warnings=%q\n", r.IsGame, r.warnings)
+	for _, partition := range r.partitions {
+		fmt.Fprintf(w, "partition %q %q\n", partition.FsPath, partition.RbxPath)
+	}
+	for _, filePath := range slices.Sorted(maps.Keys(r.filePathToRbxPathMap)) {
+		fmt.Fprintf(w, "file %q %q\n", filePath, r.filePathToRbxPathMap[filePath])
+	}
+	for _, container := range r.isolatedContainers {
+		fmt.Fprintf(w, "isolated %q\n", container)
+	}
 }
 
 // FromPath is RojoResolver.fromPath.

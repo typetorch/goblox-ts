@@ -33,6 +33,9 @@ type Program struct {
 	program  *compiler.Program
 	host     Host
 
+	// signatureSalt is goblox's SetSignatureSalt
+	signatureSalt func(file *ast.SourceFile) string
+
 	// Testing data
 	testingData *TestingData
 

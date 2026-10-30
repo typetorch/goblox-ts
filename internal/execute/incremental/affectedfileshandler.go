@@ -81,6 +81,11 @@ func (h *affectedFilesHandler) computeDtsSignature(file *ast.SourceFile) string 
 			return nil
 		},
 	})
+	if h.program.signatureSalt != nil && signature != "" {
+		if salt := h.program.signatureSalt(file); salt != "" {
+			signature = h.program.snapshot.computeHash(signature + "\x00" + salt)
+		}
+	}
 	return signature
 }
 
