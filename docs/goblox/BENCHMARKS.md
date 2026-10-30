@@ -121,3 +121,43 @@ timestamp. Other differences:
 
 - goblox writes no `tsconfig.rbxtsc.tsbuildinfo`. See CLI.md, "Incremental builds".
 - The plugin-transformed TS (`--writeTransformedFiles`) differed only in those `x!` parens.
+
+## Step timings in `--verbose` (perf/incremental milestone 1, 2026-10-30)
+
+`goblox build --verbose` now prints roblox-ts's `benchmarkIfVerbose` lines (`<step> ( <n> ms )`) for every build
+step. `-timing` still prints `Build time:` on stderr. This milestone changes no output: on a gnome-game copy (407
+files) `out/` is byte-identical to the previous binary's apart from `builtAt` in `shared/build.luau`, and the oracle
+harness has 73/73 matches.
+
+One cold run on the Windows desktop (12 threads; other agents were building at the same time):
+
+```
+parse tsconfig and project data ( 12 ms )
+create program ( 157 ms )                      parse + bind
+copy include files ( 0 ms )
+collect project outputs ( 42 ms )
+check rojo config and file names ( 31 ms )
+load rojo configs and package paths ( 1076 ms ) includes the check above
+running transformers.. ( 658 ms )               @typetorch/transformer + reprint + proxy program
+407/407 files re-printed
+type check 407 files ( 478 ms )
+transform and render 407 files ( 533 ms )
+  of which luau render: 136 ms of 533 ms (summed over the checkers' goroutines)
+writing compiled files ( 183 ms )
+copy non-compiled files ( 38 ms )
+Build time: 3.185s
+```
+
+**New finding:** about 1.0 s, a third of the build, goes to loading the Rojo configs and the package paths
+(`rojo.FromPath`, one `rojo.Synthetic` per type root, and `createNodeModulesPathMapping`), before any TypeScript
+work starts. The profiles in BENCHMARKS-espresso.md didn't show it as its own step. It's the cheapest large win
+left: cache it, or make the synthetic resolvers lazy.
+
+Wall clock, medians of 3 (whole-project builds, no incremental state yet):
+
+| scenario | median | runs |
+| --- | ---: | --- |
+| cold (no `out/`) | 3.44 s | 3.15 / 3.44 / 4.89 |
+| warm | 4.01 s | 3.47 / 4.01 / 5.13 |
+| leaf (`grenade.controller.ts`) | 3.71 s | 3.56 / 3.71 / 3.78 |
+| shared (`shared/net.ts`) | 3.69 s | 3.22 / 3.69 / 3.83 |
