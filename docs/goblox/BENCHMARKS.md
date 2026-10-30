@@ -314,3 +314,34 @@ compiled again in full and saves no state (see CLI.md), and the JSON files' sign
   in rbxtsc. gnome-game rewrites `shared/build.ts` before every build, so that file always counts as changed.
 - **Checkers can't be kept across programs.** A change makes a new Program and a new checker pool, as in `tsc -w`.
   Skipping unaffected files is where the savings come from.
+
+## Quick wins: path checks and the checker default (2026-10-30)
+
+Items #3 and #4 of [BENCHMARKS-espresso.md](BENCHMARKS-espresso.md), on gnome-game: cold `goblox build`, Ryzen 5 5600
+(6 cores / 12 threads), Windows, 4 checkers. Before is `5b8df10e`; after is the same commit plus the path changes.
+Median of 5 interleaved runs, each started when total CPU was under 15% (other builds were running on the machine):
+
+| | before | after | change |
+| --- | ---: | ---: | ---: |
+| wall | 3.25 s | 2.84 s | −12% |
+| CPU | 8.47 s | 6.69 s | −21% |
+| peak working set | 953 MB | 705 MB | −26% |
+| allocated (`-memprofile`, one run each) | 1,553 MB | 922 MB | −41% |
+| allocated in `nodepath.Relative` (same profiles) | 582 MB | 17 MB | −97% |
+
+`nodepath.IsPathDescendantOf` allocates nothing, against 28 allocations and 1,684 B per call before, and takes 137 ns
+against 1,283 ns. Output is byte-identical apart from the `builtAt` timestamp in `shared/build.luau`.
+
+**Checker count on this machine** (median of 3, same conditions, after the path changes):
+
+| `-checkers` | wall | CPU | peak working set |
+| ---: | ---: | ---: | ---: |
+| 2 | 3.08 s | 5.61 s | 695 MB |
+| 3 | 2.81 s | 6.11 s | 658 MB |
+| **4** | **2.75 s** | 6.50 s | 712 MB |
+| 6 | 2.89 s | 8.20 s | 929 MB |
+| 8 | 2.74 s | 8.34 s | 979 MB |
+
+Above 4 checkers, wall time stops improving while CPU and memory rise, so hosts with 8 or more threads keep 4. Below
+that the default is min(4, physical cores), based on the espresso numbers. That lower branch was not re-measured
+here: a `GOMAXPROCS=4` comparison on this desktop was drowned out by other load.
