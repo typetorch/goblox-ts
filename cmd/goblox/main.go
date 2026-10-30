@@ -13,6 +13,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime"
+	"runtime/pprof"
 	"sort"
 	"strings"
 	"time"
@@ -67,6 +69,8 @@ type buildFlags struct {
 	projectPath *string
 	checkers    *int
 	timing      *bool
+	cpuProfile  *string
+	memProfile  *string
 }
 
 func newBuildFlags() *buildFlags {
@@ -92,6 +96,8 @@ func newBuildFlags() *buildFlags {
 	flags.Bool("luau", false, "emit files with .luau extension")
 	f.checkers = flags.Int("checkers", 0, "number of type checkers (0 = typescript-go default of 4)")
 	f.timing = flags.Bool("timing", false, "print the build time")
+	f.cpuProfile = flags.String("cpuprofile", "", "write a Go CPU profile to this file (goblox only)")
+	f.memProfile = flags.String("memprofile", "", "write a Go heap profile to this file at exit (goblox only)")
 	flags.Usage = func() {
 		fmt.Fprintf(flags.Output(), "%s\n\nUsage: goblox [build|watch] [flags]\n       goblox check [flags]\n\nFlags:\n", versionString())
 		flags.PrintDefaults()
@@ -116,6 +122,36 @@ func runBuild(args []string) int {
 		return 1
 	}
 
+	if *f.cpuProfile != "" {
+		out, err := os.Create(*f.cpuProfile)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		if err := pprof.StartCPUProfile(out); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		defer func() {
+			pprof.StopCPUProfile()
+			out.Close()
+		}()
+	}
+	if *f.memProfile != "" {
+		defer func() {
+			out, err := os.Create(*f.memProfile)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				return
+			}
+			defer out.Close()
+			runtime.GC()
+			if err := pprof.Lookup("allocs").WriteTo(out, 0); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+			}
+		}()
+	}
+
 	start := time.Now()
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -131,7 +167,7 @@ func runBuild(args []string) int {
 	flags.Visit(func(f *flag.Flag) {
 		getter := f.Value.(flag.Getter)
 		switch f.Name {
-		case "project", "p", "checkers", "timing", "logTruncatedPaths", "usePolling":
+		case "project", "p", "checkers", "timing", "cpuprofile", "memprofile", "logTruncatedPaths", "usePolling":
 		case "w", "watch":
 			watch = getter.Get().(bool)
 		case "i":
