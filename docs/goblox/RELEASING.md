@@ -7,8 +7,8 @@ Release. Pushing a `v*` tag starts it.
 
 Do these once, in this order. They need you: GitHub repo admin rights and npm's browser 2FA.
 
-1. **Default branch.** (Done on 2026-10-30.) Open https://github.com/typetorch/goblox-ts/settings, go to **General → Default
-   branch**, and click the ⇄ (switch) button. Choose **`goblox`**, click **Update**, then confirm with
+1. **Default branch.** Open https://github.com/typetorch/goblox-ts/settings, go to **General → Default
+   branch**, and click the ⇄ (switch) button. Choose **`main`**, click **Update**, then confirm with
    **I understand, update the default branch**. Without this step, the Actions tab has no "Run workflow"
    button for the dry run (tag pushes work either way).
 2. **npm packages and trusted publishing.** On a machine where `npm whoami` prints `phasenull`, run
@@ -24,15 +24,15 @@ Do these once, in this order. They need you: GitHub repo admin rights and npm's 
    `https://www.npmjs.com/package/<package>/access` for each of the eight packages and find **Trusted
    Publisher**. Click **GitHub Actions**, then fill in Organization or user `typetorch`, Repository
    `goblox-ts`, Workflow filename `release.yml`, and leave Environment empty. Click **Set up connection**.
-3. **Dry run.** (Passed on 2026-10-30: https://github.com/typetorch/goblox-ts/actions/runs/40976823073.) Open Actions → **Release** → **Run workflow**, choose branch `goblox`, keep **Dry run**
-   ticked, and click **Run workflow** (or run `gh workflow run release.yml --ref goblox -f dry_run=true`). It
+3. **Dry run.** (Passed on 2026-10-30: https://github.com/typetorch/goblox-ts/actions/runs/40976823073.) Open Actions → **Release** → **Run workflow**, choose branch `main`, keep **Dry run**
+   ticked, and click **Run workflow** (or run `gh workflow run release.yml --ref main -f dry_run=true`). It
    should finish green, with `npm publish --dry-run` output for all eight packages.
 4. **Release.** `git tag v0.1.0 && git push origin v0.1.0` (see below).
 
 ## Cutting a release
 
 ```sh
-git checkout goblox && git pull
+git checkout main && git pull
 git tag v0.1.0            # or v0.1.0-beta.1 for a prerelease
 git push origin v0.1.0
 ```
@@ -78,7 +78,7 @@ The Actions tab has a **Run workflow** button with three inputs:
   versions already published are skipped.
 
 GitHub only shows workflow_dispatch workflows that are on the repository's **default branch**. That needs
-the default branch to be `goblox` (checklist step 1), not `main` (the upstream mirror). Tag pushes work
+the default branch to be `main` (checklist step 1). Tag pushes work
 either way: they run the workflow file from the tagged commit.
 
 ### Bumping the transformer
