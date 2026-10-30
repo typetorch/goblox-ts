@@ -345,3 +345,37 @@ against 1,283 ns. Output is byte-identical apart from the `builtAt` timestamp in
 Above 4 checkers, wall time stops improving while CPU and memory rise, so hosts with 8 or more threads keep 4. Below
 that the default is min(4, physical cores), based on the espresso numbers. That lower branch was not re-measured
 here: a `GOMAXPROCS=4` comparison on this desktop was drowned out by other load.
+
+## Plugin step (2026-10-30)
+
+gnome-game (407 files) with the Go @typetorch/transformer, cold builds on the 12-thread desktop, alternating the two
+binaries of each comparison. `--verbose` step timings, median of the rounds. Each row adds one change to the row above.
+
+| transformer | running transformers | type check | transform and render | wall |
+| --- | ---: | ---: | ---: | ---: |
+| keeps untouched files (goblox and go-port c8c6e54) | 624 ms | 418 ms | 390 ms | 2.19 s |
+| + skips callees that can't be macros | 431 ms | 539 ms | 448 ms | 2.31 s |
+| + one goroutine per checker | 192 ms | 468 ms | 420 ms | 1.79 s |
+
+The rows come from two 3-round comparisons against the last row, so wall and the steps other than the plugin step are
+only comparable within a comparison: the second row's run was noisier (minimum wall 2.00 s). The first and last rows
+were measured together. Before untouched files were kept, the plugin step took 715 ms (5 rounds, same conditions except
+that binary also lacks the other agents' changes to goblox).
+
+The first cold build after the plugin stops warming the checkers pays a little of it back: type check +49 ms and
+transform +24 ms in the direct comparison, against −434 ms in the plugin step.
+
+Output: identical to rbxtsc with the JS transformer apart from `builtAt` and the build info files, at 1, 2, 4 and 8
+checkers and across repeated builds. Clean under the race detector (Linux build in WSL: gnome-game, and the transformer
+tests twice).
+
+**Tried and dropped:**
+
+- *Not allocating in `captureDiagnostic`.* Its closures barely allocate: about 0.3 MB of 1,388 MB in a whole build. Its
+  large cumulative numbers in profiles are the recursive transform under it. Skipping it for nodes with nothing to catch
+  saved 0.4% of the plugin step's allocations, and no time.
+- *Reusing the original program's diagnostics for untouched files.* The default build doesn't check twice: the original
+  program only answers the plugin's queries. Reuse would move checking to the original program rather than remove it.
+  Only 158 of the 407 files (22% of the bytes) have an import closure free of changed files, and that ignores global
+  declarations. In the best case the check took 1.44 s against 1.59 s (median of 7, under load, within the noise),
+  without counting the warm checkers transform would lose.
