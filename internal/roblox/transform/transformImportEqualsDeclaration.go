@@ -18,7 +18,7 @@ func transformImportEqualsDeclaration(state *TransformState, node *ast.Node) *lu
 		statements := luau.MakeList()
 		aliasSymbol := state.TypeChecker.GetSymbolAtLocation(node.Name())
 		assert(aliasSymbol != nil)
-		isValue := isSymbolOfValue(skipAliases(state.TypeChecker, aliasSymbol))
+		isValue := isSymbolOfValue(SkipAliases(state.TypeChecker, aliasSymbol))
 		if !isValue && !state.CompilerOptions.VerbatimModuleSyntax.IsTrue() {
 			return statements
 		}

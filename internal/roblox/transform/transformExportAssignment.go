@@ -56,7 +56,7 @@ func transformExportAssignment(state *TransformState, node *ast.Node) *luau.List
 	}
 
 	if symbol != nil &&
-		(!isSymbolOfValue(skipAliases(state.TypeChecker, symbol)) ||
+		(!isSymbolOfValue(SkipAliases(state.TypeChecker, symbol)) ||
 			(!state.CompilerOptions.VerbatimModuleSyntax.IsTrue() && state.TypeChecker.GetTypeOnlyAliasDeclaration(symbol) != nil)) {
 		return luau.MakeList()
 	}

@@ -38,6 +38,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/nodebuilder"
 	"github.com/microsoft/typescript-go/internal/printer"
 	"github.com/microsoft/typescript-go/internal/roblox/project"
+	"github.com/microsoft/typescript-go/internal/roblox/transform"
 	"github.com/microsoft/typescript-go/internal/scanner"
 	"github.com/microsoft/typescript-go/internal/tspath"
 )
@@ -159,6 +160,12 @@ func GetNextJSDocCommentLocation(node *ast.Node) *ast.Node {
 }
 
 func IsTupleType(t *checker.Type) bool { return checker.IsTupleType(t) }
+
+// SkipAliases is ts.skipAlias. Use it instead of Checker.SkipAlias, which stops at the `export=` symbol of a
+// module that also exports types.
+func SkipAliases(c *checker.Checker, symbol *ast.Symbol) *ast.Symbol {
+	return transform.SkipAliases(c, symbol)
+}
 
 // GetPropertyNameForPropertyNameNode is TypeScript's: false for a computed name that isn't a literal.
 func GetPropertyNameForPropertyNameNode(name *ast.Node) (string, bool) {

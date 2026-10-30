@@ -3,6 +3,14 @@
 The API is stable once committed. Every change after the first version is listed here, newest first,
 with what a plugin has to do about it.
 
+## v4 (2026-10-30)
+
+All additions; nothing a v3 plugin uses changed.
+
+- `SkipAliases(checker, symbol)`: `ts.skipAlias`, down to a symbol that is not an alias. Use it instead of
+  `Checker.SkipAlias`, which stops at the `export=` symbol of a module that also exports types: TypeScript 7
+  flags that symbol as a namespace, and TypeScript 5 follows it.
+
 ## v3 (2026-10-30)
 
 All additions; nothing a v2 plugin uses changed.

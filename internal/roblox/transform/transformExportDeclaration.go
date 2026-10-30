@@ -19,7 +19,7 @@ func isExportSpecifierValue(state *TransformState, element *ast.Node) bool {
 	}
 
 	aliasSymbol := state.TypeChecker.GetSymbolAtLocation(element.Name())
-	if aliasSymbol != nil && isSymbolOfValue(skipAliases(state.TypeChecker, aliasSymbol)) {
+	if aliasSymbol != nil && isSymbolOfValue(SkipAliases(state.TypeChecker, aliasSymbol)) {
 		return true
 	}
 

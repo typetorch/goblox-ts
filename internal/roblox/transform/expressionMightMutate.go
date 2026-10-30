@@ -23,7 +23,7 @@ func isEnumMemberAccess(state *TransformState, node *ast.Node) bool {
 	return memberSymbol != nil &&
 		(memberSymbol.Flags&ast.SymbolFlagsEnumMember) != 0 &&
 		enumSymbol != nil &&
-		(skipAliases(state.TypeChecker, enumSymbol).Flags&ast.SymbolFlagsEnum) != 0
+		(SkipAliases(state.TypeChecker, enumSymbol).Flags&ast.SymbolFlagsEnum) != 0
 }
 
 // expressionMightMutate is TSTransformer/util/expressionMightMutate.ts expressionMightMutate.

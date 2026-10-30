@@ -85,7 +85,7 @@ func transformNamespace(state *TransformState, name *ast.Node, body *ast.Node) *
 		exportsMap := map[*ast.Node][]string{}
 		if len(moduleExports) > 0 {
 			for _, exportSymbol := range moduleExports {
-				originalSymbol := skipAliases(state.TypeChecker, exportSymbol)
+				originalSymbol := SkipAliases(state.TypeChecker, exportSymbol)
 				if isSymbolOfValue(originalSymbol) && !isSymbolMutable(state, originalSymbol) {
 					valueDeclarationStatement := getValueDeclarationStatement(exportSymbol)
 					if valueDeclarationStatement != nil {

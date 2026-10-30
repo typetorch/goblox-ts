@@ -133,7 +133,7 @@ func getConstructorInterface(typeChecker *checker.Checker, name string) *ast.Nod
 func getGlobalSymbol(typeChecker *checker.Checker, name string, meaning ast.SymbolFlags) *ast.Symbol {
 	symbol := typeChecker.ResolveName(name, nil, meaning, false)
 	if symbol != nil {
-		return skipAliases(typeChecker, symbol)
+		return SkipAliases(typeChecker, symbol)
 	}
 	return nil
 }
@@ -288,11 +288,11 @@ func (m *MacroManager) IsMacroOnlyClass(symbol *ast.Symbol) bool {
 }
 
 func (m *MacroManager) GetIdentifierMacro(symbol *ast.Symbol) IdentifierMacro {
-	return m.identifierMacros[skipAliases(m.typeChecker, symbol)]
+	return m.identifierMacros[SkipAliases(m.typeChecker, symbol)]
 }
 
 func (m *MacroManager) GetCallMacro(symbol *ast.Symbol) CallMacro {
-	return m.callMacros[skipAliases(m.typeChecker, symbol)]
+	return m.callMacros[SkipAliases(m.typeChecker, symbol)]
 }
 
 func (m *MacroManager) GetConstructorMacro(symbol *ast.Symbol) ConstructorMacro {
