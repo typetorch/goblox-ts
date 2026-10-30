@@ -3,6 +3,8 @@ package transform
 // Port of TSTransformer/nodes/transformMethodDeclaration.ts.
 
 import (
+	"slices"
+
 	"github.com/microsoft/typescript-go/internal/ast"
 	"github.com/microsoft/typescript-go/internal/roblox/diagnostics"
 	"github.com/microsoft/typescript-go/internal/roblox/luau"
@@ -27,13 +29,7 @@ func transformMethodDeclaration(state *TransformState, prereqs *Prereqs, node *a
 
 	name := transformPropertyName(state, prereqs, node.Name())
 
-	parameterHasDecorators := false
-	for _, parameter := range node.Parameters() {
-		if ast.HasDecorators(parameter) {
-			parameterHasDecorators = true
-			break
-		}
-	}
+	parameterHasDecorators := slices.ContainsFunc(node.Parameters(), ast.HasDecorators)
 	if ast.HasDecorators(node) || parameterHasDecorators {
 		if !luau.IsSimplePrimitive(name) {
 			tempId := luau.TempId("key")

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -74,16 +75,14 @@ type cliScenario struct {
 	intentional string
 }
 
-func text(s string) *string { return &s }
-
 // declarationFiles is a small @rbxts-style package: module and global types, baseUrl imports, a hand-written
 // declaration file, comments, classes and generics.
 func declarationFiles(overrides map[string]*string) map[string]*string {
 	files := map[string]*string{
 		"default.project.json": nil,
 		"src/main.server.ts":   nil,
-		"tsconfig.json":        text(strings.Replace(cliTsconfig, `"baseUrl": "src"`, `"baseUrl": "src", "declaration": true`, 1)),
-		"src/index.ts": text(`/** The package's entry point. */
+		"tsconfig.json":        new(strings.Replace(cliTsconfig, `"baseUrl": "src"`, `"baseUrl": "src", "declaration": true`, 1)),
+		"src/index.ts": new(`/** The package's entry point. */
 export * from "shared/util";
 export { helper as renamedHelper } from "lib/helper";
 import { Thing, type Options } from "lib/thing";
@@ -105,9 +104,9 @@ export const other = Other.other;
 export type Pair<T> = [T, T];
 export type Lazy = typeof import("lib/thing");
 `),
-		"src/lib/helper.ts": text("export function helper<T>(value: T): T {\n\treturn value;\n}\n"),
-		"src/lib/other.ts":  text("const other = { a: 1, b: \"two\" } as const;\nexport = { other };\n"),
-		"src/lib/thing.ts": text(`export interface Options {
+		"src/lib/helper.ts": new("export function helper<T>(value: T): T {\n\treturn value;\n}\n"),
+		"src/lib/other.ts":  new("const other = { a: 1, b: \"two\" } as const;\nexport = { other };\n"),
+		"src/lib/thing.ts": new(`export interface Options {
 	readonly name: string;
 	size?: number;
 }
@@ -138,10 +137,10 @@ export abstract class Base<T extends defined> {
 	abstract value(): T;
 }
 `),
-		"src/lib/data.json":   text("{ \"a\": 1 }\n"),
-		"src/lib/usesData.ts": text("import data from \"lib/data.json\";\nexport const copy = data;\n"),
+		"src/lib/data.json":   new("{ \"a\": 1 }\n"),
+		"src/lib/usesData.ts": new("import data from \"lib/data.json\";\nexport const copy = data;\n"),
 		// hand-written: printed again, comments stay, its specifiers are rewritten too
-		"src/types.d.ts": text(`// a comment
+		"src/types.d.ts": new(`// a comment
 import { Options } from 'lib/thing';
     declare global {
   interface Extra { options: Options; }
@@ -150,9 +149,7 @@ export type { Options };
 declare const   service :string;
 `),
 	}
-	for name, contents := range overrides {
-		files[name] = contents
-	}
+	maps.Copy(files, overrides)
 	return files
 }
 
@@ -160,27 +157,25 @@ declare const   service :string;
 func compileOrderFiles(c string, overrides map[string]*string) map[string]*string {
 	files := map[string]*string{
 		"src/main.server.ts": nil,
-		"src/a.ts":           text("import { helper } from \"./helper\";\nexport const a = helper;\n"),
-		"src/b.ts":           text("export const b = null;\n"),
-		"src/c.ts":           text(c + "export const d = null;\n"),
-		"src/helper.ts":      text("export const helper = \"helper\";\n"),
+		"src/a.ts":           new("import { helper } from \"./helper\";\nexport const a = helper;\n"),
+		"src/b.ts":           new("export const b = null;\n"),
+		"src/c.ts":           new(c + "export const d = null;\n"),
+		"src/helper.ts":      new("export const helper = \"helper\";\n"),
 	}
-	for name, contents := range overrides {
-		files[name] = contents
-	}
+	maps.Copy(files, overrides)
 	return files
 }
 
 func cliScenarios() []cliScenario {
 	withoutTsconfig := map[string]*string{"tsconfig.json": nil}
-	typeError := map[string]*string{"src/bad.ts": text("export const a: string = 1;\n")}
-	otherRojo := map[string]*string{"other.project.json": text(cliRojoGame), "default.project.json": nil}
-	modelRojo := map[string]*string{"default.project.json": text(cliRojoModel)}
+	typeError := map[string]*string{"src/bad.ts": new("export const a: string = 1;\n")}
+	otherRojo := map[string]*string{"other.project.json": new(cliRojoGame), "default.project.json": nil}
+	modelRojo := map[string]*string{"default.project.json": new(cliRojoModel)}
 	packageFiles := map[string]*string{
 		"default.project.json": nil,
-		"src/index.ts":         text("export function add(a: number, b: number) {\n\treturn a + b;\n}\nexport type Pair = [number, number];\n"),
+		"src/index.ts":         new("export function add(a: number, b: number) {\n\treturn a + b;\n}\nexport type Pair = [number, number];\n"),
 		"src/main.server.ts":   nil,
-		"tsconfig.json":        text(strings.Replace(cliTsconfig, `"baseUrl": "src"`, `"baseUrl": "src", "declaration": true`, 1)),
+		"tsconfig.json":        new(strings.Replace(cliTsconfig, `"baseUrl": "src"`, `"baseUrl": "src", "declaration": true`, 1)),
 	}
 	return []cliScenario{
 		{name: "build"},
@@ -189,12 +184,12 @@ func cliScenarios() []cliScenario {
 		{name: "missing -p path", flags: []string{"-p", "does-not-exist"}},
 		{name: "-p folder", flags: []string{"-p", "src"}},
 		{name: "-p file", flags: []string{"-p", "tsconfig.json"}},
-		{name: "invalid tsconfig", files: map[string]*string{"tsconfig.json": text("{ not json")}, intentional: "typescript-go's JSON parser reports TS1005 where TypeScript 5.9 reports TS1136"},
-		{name: "tsconfig without outDir", files: map[string]*string{"tsconfig.json": text(strings.Replace(cliTsconfig, `"outDir": "out",`, "", 1))}},
-		{name: "tsconfig without rootDir", files: map[string]*string{"tsconfig.json": text(strings.Replace(cliTsconfig, `"rootDir": "src",`, "", 1))}},
-		{name: "tsconfig without typeRoots", files: map[string]*string{"tsconfig.json": text(strings.Replace(cliTsconfig, `"typeRoots": ["node_modules/@rbxts"],`, "", 1))}},
-		{name: "tsconfig without strict", files: map[string]*string{"tsconfig.json": text(strings.Replace(cliTsconfig, `"strict": true,`, "", 1))}},
-		{name: "tsconfig with allowJs", files: map[string]*string{"tsconfig.json": text(strings.Replace(cliTsconfig, `"strict": true,`, `"strict": true, "allowJs": true,`, 1))}},
+		{name: "invalid tsconfig", files: map[string]*string{"tsconfig.json": new("{ not json")}, intentional: "typescript-go's JSON parser reports TS1005 where TypeScript 5.9 reports TS1136"},
+		{name: "tsconfig without outDir", files: map[string]*string{"tsconfig.json": new(strings.Replace(cliTsconfig, `"outDir": "out",`, "", 1))}},
+		{name: "tsconfig without rootDir", files: map[string]*string{"tsconfig.json": new(strings.Replace(cliTsconfig, `"rootDir": "src",`, "", 1))}},
+		{name: "tsconfig without typeRoots", files: map[string]*string{"tsconfig.json": new(strings.Replace(cliTsconfig, `"typeRoots": ["node_modules/@rbxts"],`, "", 1))}},
+		{name: "tsconfig without strict", files: map[string]*string{"tsconfig.json": new(strings.Replace(cliTsconfig, `"strict": true,`, "", 1))}},
+		{name: "tsconfig with allowJs", files: map[string]*string{"tsconfig.json": new(strings.Replace(cliTsconfig, `"strict": true,`, `"strict": true, "allowJs": true,`, 1))}},
 		{name: "missing package.json", files: map[string]*string{"package.json": nil}},
 		{name: "invalid option", flags: []string{"--notAnOption"}},
 		{name: "invalid options", flags: []string{"--notAnOption", "value", "--other", "extra"}},
@@ -219,15 +214,15 @@ func cliScenarios() []cliScenario {
 		// the importers of a file come right after it, and an error stops the transforms: only c.ts's error is reported
 		{name: "compile order: importers", mustPrint: "src/c.ts", files: compileOrderFiles("import { helper } from \"./helper\";\nexport const c = helper;\n", nil)},
 		{name: "compile order: type error", mustPrint: "src/c.ts", files: compileOrderFiles("import { helper } from \"./helper\";\nexport const c: number = helper;\n", map[string]*string{
-			"src/b.ts": text("export const b = null;\n"),
+			"src/b.ts": new("export const b = null;\n"),
 		})},
 		{name: "compile order: augmentation", mustPrint: "src/c.ts", files: compileOrderFiles("export {};\ndeclare module \"./helper\" {\n\tinterface H {\n\t\tc: number;\n\t}\n}\n", map[string]*string{
-			"src/helper.ts": text("export interface H {}\nexport const helper = \"helper\";\n"),
+			"src/helper.ts": new("export interface H {}\nexport const helper = \"helper\";\n"),
 		})},
 		{name: "compile order: reference", mustPrint: "src/c.ts", files: compileOrderFiles("/// <reference path=\"./helper.d.ts\" />\nexport {};\n", map[string]*string{
-			"src/a.ts":        text("/// <reference path=\"./helper.d.ts\" />\nexport {};\n"),
+			"src/a.ts":        new("/// <reference path=\"./helper.d.ts\" />\nexport {};\n"),
 			"src/helper.ts":   nil,
-			"src/helper.d.ts": text("declare const helper: string;\n"),
+			"src/helper.d.ts": new("declare const helper: string;\n"),
 		})},
 		{name: "--noInclude", flags: []string{"--noInclude"}},
 		{name: "--type game", flags: []string{"--type", "game"}},
@@ -238,41 +233,41 @@ func cliScenarios() []cliScenario {
 		{name: "package: declarations", flags: []string{"--type", "package"}, files: declarationFiles(nil), mustWrite: "out/lib/thing.d.ts"},
 		{name: "package: inferred", files: declarationFiles(nil), mustWrite: "out/types.d.ts"},
 		{name: "package: declarationDir", mustWrite: "out/types/index.d.ts.map", files: declarationFiles(map[string]*string{
-			"tsconfig.json": text(strings.Replace(cliTsconfig, `"baseUrl": "src"`, `"baseUrl": "src", "declaration": true, "declarationDir": "out/types", "declarationMap": true`, 1)),
+			"tsconfig.json": new(strings.Replace(cliTsconfig, `"baseUrl": "src"`, `"baseUrl": "src", "declaration": true, "declarationDir": "out/types", "declarationMap": true`, 1)),
 		})},
-		{name: "package: no declaration", files: declarationFiles(map[string]*string{"tsconfig.json": text(cliTsconfig)}), mustWrite: "out/init.luau"},
+		{name: "package: no declaration", files: declarationFiles(map[string]*string{"tsconfig.json": new(cliTsconfig)}), mustWrite: "out/init.luau"},
 		{name: "package: paths", mustWrite: "out/uses.d.ts", files: declarationFiles(map[string]*string{
-			"src/index.ts":        text("export const unused = 1;\n"),
+			"src/index.ts":        new("export const unused = 1;\n"),
 			"src/lib/usesData.ts": nil,
 			"src/types.d.ts":      nil,
-			"tsconfig.json":       text(strings.Replace(cliTsconfig, `"baseUrl": "src"`, `"declaration": true, "paths": { "lib/*": ["./src/lib/*"], "~shared": ["./src/shared/util.ts"] }`, 1)),
-			"src/uses.ts":         text("import { helper } from 'lib/helper';\nimport { value } from '~shared';\nexport const a = helper(value);\nexport type B = typeof import('lib/helper');\n"),
+			"tsconfig.json":       new(strings.Replace(cliTsconfig, `"baseUrl": "src"`, `"declaration": true, "paths": { "lib/*": ["./src/lib/*"], "~shared": ["./src/shared/util.ts"] }`, 1)),
+			"src/uses.ts":         new("import { helper } from 'lib/helper';\nimport { value } from '~shared';\nexport const a = helper(value);\nexport type B = typeof import('lib/helper');\n"),
 		})},
 		{name: "package: declaration error", mustPrint: "TS4", files: declarationFiles(map[string]*string{
-			"src/bad.ts": text("export const value = class {\n\tprivate hidden = 1;\n};\n"),
+			"src/bad.ts": new("export const value = class {\n\tprivate hidden = 1;\n};\n"),
 		})},
 		{name: "package: consumed", mustWrite: "out/main.server.luau", files: map[string]*string{
-			"node_modules/@rbxts/mypkg/package.json":   text("{ \"name\": \"@rbxts/mypkg\", \"main\": \"out/init.luau\", \"types\": \"out/index.d.ts\" }\n"),
-			"node_modules/@rbxts/mypkg/out/index.d.ts": text("export declare function add(a: number, b: number): number;\n"),
-			"node_modules/@rbxts/mypkg/out/init.luau":  text("return { add = function(a, b) return a + b end }\n"),
-			"src/main.server.ts":                       text("import { add } from \"@rbxts/mypkg\";\nprint(add(1, 2));\n"),
+			"node_modules/@rbxts/mypkg/package.json":   new("{ \"name\": \"@rbxts/mypkg\", \"main\": \"out/init.luau\", \"types\": \"out/index.d.ts\" }\n"),
+			"node_modules/@rbxts/mypkg/out/index.d.ts": new("export declare function add(a: number, b: number): number;\n"),
+			"node_modules/@rbxts/mypkg/out/init.luau":  new("return { add = function(a, b) return a + b end }\n"),
+			"src/main.server.ts":                       new("import { add } from \"@rbxts/mypkg\";\nprint(add(1, 2));\n"),
 		}},
 		{name: "--type game, no rojo", flags: []string{"--type", "game"}, files: packageFiles},
 		{name: "--rojo path", flags: []string{"--rojo", "other.project.json"}, files: otherRojo},
 		{name: "--rojo missing path", flags: []string{"--rojo", "missing.project.json"}},
 		{name: "--rojo folder", flags: []string{"--rojo", "src"}},
-		{name: "--rojo broken json", flags: []string{"--rojo", "broken.project.json"}, files: map[string]*string{"broken.project.json": text("{ not json")}, intentional: "the message of the SyntaxError is JSON.parse's, V8's text isn't reproduced"},
+		{name: "--rojo broken json", flags: []string{"--rojo", "broken.project.json"}, files: map[string]*string{"broken.project.json": new("{ not json")}, intentional: "the message of the SyntaxError is JSON.parse's, V8's text isn't reproduced"},
 		{name: "nested rojo project", files: map[string]*string{
-			"default.project.json": text(strings.Replace(cliRojoGame, `"out": { "$path": "out" }`, `"out": { "$path": "out" }, "nested": { "$path": "nested.project.json" }`, 1)),
-			"nested.project.json":  text("{ \"name\": \"nested\", \"tree\": { \"$className\": \"Folder\" } }\n"),
+			"default.project.json": new(strings.Replace(cliRojoGame, `"out": { "$path": "out" }`, `"out": { "$path": "out" }, "nested": { "$path": "nested.project.json" }`, 1)),
+			"nested.project.json":  new("{ \"name\": \"nested\", \"tree\": { \"$className\": \"Folder\" } }\n"),
 		}},
 		{name: "broken nested rojo project", intentional: "the message of the SyntaxError is JSON.parse's, V8's text isn't reproduced", files: map[string]*string{
-			"default.project.json": text(strings.Replace(cliRojoGame, `"out": { "$path": "out" }`, `"out": { "$path": "out" }, "nested": { "$path": "nested.project.json" }`, 1)),
-			"nested.project.json":  text("{ not json"),
+			"default.project.json": new(strings.Replace(cliRojoGame, `"out": { "$path": "out" }`, `"out": { "$path": "out" }, "nested": { "$path": "nested.project.json" }`, 1)),
+			"nested.project.json":  new("{ not json"),
 		}},
 		{name: "no rojo file", files: map[string]*string{"default.project.json": nil}},
 		{name: "--includePath", flags: []string{"--includePath", "other", "--rojo", "other.project.json"}, files: map[string]*string{
-			"other.project.json": text(strings.ReplaceAll(cliRojoGame, `"$path": "include"`, `"$path": "other"`)),
+			"other.project.json": new(strings.ReplaceAll(cliRojoGame, `"$path": "include"`, `"$path": "other"`)),
 		}},
 		{name: "--luau", flags: []string{"--luau"}},
 		{name: "--luau=false", flags: []string{"--luau=false"}},
@@ -291,7 +286,7 @@ func runCliScenarios(oracle string, filter *regexp.Regexp, verbose bool) int {
 		return 2
 	}
 	// expand 8.3 short names (C:/Users/PHASEN~1) so paths match the ones the program sees
-	if long, err := filepath.EvalSymlinks(tempRoot); err == nil {
+	if long, evalSymlinksErr := filepath.EvalSymlinks(tempRoot); evalSymlinksErr == nil {
 		tempRoot = long
 	}
 	defer os.RemoveAll(tempRoot)
@@ -341,18 +336,16 @@ func writeCliProject(oracle string, dir string, files map[string]*string) error 
 		return err
 	}
 	base := map[string]*string{
-		"package.json":         text(cliPackageJson),
-		"tsconfig.json":        text(cliTsconfig),
-		"default.project.json": text(cliRojoGame),
-		"src/main.server.ts":   text("print(\"hello\");\n"),
-		"src/shared/util.ts":   text("export const value = [1, 2, 3].size();\n"),
-		"src/services.d.ts":    text("declare const service: string;\n"),
-		"src/data.json":        text("{}\n"),
-		"src/keep.lua":         text("return 1\n"),
+		"package.json":         new(cliPackageJson),
+		"tsconfig.json":        new(cliTsconfig),
+		"default.project.json": new(cliRojoGame),
+		"src/main.server.ts":   new("print(\"hello\");\n"),
+		"src/shared/util.ts":   new("export const value = [1, 2, 3].size();\n"),
+		"src/services.d.ts":    new("declare const service: string;\n"),
+		"src/data.json":        new("{}\n"),
+		"src/keep.lua":         new("return 1\n"),
 	}
-	for name, contents := range files {
-		base[name] = contents
-	}
+	maps.Copy(base, files)
 	for name, contents := range base {
 		if contents == nil {
 			continue
@@ -442,13 +435,13 @@ func compareCli(dir string, oracle string, goblox string, scenario cliScenario) 
 		skip[name] = true
 	}
 	removeOutputs := func() (map[string]string, error) {
-		outputs, err := projectOutputs(dir, skip)
-		if err != nil {
-			return nil, err
+		outputs, projectOutputsErr := projectOutputs(dir, skip)
+		if projectOutputsErr != nil {
+			return nil, projectOutputsErr
 		}
 		for name := range outputs {
-			if err := os.Remove(filepath.Join(dir, filepath.FromSlash(name))); err != nil {
-				return nil, err
+			if projectOutputsErr := os.Remove(filepath.Join(dir, filepath.FromSlash(name))); projectOutputsErr != nil {
+				return nil, projectOutputsErr
 			}
 		}
 		return outputs, nil

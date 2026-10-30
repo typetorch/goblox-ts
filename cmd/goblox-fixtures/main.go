@@ -100,7 +100,7 @@ func run() int {
 		return 2
 	}
 	// expand 8.3 short names (C:/Users/PHASEN~1) so paths match the ones the program sees
-	if long, err := filepath.EvalSymlinks(tempDir); err == nil {
+	if long, evalSymlinksErr := filepath.EvalSymlinks(tempDir); evalSymlinksErr == nil {
 		tempDir = long
 	}
 	if *keep {
@@ -108,9 +108,9 @@ func run() int {
 	} else {
 		defer os.RemoveAll(tempDir)
 	}
-	if err := copyTree(testsDir, tempDir, func(rel string) bool {
+	if copyTreeErr := copyTree(testsDir, tempDir, func(rel string) bool {
 		return rel == "out" || rel == "diagnostics.off"
-	}); err != nil {
+	}); copyTreeErr != nil {
 		fmt.Fprintln(os.Stderr, "goblox-fixtures:", err)
 		return 2
 	}
@@ -176,7 +176,6 @@ func run() int {
 		switch {
 		case panics[name] != "":
 			message := panics[name]
-			status = "panic"
 			if *verbose {
 				detail = message
 			}

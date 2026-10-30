@@ -13,6 +13,7 @@ import (
 
 // roblox-ts assigns ids in declaration order; the diagnostic fixtures refer to them.
 func TestIdsFollowDeclarationOrder(t *testing.T) {
+	t.Parallel()
 	v := reflect.ValueOf(Errors)
 	next := 0
 	for i := range v.NumField() {
@@ -33,7 +34,7 @@ func TestIdsFollowDeclarationOrder(t *testing.T) {
 	}
 }
 
-func TestMessages(t *testing.T) {
+func TestMessages(t *testing.T) { //nolint:paralleltest // sets the package's ColorEnabled.
 	ColorEnabled = false
 	d := Errors.NoRojoData.CreateWithRange(nil, core.NewTextRange(0, 0), "src/a.ts", true)
 	want := "Could not find Rojo data. There is no $path in your Rojo config that covers " + filepath.FromSlash("src/a.ts") + "\nSuggestion: Did you forget to add a custom npm scope to your default.project.json?"
@@ -50,6 +51,7 @@ func TestMessages(t *testing.T) {
 }
 
 func TestWriteWithColorAndContextPrintsCodeLikeRobloxTs(t *testing.T) {
+	t.Parallel()
 	var output strings.Builder
 	d := CreateTextDiagnostic("Unable to find tsconfig.json!", tsdiagnostics.CategoryError)
 	WriteWithColorAndContext(&output, d, &diagnosticwriter.FormattingOptions{NewLine: "\n"})

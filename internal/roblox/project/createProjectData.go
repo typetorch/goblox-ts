@@ -3,12 +3,12 @@ package project
 // Port of Project/functions/createProjectData.ts and Project/functions/validateCompilerOptions.ts.
 
 import (
-	"encoding/json"
 	"path/filepath"
 	"regexp"
 	"strings"
 
 	"github.com/microsoft/typescript-go/internal/core"
+	"github.com/microsoft/typescript-go/internal/json"
 	"github.com/microsoft/typescript-go/internal/roblox/diagnostics"
 	"github.com/microsoft/typescript-go/internal/roblox/nodepath"
 	"github.com/microsoft/typescript-go/internal/roblox/rojo"
@@ -53,10 +53,10 @@ func createProjectData(fs vfs.FS, tsConfigPath string, projectOptions transform.
 	isPackage := false
 	if text, ok := fs.ReadFile(pkgJsonPath); ok {
 		var pkgJson struct {
-			Name string `json:"name"`
+			Name string `json:"name,case:ignore"`
 		}
 		// errors if no pkgJson, so assume not a package
-		if json.Unmarshal([]byte(text), &pkgJson) == nil {
+		if json.Unmarshal([]byte(text), &pkgJson, json.AllowDuplicateNames(true)) == nil {
 			isPackage = packageRegex.MatchString(pkgJson.Name)
 		}
 	}

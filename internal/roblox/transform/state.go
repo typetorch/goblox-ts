@@ -10,12 +10,12 @@ import (
 	"github.com/microsoft/typescript-go/internal/checker"
 	"github.com/microsoft/typescript-go/internal/compiler"
 	"github.com/microsoft/typescript-go/internal/core"
+	tsdiagnostics "github.com/microsoft/typescript-go/internal/diagnostics"
 	"github.com/microsoft/typescript-go/internal/roblox/diagnostics"
 	"github.com/microsoft/typescript-go/internal/roblox/luau"
 	"github.com/microsoft/typescript-go/internal/roblox/nodepath"
 	"github.com/microsoft/typescript-go/internal/roblox/rojo"
 	"github.com/microsoft/typescript-go/internal/scanner"
-	tsdiagnostics "github.com/microsoft/typescript-go/internal/diagnostics"
 )
 
 // ProjectType is Shared/constants.ts ProjectType.
@@ -154,9 +154,9 @@ type Prereqs struct {
 // NewPrereqs is `new Prereqs()`.
 func NewPrereqs() *Prereqs { return &Prereqs{Statements: luau.MakeList()} }
 
-func (p *Prereqs) Push(statement luau.Statement)    { p.Statements.Push(statement) }
+func (p *Prereqs) Push(statement luau.Statement)     { p.Statements.Push(statement) }
 func (p *Prereqs) PushList(statements *luau.List)    { p.Statements.PushList(statements) }
-func (p *Prereqs) Unshift(statement luau.Statement) { p.Statements.Unshift(statement) }
+func (p *Prereqs) Unshift(statement luau.Statement)  { p.Statements.Unshift(statement) }
 func (p *Prereqs) UnshiftList(statements *luau.List) { p.Statements.UnshiftList(statements) }
 
 // PushToVar declares a temporary for expression (which may be nil) and returns it.
@@ -200,12 +200,12 @@ func listOrNode(n luau.Node) luau.ListOrNode {
 // order and stops transforming once any file has an error. To report the same set of diagnostics, the
 // service keeps each diagnostic that has a file in that file's bucket, and the driver replays the
 // buckets in file order (TakeFileDiagnostics). Diagnostics without a file are kept globally.
-var DiagnosticService = &diagnosticService{
+var DiagnosticService = &DiagnosticCollector{
 	singleDiagnostics: map[int32]bool{},
 	byFile:            map[*ast.SourceFile][]*ast.Diagnostic{},
 }
 
-type diagnosticService struct {
+type DiagnosticCollector struct {
 	mu                sync.Mutex
 	diagnostics       []*ast.Diagnostic
 	byFile            map[*ast.SourceFile][]*ast.Diagnostic
@@ -213,7 +213,7 @@ type diagnosticService struct {
 }
 
 // add must be called with s.mu held.
-func (s *diagnosticService) add(d *ast.Diagnostic) {
+func (s *DiagnosticCollector) add(d *ast.Diagnostic) {
 	if file := d.File(); file != nil {
 		s.byFile[file] = append(s.byFile[file], d)
 	} else {
@@ -221,7 +221,7 @@ func (s *diagnosticService) add(d *ast.Diagnostic) {
 	}
 }
 
-func (s *diagnosticService) AddSingleDiagnostic(d *ast.Diagnostic) {
+func (s *DiagnosticCollector) AddSingleDiagnostic(d *ast.Diagnostic) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if !s.singleDiagnostics[d.Code()] {
@@ -230,13 +230,13 @@ func (s *diagnosticService) AddSingleDiagnostic(d *ast.Diagnostic) {
 	}
 }
 
-func (s *diagnosticService) AddDiagnostic(d *ast.Diagnostic) {
+func (s *DiagnosticCollector) AddDiagnostic(d *ast.Diagnostic) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.add(d)
 }
 
-func (s *diagnosticService) AddDiagnostics(ds []*ast.Diagnostic) {
+func (s *DiagnosticCollector) AddDiagnostics(ds []*ast.Diagnostic) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, d := range ds {
@@ -255,7 +255,7 @@ func AddDiagnosticWithCache[T comparable](cacheBy T, d *ast.Diagnostic, cache ma
 }
 
 // TakeFileDiagnostics removes and returns the diagnostics of file, in the order they were added.
-func (s *diagnosticService) TakeFileDiagnostics(file *ast.SourceFile) []*ast.Diagnostic {
+func (s *DiagnosticCollector) TakeFileDiagnostics(file *ast.SourceFile) []*ast.Diagnostic {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	current := s.byFile[file]
@@ -264,7 +264,7 @@ func (s *diagnosticService) TakeFileDiagnostics(file *ast.SourceFile) []*ast.Dia
 }
 
 // Flush removes and returns every diagnostic: the ones without a file, then each file's, by file name.
-func (s *diagnosticService) Flush() []*ast.Diagnostic {
+func (s *DiagnosticCollector) Flush() []*ast.Diagnostic {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	current := s.diagnostics
@@ -280,7 +280,7 @@ func (s *diagnosticService) Flush() []*ast.Diagnostic {
 	return current
 }
 
-func (s *diagnosticService) HasErrors() bool {
+func (s *DiagnosticCollector) HasErrors() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if hasErrors(s.diagnostics) {
@@ -485,7 +485,8 @@ func (s *TransformState) CreateRuntimeLibImport(sourceFile *ast.SourceFile) luau
 		rbxPath := s.RojoResolver.GetRbxPathFromFilePath(sourceOutPath)
 		if rbxPath == nil {
 			DiagnosticService.AddDiagnostic(diagnostics.Errors.NoRojoData.CreateWithRange(
-				sourceFile, sourceFile.Loc, nodepath.Relative(s.Data.ProjectPath, sourceOutPath), false))
+				sourceFile, sourceFile.Loc, nodepath.Relative(s.Data.ProjectPath, sourceOutPath), false,
+			))
 			return luau.Create(&luau.VariableDeclaration{Left: luau.Globals.TS, Right: luau.NewNone()})
 		}
 

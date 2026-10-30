@@ -7,12 +7,12 @@ import (
 	"github.com/microsoft/typescript-go/internal/roblox/luau"
 )
 
-// bindingWildcard is the TypeScript `symbol` Binding: a sentinel for every binding user code can access.
-type bindingWildcard struct{ description string }
+// BindingWildcard is the TypeScript `symbol` Binding: a sentinel for every binding user code can access.
+type BindingWildcard struct{ description string }
 
 var (
-	USER_READS  = &bindingWildcard{"bindings readable by user code"}
-	USER_WRITES = &bindingWildcard{"bindings writable by user code"}
+	USER_READS  = &BindingWildcard{"bindings readable by user code"}
+	USER_WRITES = &BindingWildcard{"bindings writable by user code"}
 )
 
 // EvaluationEffects are the effects of executing emitted code, not of merely constructing its AST.
@@ -149,7 +149,7 @@ func joinEffects(effects ...*EvaluationEffects) *EvaluationEffects {
 	return result
 }
 
-func isExposedBinding(key Binding, wildcard *bindingWildcard) bool {
+func isExposedBinding(key Binding, wildcard *BindingWildcard) bool {
 	if bindingKey, ok := key.(*BindingKey); ok {
 		if wildcard == USER_WRITES {
 			return bindingKey.WrittenByClosure
@@ -160,7 +160,7 @@ func isExposedBinding(key Binding, wildcard *bindingWildcard) bool {
 	return !isNumberBinding(key)
 }
 
-func hasExposedBinding(bindings map[Binding]bool, wildcard *bindingWildcard) bool {
+func hasExposedBinding(bindings map[Binding]bool, wildcard *BindingWildcard) bool {
 	for key := range bindings {
 		if isExposedBinding(key, wildcard) {
 			return true
@@ -173,7 +173,7 @@ func intersects(a map[Binding]bool, b map[Binding]bool) bool {
 	if len(a) == 0 || len(b) == 0 {
 		return false
 	}
-	for _, wildcard := range []*bindingWildcard{USER_READS, USER_WRITES} {
+	for _, wildcard := range []*BindingWildcard{USER_READS, USER_WRITES} {
 		if a[wildcard] && hasExposedBinding(b, wildcard) {
 			return true
 		}

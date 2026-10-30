@@ -23,7 +23,7 @@ func fixVoidArgumentsForRobloxFunctions(state *TransformState, type_ *checker.Ty
 	if getOrSetDefault(state.MultiTransformState.IsPossiblyRobloxTypeCache, type_, func() bool {
 		return isPossiblyType(type_, isRobloxType(state))
 	}) {
-		for i := 0; i < len(args); i++ {
+		for i := range args {
 			arg := args[i]
 			if i >= len(nodeArguments) {
 				continue

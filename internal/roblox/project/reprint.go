@@ -61,11 +61,11 @@ func removeNonNullAccessParens(fileName string, transformed *ast.SourceFile, tex
 		if paren == nil || want[i] != nil {
 			continue
 		}
-		open, close := scanner.SkipTrivia(text, paren.Pos()), paren.End()-1
-		if open >= close || text[open] != '(' || text[close] != ')' {
+		openParen, closeParen := scanner.SkipTrivia(text, paren.Pos()), paren.End()-1
+		if openParen >= closeParen || text[openParen] != '(' || text[closeParen] != ')' {
 			return text
 		}
-		removals = append(removals, open, close)
+		removals = append(removals, openParen, closeParen)
 	}
 	if len(removals) == 0 {
 		return text
@@ -75,7 +75,7 @@ func removeNonNullAccessParens(fileName string, transformed *ast.SourceFile, tex
 	for _, pos := range removals {
 		removed[pos] = true
 	}
-	for i := 0; i < len(text); i++ {
+	for i := range len(text) {
 		if !removed[i] {
 			out = append(out, text[i])
 		}

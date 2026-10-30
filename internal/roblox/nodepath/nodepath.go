@@ -58,7 +58,7 @@ func Normalize(p string) string {
 // normalizeString resolves . and .. segments, like Node's internal normalizeString.
 func normalizeString(p string, allowAboveRoot bool) string {
 	var out []string
-	for _, segment := range strings.Split(p, "/") {
+	for segment := range strings.SplitSeq(p, "/") {
 		switch segment {
 		case "", ".":
 			continue
@@ -162,7 +162,7 @@ func Relative(from, to string) string {
 
 func splitNonEmpty(p string) []string {
 	var parts []string
-	for _, s := range strings.Split(p, "/") {
+	for s := range strings.SplitSeq(p, "/") {
 		if s != "" {
 			parts = append(parts, s)
 		}

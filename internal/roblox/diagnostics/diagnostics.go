@@ -133,10 +133,10 @@ func WriteWithColorAndContext(output io.Writer, d *ast.Diagnostic, formatOpts *d
 		written := "\x1b[90m " + Source + strconv.Itoa(int(d.Code())) + ": "
 		text = strings.Replace(text, written, "\x1b[90m TS "+Source+": ", 1)
 	}
-	io.WriteString(output, text)
+	_, _ = io.WriteString(output, text)
 	// TypeScript ends every diagnostic with a new line, typescript-go only the ones with a file
 	if d.File() == nil {
-		io.WriteString(output, formatOpts.NewLine)
+		_, _ = io.WriteString(output, formatOpts.NewLine)
 	}
 	// TypeScript prints a related message under its code, typescript-go next to its location
 	related := wrapped.RelatedInformation()
@@ -144,12 +144,12 @@ func WriteWithColorAndContext(output io.Writer, d *ast.Diagnostic, formatOpts *d
 		entry := strings.TrimPrefix(formatWithRelated(wrapped, []diagnosticwriter.Diagnostic{relatedWithoutMessage{r}}, formatOpts), base)
 		entry = strings.TrimSuffix(strings.Replace(entry, " - "+relatedMessageMark, "", 1), formatOpts.NewLine)
 		if r.File() != nil {
-			io.WriteString(output, entry)
+			_, _ = io.WriteString(output, entry)
 		}
-		io.WriteString(output, formatOpts.NewLine+"    "+diagnosticwriter.FlattenDiagnosticMessage(r, formatOpts.NewLine, formatOpts.Locale))
+		_, _ = io.WriteString(output, formatOpts.NewLine+"    "+diagnosticwriter.FlattenDiagnosticMessage(r, formatOpts.NewLine, formatOpts.Locale))
 	}
 	if len(related) > 0 {
-		io.WriteString(output, formatOpts.NewLine)
+		_, _ = io.WriteString(output, formatOpts.NewLine)
 	}
 }
 

@@ -3,6 +3,8 @@ package transform
 // Port of TSTransformer/util/isMethod.ts.
 
 import (
+	"slices"
+
 	"github.com/microsoft/typescript-go/internal/ast"
 	"github.com/microsoft/typescript-go/internal/checker"
 	"github.com/microsoft/typescript-go/internal/roblox/diagnostics"
@@ -10,12 +12,7 @@ import (
 
 func containsInstantiableType(type_ *checker.Type) bool {
 	if isUnionOrIntersection(type_) {
-		for _, t := range type_.Types() {
-			if containsInstantiableType(t) {
-				return true
-			}
-		}
-		return false
+		return slices.ContainsFunc(type_.Types(), containsInstantiableType)
 	}
 	return type_.Flags()&checker.TypeFlagsInstantiable != 0
 }

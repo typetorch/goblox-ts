@@ -194,15 +194,15 @@ func checkedJsxInitializers(t *testing.T) (*TransformState, map[string]*ast.Node
 func sentinelMacroSymbols() map[string]*ast.Symbol {
 	symbols := map[string]*ast.Symbol{NOMINAL_LUA_TUPLE_NAME: {Name: NOMINAL_LUA_TUPLE_NAME}}
 	names := reflect.ValueOf(SYMBOL_NAMES)
-	for i := range names.NumField() {
-		name := names.Field(i).String()
+	for _, field := range names.Fields() {
+		name := field.String()
 		symbols[name] = &ast.Symbol{Name: name}
 	}
 	return symbols
 }
 
 // Expected Luau from roblox-ts 68648b0 (see jsxTestSource).
-func TestJsx(t *testing.T) {
+func TestJsx(t *testing.T) { //nolint:paralleltest // the subtests share one TransformState.
 	state, initializers := checkedJsxInitializers(t)
 
 	tests := []struct {
@@ -272,7 +272,7 @@ local x = React.createElement("frame", _attributes)
 `},
 	}
 
-	for _, tt := range tests {
+	for _, tt := range tests { //nolint:paralleltest // the subtests share one TransformState.
 		t.Run(tt.name, func(t *testing.T) {
 			initializer := initializers[tt.name]
 			if initializer == nil {
@@ -289,6 +289,7 @@ local x = React.createElement("frame", _attributes)
 
 // JSX text whitespace and entity handling, from TypeScript's tsxReactEmitWhitespace cases.
 func TestFixupWhitespaceAndDecodeEntities(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		text string
 		want string

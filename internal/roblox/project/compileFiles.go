@@ -10,7 +10,6 @@ package project
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -25,6 +24,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/compiler"
 	"github.com/microsoft/typescript-go/internal/core"
 	tsdiagnostics "github.com/microsoft/typescript-go/internal/diagnostics"
+	"github.com/microsoft/typescript-go/internal/json"
 	"github.com/microsoft/typescript-go/internal/roblox/diagnostics"
 	"github.com/microsoft/typescript-go/internal/roblox/luau"
 	"github.com/microsoft/typescript-go/internal/roblox/nodepath"
@@ -118,11 +118,11 @@ func createNodeModulesPathMapping(fs vfs.FS, typeRoots []string) map[string]stri
 				continue
 			}
 			var pkgJson struct {
-				Main    *string `json:"main"`
-				Typings *string `json:"typings"`
-				Types   *string `json:"types"`
+				Main    *string `json:"main,case:ignore"`
+				Typings *string `json:"typings,case:ignore"`
+				Types   *string `json:"types,case:ignore"`
 			}
-			if json.Unmarshal([]byte(text), &pkgJson) != nil {
+			if json.Unmarshal([]byte(text), &pkgJson, json.AllowDuplicateNames(true)) != nil {
 				continue
 			}
 			// both "types" and "typings" are valid
@@ -244,9 +244,7 @@ func transformFiles(ctx context.Context, program *compiler.Program, renderTime *
 
 	var wg sync.WaitGroup
 	for _, g := range groups {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			c, done := program.GetTypeCheckerForFileExclusive(ctx, files[g.indices[0]])
 			defer done()
 
@@ -289,7 +287,7 @@ func transformFiles(ctx context.Context, program *compiler.Program, renderTime *
 					transform.DiagnosticService.TakeFileDiagnostics(file)
 				}
 			}
-		}()
+		})
 	}
 	wg.Wait()
 }
@@ -586,7 +584,8 @@ func compileFilesPrinting(ctx context.Context, fs vfs.FS, program *compiler.Prog
 				message = message[:index]
 			}
 			diags = append(diags, diagnostics.CreateTextDiagnostic(
-				"goblox could not compile "+sourceFile.FileName()+": "+message, tsdiagnostics.CategoryError))
+				"goblox could not compile "+sourceFile.FileName()+": "+message, tsdiagnostics.CategoryError,
+			))
 			failed = true
 			continue
 		}

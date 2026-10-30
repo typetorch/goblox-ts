@@ -1,9 +1,9 @@
 {
-	"name": "goblox-smoke",
-	"private": true,
-	"description": "A tiny roblox-ts game the release workflow compiles with the built goblox binary.",
-	"devDependencies": {
-		"@rbxts/compiler-types": "3.0.0-types.0",
-		"@rbxts/types": "1.0.960"
-	}
+    "name": "goblox-smoke",
+    "private": true,
+    "description": "A tiny roblox-ts game the release workflow compiles with the built goblox binary.",
+    "devDependencies": {
+        "@rbxts/compiler-types": "3.0.0-types.0",
+        "@rbxts/types": "1.0.960"
+    }
 }

@@ -65,6 +65,7 @@ func testTabs(text string) string {
 func testId(name string) luau.Expression { return luau.Id(name) }
 
 func TestPropertyCallMacros(t *testing.T) {
+	t.Parallel()
 	arr, cb := testId("arr"), testId("cb")
 	cases := []struct {
 		source    string
@@ -343,6 +344,7 @@ local x = _valueExisted
 	receivers := map[string]luau.Expression{"arr": arr, "s": testId("s"), "m": testId("m"), "str": testId("str"), "v3": testId("v3"), "n": testId("n"), "p": testId("p"), "v2": testId("v2"), "v2i": testId("v2i"), "cf": testId("cf"), "u": testId("u"), "u2": testId("u2")}
 	for _, c := range cases {
 		t.Run(c.source, func(t *testing.T) {
+			t.Parallel()
 			node := parseCallExpression(t, c.source)
 			receiver := receivers[node.Expression().Expression().Text()]
 			macro := PROPERTY_CALL_MACROS[c.className][c.method]
@@ -361,6 +363,7 @@ local x = _valueExisted
 
 // TestPropertyCallMacrosTable checks that every class and method of the roblox-ts table exists.
 func TestPropertyCallMacrosTable(t *testing.T) {
+	t.Parallel()
 	want := map[string]string{
 		"CFrame":        "add mul sub",
 		"UDim":          "add sub",

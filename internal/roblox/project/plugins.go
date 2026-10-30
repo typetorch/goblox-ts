@@ -194,9 +194,7 @@ func runPluginsPerChecker(ctx context.Context, program *compiler.Program, plugin
 
 	var wg sync.WaitGroup
 	for _, g := range groups {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			c, done := program.GetTypeCheckerForFileExclusive(ctx, files[g.indices[0]])
 			defer done()
 			for _, i := range g.indices {
@@ -215,7 +213,7 @@ func runPluginsPerChecker(ctx context.Context, program *compiler.Program, plugin
 					return
 				}
 			}
-		}()
+		})
 	}
 	wg.Wait()
 	return true

@@ -59,7 +59,7 @@ func writeFile(t *testing.T, path string, text string) {
 	}
 }
 
-func TestTemplateAndMiscExpressions(t *testing.T) {
+func TestTemplateAndMiscExpressions(t *testing.T) { //nolint:paralleltest // Build uses the global LogService and DiagnosticService.
 	oracle := os.Getenv("GOBLOX_ORACLE")
 	if oracle == "" {
 		oracle = defaultOracle
@@ -132,15 +132,15 @@ func TestTemplateAndMiscExpressions(t *testing.T) {
 		t.Errorf("%s panicked: %s", file, panicValue)
 	}
 
-	for _, name := range agent7Fixtures {
+	for _, name := range agent7Fixtures { //nolint:paralleltest // Build uses the global LogService and DiagnosticService.
 		t.Run(name, func(t *testing.T) {
-			want, err := os.ReadFile(filepath.Join("testdata", "agent7", name+".luau"))
-			if err != nil {
-				t.Fatal(err)
+			want, readFileErr := os.ReadFile(filepath.Join("testdata", "agent7", name+".luau"))
+			if readFileErr != nil {
+				t.Fatal(readFileErr)
 			}
-			got, err := os.ReadFile(filepath.Join(dir, "out", name+".luau"))
-			if err != nil {
-				t.Fatal(err)
+			got, readFileErr := os.ReadFile(filepath.Join(dir, "out", name+".luau"))
+			if readFileErr != nil {
+				t.Fatal(readFileErr)
 			}
 			if string(got) != string(want) {
 				t.Errorf("got:\n%s\nwant:\n%s", got, want)

@@ -98,6 +98,10 @@ linters:
           - misspell
       - path: 'internal/(repo|testutil|testrunner|vfs|pprof|execute/tsctests|bundled|fswatch|nativepath|osutil)|cmd/tsgo'
         text: should likely be used instead
+      # goblox: the CLIs and the on-disk build driver need byte-exact reads, atomic renames, Lstat and
+      # non-recursive removes (internal/vfs has none of them), native path display and env/tty detection.
+      - path: 'cmd/goblox|internal/roblox/(project|diagnostics|nodepath)'
+        text: should likely be used instead
       - path: '(.+)_test\.go$'
         text: should likely be used instead
       - path: '_tools'

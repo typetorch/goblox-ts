@@ -11,9 +11,11 @@ import (
 // covered by the fixture harness instead.
 
 func TestCollapseFlowControlCases(t *testing.T) {
+	t.Parallel()
 	tsConstant := func(name string) luau.Expression { return luau.Property(luau.Id("TS"), name) }
 
 	t.Run("single case", func(t *testing.T) {
+		t.Parallel()
 		exitTypeId := luau.TempId("exitType")
 		got := luau.RenderAST(collapseFlowControlCases(exitTypeId, []flowControlCase{
 			{
@@ -28,6 +30,7 @@ func TestCollapseFlowControlCases(t *testing.T) {
 	})
 
 	t.Run("return then continue", func(t *testing.T) {
+		t.Parallel()
 		exitTypeId := luau.TempId("exitType")
 		returnsId := luau.TempId("returns")
 		got := luau.RenderAST(collapseFlowControlCases(exitTypeId, []flowControlCase{
@@ -55,6 +58,7 @@ end
 }
 
 func TestBinaryExpressionChain(t *testing.T) {
+	t.Parallel()
 	prereqs := NewPrereqs()
 	result := binaryExpressionChain([]luau.Expression{testId("a"), testId("b"), testId("c")}, "and")
 	if got, want := renderMacroResult(prereqs, result), "local x = a and b and c\n"; got != want {

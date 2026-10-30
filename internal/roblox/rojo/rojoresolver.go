@@ -471,7 +471,7 @@ func Relative(rbxFrom RbxPath, rbxTo RbxPath) RelativeRbxPath {
 
 	result := RelativeRbxPath{}
 	if diffIndex < len(rbxFrom) {
-		for i := 0; i < len(rbxFrom)-diffIndex; i++ {
+		for range len(rbxFrom) - diffIndex {
 			result = append(result, RbxPathParent)
 		}
 	}

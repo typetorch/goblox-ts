@@ -36,7 +36,7 @@ func isIdentifierText(id string) bool {
 	if len(id) == 0 {
 		return false
 	}
-	for i := 0; i < len(id); i++ {
+	for i := range len(id) {
 		c := id[i]
 		if c == '_' || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (i > 0 && c >= '0' && c <= '9') {
 			continue

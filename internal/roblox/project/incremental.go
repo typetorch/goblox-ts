@@ -17,7 +17,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -32,6 +31,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/compiler"
 	"github.com/microsoft/typescript-go/internal/core"
 	"github.com/microsoft/typescript-go/internal/execute/incremental"
+	"github.com/microsoft/typescript-go/internal/json"
 	"github.com/microsoft/typescript-go/internal/parser"
 	"github.com/microsoft/typescript-go/internal/roblox/nodepath"
 	"github.com/microsoft/typescript-go/internal/roblox/rojo"
@@ -68,11 +68,11 @@ type incrementalState struct {
 // incrementalFile is what the last good build knows about one compiled file.
 type incrementalFile struct {
 	// Printed is the plugins' output, when they changed the file
-	Printed    string `json:"printed,omitempty"`
-	Reprinted  bool   `json:"reprinted,omitempty"`
+	Printed    string `json:"printed,omitzero"`
+	Reprinted  bool   `json:"reprinted,omitzero"`
 	OutputHash string `json:"outputHash"`
 	// Clean is false when the file had diagnostics, which the next build has to report again
-	Clean bool `json:"clean,omitempty"`
+	Clean bool `json:"clean,omitzero"`
 }
 
 // incrementalBuild is the work of one build.
@@ -330,11 +330,9 @@ func (b *incrementalBuild) commit(ctx context.Context, program *compiler.Program
 
 	var wg sync.WaitGroup
 	if b.original != nil && b.original.GetProgram() != proxyProgram {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			b.original.ComputeMissingSignatures(ctx)
-		}()
+		})
 	}
 	b.proxy.ComputeMissingSignatures(ctx)
 	wg.Wait()
@@ -381,7 +379,7 @@ func incrementalKey(fs vfs.FS, loaded *loadedConfig, data *transform.ProjectData
 	hash := sha256.New()
 	writeString := func(label string, value string) { fmt.Fprintf(hash, "%s %d\n%s\n", label, len(value), value) }
 	writeJSON := func(label string, value any) bool {
-		text, err := json.Marshal(value)
+		text, err := json.Marshal(value, json.Deterministic(true))
 		if err != nil {
 			return false
 		}
@@ -452,11 +450,13 @@ func gobloxBuildIdentity() string {
 	identity := core.Version()
 	if info, ok := debug.ReadBuildInfo(); ok {
 		identity += " " + info.Main.Version
+		var settings strings.Builder
 		for _, setting := range info.Settings {
 			if setting.Key == "vcs.revision" || setting.Key == "vcs.modified" || setting.Key == "-tags" {
-				identity += " " + setting.Value
+				settings.WriteString(" " + setting.Value)
 			}
 		}
+		identity += settings.String()
 	}
 	if executable, err := os.Executable(); err == nil {
 		if stat, err := os.Stat(executable); err == nil {
@@ -472,11 +472,11 @@ const incrementalCacheMagic = "goblox-incremental-1\n"
 
 type incrementalCache struct {
 	Key             string                      `json:"key"`
-	Original        json.RawMessage             `json:"original,omitempty"`
-	Proxy           json.RawMessage             `json:"proxy"`
+	Original        json.Value                  `json:"original,omitzero"`
+	Proxy           json.Value                  `json:"proxy"`
 	Files           map[string]*incrementalFile `json:"files"`
 	RojoFingerprint string                      `json:"rojoFingerprint"`
-	RojoWarnings    []string                    `json:"rojoWarnings,omitempty"`
+	RojoWarnings    []string                    `json:"rojoWarnings,omitzero"`
 }
 
 func writeIncrementalCache(path string, state *incrementalState, original *incremental.Program, proxy *incremental.Program) error {
@@ -491,7 +491,7 @@ func writeIncrementalCache(path string, state *incrementalState, original *incre
 	if cache.Proxy, err = proxy.MarshalState(buildInfoPath); err != nil {
 		return err
 	}
-	body, err := json.Marshal(&cache)
+	body, err := json.Marshal(&cache, json.Deterministic(true))
 	if err != nil {
 		return err
 	}
@@ -541,8 +541,8 @@ func parseIncrementalCache(path string, key string, loaded *loadedConfig, progra
 		return nil, errors.New("the cache is corrupt")
 	}
 	var cache incrementalCache
-	if err := json.Unmarshal([]byte(body), &cache); err != nil {
-		return nil, err
+	if unmarshalErr := json.Unmarshal([]byte(body), &cache); unmarshalErr != nil {
+		return nil, unmarshalErr
 	}
 	if cache.Key != key {
 		return nil, errors.New("the options, the project files or goblox changed")

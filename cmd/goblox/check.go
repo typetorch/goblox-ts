@@ -26,7 +26,7 @@ func runCheck(args []string) int {
 	calls := flag.String("calls", "", "print GetTypeAtLocation for every call expression in this source file")
 	noCheck := flag.Bool("nocheck", false, "skip the semantic check (program creation only)")
 	all := flag.Bool("all", false, "report diagnostics of every file, including declaration files in node_modules (roblox-ts only reports the files it compiles)")
-	flag.Parse(args)
+	_ = flag.Parse(args) // ExitOnError
 
 	start := time.Now()
 	cwd, err := os.Getwd()

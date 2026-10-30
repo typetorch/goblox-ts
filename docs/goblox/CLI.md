@@ -204,11 +204,14 @@ PLUGINS.md).
 
 ## Linking @typetorch/transformer into the release binary
 
-Today the port is linked only by `-tags typetorch` in a go.work that has both modules
-(`cmd/goblox/plugins_typetorch.go`):
+Today the port is linked only by `-tags typetorch` in a go.work that has both modules. The import lives in
+`cmd/goblox/plugins_typetorch.go.in`, which you copy to `plugins_typetorch.go` first (don't commit the copy):
+`go mod tidy` reads every file whatever its build tags, and the transformer isn't a required module.
+`-tags typetorch` without the copy doesn't compile, so it can't silently build a binary with no transformer.
 
 ```sh
 go work init ./goblox-ts ./typetorch-transformer/go
+cp goblox-ts/cmd/goblox/plugins_typetorch.go.in goblox-ts/cmd/goblox/plugins_typetorch.go
 go build -tags typetorch -o goblox ./goblox-ts/cmd/goblox
 ```
 
@@ -221,7 +224,8 @@ that.
 The release workflow checks out `typetorch/goblox-ts` and `typetorch/transformer` side by side.
 
 - It pins the transformer to a tag (`v0.3.x`), recorded in the workflow.
-- It runs `go work init ./goblox-ts ./transformer/go`, then for each platform:
+- It runs `go work init ./goblox-ts ./transformer/go`, copies `plugins_typetorch.go.in` to
+  `plugins_typetorch.go`, then for each platform:
   `GOOS=… GOARCH=… go build -tags typetorch -trimpath -ldflags "-s -w -X main.version=$NPM_VERSION"`.
 - It packs each binary into `@typetorch/goblox-<os>-<arch>`.
 

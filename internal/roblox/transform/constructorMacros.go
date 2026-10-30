@@ -65,8 +65,8 @@ func MapConstructor(state *TransformState, prereqs *Prereqs, node *ast.Node) lua
 		elements := luau.ListMapToArray(array.Members, func(e luau.Node) luau.MapEntry {
 			// non-null and type assertion because array will always have 2 members,
 			// due to map constructor typing
-			eArray, ok := e.(*luau.Array)
-			assert(ok && eArray.Members.IsNonEmpty())
+			eArray, isArray := e.(*luau.Array)
+			assert(isArray && eArray.Members.IsNonEmpty())
 			return luau.MapEntry{Index: eArray.Members.Head.Value, Value: eArray.Members.Head.Next.Value}
 		})
 		return luau.NewMap(elements...)

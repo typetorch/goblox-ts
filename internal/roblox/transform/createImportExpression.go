@@ -81,7 +81,7 @@ func getNodeModulesImportParts(
 	moduleFilename string,
 ) []luau.Expression {
 	relativePath := nodepath.Relative(state.Data.NodeModulesPath, moduleOutPath)
-	moduleScope := strings.Split(relativePath, nodepath.Sep)[0]
+	moduleScope, _, _ := strings.Cut(relativePath, nodepath.Sep)
 	assert(moduleScope != "")
 
 	if !isPathDescendantOf(moduleOutPath, state.Data.NodeModulesPath) {
@@ -107,7 +107,8 @@ func getNodeModulesImportParts(
 		relativeRbxPath := findRelativeRbxPath(moduleOutPath, state.PkgRojoResolvers)
 		if relativeRbxPath == nil {
 			DiagnosticService.AddDiagnostic(diagnostics.Errors.NoRojoData.Create(
-				moduleSpecifier, nodepath.Relative(state.Data.ProjectPath, moduleOutPath), true))
+				moduleSpecifier, nodepath.Relative(state.Data.ProjectPath, moduleOutPath), true,
+			))
 			return []luau.Expression{luau.NewNone()}
 		}
 
@@ -140,7 +141,8 @@ func getNodeModulesImportParts(
 	}
 	if moduleRbxPath == nil {
 		DiagnosticService.AddDiagnostic(diagnostics.Errors.NoRojoData.Create(
-			moduleSpecifier, nodepath.Relative(state.Data.ProjectPath, moduleOutPath), true))
+			moduleSpecifier, nodepath.Relative(state.Data.ProjectPath, moduleOutPath), true,
+		))
 		return []luau.Expression{luau.NewNone()}
 	}
 
@@ -174,7 +176,8 @@ func getProjectImportParts(
 	sourceRbxPath := state.RojoResolver.GetRbxPathFromFilePath(sourceOutPath)
 	if sourceRbxPath == nil {
 		DiagnosticService.AddDiagnostic(diagnostics.Errors.NoRojoData.CreateWithRange(
-			sourceFile, sourceFile.Loc, nodepath.Relative(state.Data.ProjectPath, sourceOutPath), false))
+			sourceFile, sourceFile.Loc, nodepath.Relative(state.Data.ProjectPath, sourceOutPath), false,
+		))
 		return []luau.Expression{luau.NewNone()}
 	}
 
@@ -247,7 +250,8 @@ func getImportParts(state *TransformState, sourceFile *ast.SourceFile, moduleSpe
 	moduleRbxPath := state.RojoResolver.GetRbxPathFromFilePath(moduleOutPath)
 	if moduleRbxPath == nil {
 		DiagnosticService.AddDiagnostic(diagnostics.Errors.NoRojoData.Create(
-			moduleSpecifier, nodepath.Relative(state.Data.ProjectPath, moduleOutPath), false))
+			moduleSpecifier, nodepath.Relative(state.Data.ProjectPath, moduleOutPath), false,
+		))
 		return []luau.Expression{luau.NewNone()}
 	}
 

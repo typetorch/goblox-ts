@@ -10,6 +10,7 @@ import (
 )
 
 func TestAutomaticTypesAndPluginEntries(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	writeFiles(t, dir, map[string]string{
 		// no `types`: every package of the type roots is global, as in TypeScript 5

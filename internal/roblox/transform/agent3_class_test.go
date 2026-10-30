@@ -23,6 +23,7 @@ func parseClasses(t *testing.T, source string) []*ast.Node {
 }
 
 func TestFindConstructor(t *testing.T) {
+	t.Parallel()
 	classes := parseClasses(t, `
 class A {}
 class B {
@@ -46,6 +47,7 @@ declare class C {
 }
 
 func TestGetExtendsNode(t *testing.T) {
+	t.Parallel()
 	classes := parseClasses(t, `
 class A {}
 class B implements I extends A {}
@@ -64,6 +66,7 @@ class D implements I {}
 }
 
 func TestCountDecorators(t *testing.T) {
+	t.Parallel()
 	classes := parseClasses(t, `
 @a @b class A {
 	@c method(@d @e x: number, y: number) {}
@@ -88,6 +91,7 @@ func TestCountDecorators(t *testing.T) {
 // Classes without instance property initializers never touch the TransformState in
 // transformImplicitClassConstructor, so these render without a program.
 func TestTransformImplicitClassConstructor(t *testing.T) {
+	t.Parallel()
 	classes := parseClasses(t, `
 class A {}
 class B extends A {}

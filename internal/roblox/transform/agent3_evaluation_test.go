@@ -7,6 +7,7 @@ import (
 )
 
 func TestFactsSurviveCreateClones(t *testing.T) {
+	t.Parallel()
 	// luau.Globals.Self is shared, so every use is a clone; it must keep its CONSTANT fact.
 	access := luau.Property(luau.Globals.Self, "x")
 	if access.Expression == luau.Node(luau.Globals.Self) {
@@ -29,6 +30,7 @@ func TestFactsSurviveCreateClones(t *testing.T) {
 }
 
 func TestEffects(t *testing.T) {
+	t.Parallel()
 	x := luau.Id("x")
 	insert := luau.Call(luau.Globals.Table.Insert, x, luau.Number(1))
 	effects := getEffects(insert)
@@ -59,6 +61,7 @@ func TestEffects(t *testing.T) {
 }
 
 func TestSubstitute(t *testing.T) {
+	t.Parallel()
 	ref := luau.TempId("operand")
 	expression := luau.Binary(ref, "+", luau.Number(1))
 	got := substitute(expression, map[int]luau.Expression{ref.Id: luau.Binary(luau.Id("n"), "-", luau.Number(1))})
@@ -75,6 +78,7 @@ func TestSubstitute(t *testing.T) {
 }
 
 func TestPlanEvaluation(t *testing.T) {
+	t.Parallel()
 	render := func(prereqs *Prereqs, result luau.Expression) string {
 		statements := luau.MakeList()
 		statements.PushList(prereqs.Statements)

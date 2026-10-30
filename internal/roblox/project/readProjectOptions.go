@@ -6,6 +6,7 @@ package project
 import (
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"strings"
 	"sync"
@@ -21,27 +22,27 @@ import (
 )
 
 // LogService is Shared/classes/LogService.ts.
-var LogService = &logService{out: os.Stdout}
+var LogService = &Logger{out: os.Stdout}
 
-type logService struct {
+type Logger struct {
 	mu      sync.Mutex
 	out     io.Writer
 	Verbose bool
 	partial bool
 }
 
-func (l *logService) Write(message string) {
+func (l *Logger) Write(message string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.write(message)
 }
 
-func (l *logService) write(message string) {
+func (l *Logger) write(message string) {
 	l.partial = !strings.HasSuffix(message, "\n")
 	fmt.Fprint(l.out, message)
 }
 
-func (l *logService) WriteLine(messages ...string) {
+func (l *Logger) WriteLine(messages ...string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.partial {
@@ -52,13 +53,13 @@ func (l *logService) WriteLine(messages ...string) {
 	}
 }
 
-func (l *logService) WriteLineIfVerbose(messages ...string) {
+func (l *Logger) WriteLineIfVerbose(messages ...string) {
 	if l.Verbose {
 		l.WriteLine(messages...)
 	}
 }
 
-func (l *logService) Warn(message string) {
+func (l *Logger) Warn(message string) {
 	l.WriteLine(diagnostics.Yellow("Compiler Warning:") + " " + message)
 }
 
@@ -203,17 +204,13 @@ func readProjectOptions(host *parseHost, configPath string, cache map[string]Par
 		if err != nil {
 			return nil, err
 		}
-		for k, v := range extended {
-			options[k] = v
-		}
+		maps.Copy(options, extended)
 	}
 	own, err := readOwnOptions(configPath, rbxts)
 	if err != nil {
 		return nil, err
 	}
-	for k, v := range own {
-		options[k] = v
-	}
+	maps.Copy(options, own)
 	cache[key] = options
 	return options, nil
 }

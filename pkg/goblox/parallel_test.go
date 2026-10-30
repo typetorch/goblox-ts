@@ -67,6 +67,7 @@ func loadParallelProject(t *testing.T) (*goblox.Program, string) {
 }
 
 func TestParallelPluginMatchesSequential(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	program, dir := loadParallelProject(t)
 	sequential := goblox.RunPlugins(ctx, program, []goblox.Plugin{reportingPlugin{}}, goblox.PluginOptions{CurrentDirectory: dir})
@@ -103,6 +104,7 @@ func TestParallelPluginMatchesSequential(t *testing.T) {
 }
 
 func TestParallelPluginDeclined(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	program, dir := loadParallelProject(t)
 	var calls atomic.Int32
@@ -114,6 +116,7 @@ func TestParallelPluginDeclined(t *testing.T) {
 }
 
 func TestParallelPluginSubsetOfFiles(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	program, dir := loadParallelProject(t)
 	files := goblox.CompilableSourceFiles(program)[5:8]
@@ -131,6 +134,7 @@ func TestParallelPluginSubsetOfFiles(t *testing.T) {
 }
 
 func TestParallelPluginPanicsWithFirstFile(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	program, dir := loadParallelProject(t)
 	var calls atomic.Int32

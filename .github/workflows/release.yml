@@ -127,6 +127,7 @@ jobs:
         run: |
           set -euo pipefail
           go work init ./goblox-ts ./transformer/go
+          cp goblox-ts/cmd/goblox/plugins_typetorch.go.in goblox-ts/cmd/goblox/plugins_typetorch.go
           go build -tags typetorch -trimpath -ldflags "-s -w -X main.version=$VERSION" -o "$OUT" ./goblox-ts/cmd/goblox
           go version -m "$OUT" | grep -E 'build\s+-tags=typetorch' || { echo "::error::$OUT was not built with -tags typetorch"; exit 1; }
           ls -l "$OUT"

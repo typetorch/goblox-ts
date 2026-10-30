@@ -70,13 +70,13 @@ func readTestFile(t *testing.T, dir string, name string) string {
 	return string(text)
 }
 
-func editTestFile(t *testing.T, dir string, name string, old string, new string) {
+func editTestFile(t *testing.T, dir string, name string, old string, replacement string) {
 	t.Helper()
 	text := readTestFile(t, dir, name)
 	if !strings.Contains(text, old) {
 		t.Fatalf("%s has no %q:\n%s", name, old, text)
 	}
-	writeTestFile(t, dir, name, strings.Replace(text, old, new, 1))
+	writeTestFile(t, dir, name, strings.Replace(text, old, replacement, 1))
 }
 
 // readTree reads every file below dir, without the build info files, by relative path.
@@ -206,7 +206,7 @@ func newIncrementalFixture(t *testing.T, rbxts string, plugins bool, persist boo
 			"export function connect(port: number): number {\n\treturn port + PORT + GLOBAL_LIMIT;\n}\n",
 		"src/server/main.server.ts": "import { connect, PORT } from \"shared/net\";\nimport { Item } from \"shared/types\";\n" +
 			"const item: Item = { id: connect(double(PORT)) };\nprint(item.id);\n",
-		"src/server/other.ts": "import { TYPED_PORT } from \"shared/net\";\nexport const VALUE = TYPED_PORT + 1;\n",
+		"src/server/other.ts":       "import { TYPED_PORT } from \"shared/net\";\nexport const VALUE = TYPED_PORT + 1;\n",
 		"src/client/user.client.ts": "import { connect } from \"shared/net\";\nprint(connect(2));\n",
 		"src/client/leaf.ts":        "export const LEAF = double(21);\n",
 		"src/client/quiet.ts":       "export const QUIET = 1;\n",
@@ -324,7 +324,7 @@ func (f *incrementalFixture) wantErrorIn(step string, result *EmitResult, fileNa
 	f.t.Errorf("%s: no diagnostic in %s: %v", step, fileName, diagnosticLines(result.Diagnostics))
 }
 
-func TestIncrementalFixtures(t *testing.T) {
+func TestIncrementalFixtures(t *testing.T) { //nolint:paralleltest // Build uses the global LogService and DiagnosticService.
 	oracle := os.Getenv("GOBLOX_ORACLE")
 	if oracle == "" {
 		oracle = defaultOracle
@@ -335,7 +335,7 @@ func TestIncrementalFixtures(t *testing.T) {
 	}
 	registerLiteralDouble()
 
-	for _, plugins := range []bool{false, true} {
+	for _, plugins := range []bool{false, true} { //nolint:paralleltest // Build uses the global LogService and DiagnosticService.
 		for _, persist := range []bool{false, true} {
 			t.Run(fmt.Sprintf("plugins=%v,persist=%v", plugins, persist), func(t *testing.T) {
 				runIncrementalFixtures(t, rbxts, plugins, persist)
@@ -563,7 +563,7 @@ func runIncrementalFixtures(t *testing.T, rbxts string, plugins bool, persist bo
 
 // TestEmitFirst: the files without errors are written, the file with the error keeps its output, and the
 // errors don't leave anything behind once they are fixed.
-func TestEmitFirst(t *testing.T) {
+func TestEmitFirst(t *testing.T) { //nolint:paralleltest // Build uses the global LogService and DiagnosticService.
 	oracle := os.Getenv("GOBLOX_ORACLE")
 	if oracle == "" {
 		oracle = defaultOracle
@@ -603,6 +603,7 @@ func TestEmitFirst(t *testing.T) {
 }
 
 func TestDecoratorText(t *testing.T) {
+	t.Parallel()
 	text := "@Service()\nexport class A {\n\t@Inject() b = 1;\n\tm(@Param() p: number) {}\n}\nfunction f() {}\n"
 	file := parser.ParseSourceFile(ast.SourceFileParseOptions{FileName: "/a.ts", Path: "/a.ts"}, text, core.ScriptKindTS)
 	if got, want := decoratorText(file), "@Service()\n@Inject()\n@Param()\n"; got != want {

@@ -47,6 +47,7 @@ func checkedCalls(t *testing.T, source string) (*TransformState, []*ast.Node) {
 
 // Expected Luau from roblox-ts 68648b0.
 func TestReadonlyArrayJoin(t *testing.T) {
+	t.Parallel()
 	state, calls := checkedCalls(t, `
 interface Array<T> { [n: number]: T; join(separator?: string): string }
 interface Boolean {}

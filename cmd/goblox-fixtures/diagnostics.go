@@ -35,8 +35,7 @@ func runCompiler(dir string, env []string, name string, args ...string) (compile
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	run := compilerRun{stdout: stdout.String(), stderr: stderr.String()}
-	var exitError *exec.ExitError
-	if errors.As(err, &exitError) {
+	if exitError, ok := errors.AsType[*exec.ExitError](err); ok {
 		run.exitCode = exitError.ExitCode()
 	} else if err != nil {
 		return run, err
@@ -70,8 +69,8 @@ func compareCompilers(dir string, oracle string, goblox string, flags ...string)
 	if err != nil {
 		return "", want, err
 	}
-	if err := reset(); err != nil {
-		return "", want, err
+	if resetErr := reset(); resetErr != nil {
+		return "", want, resetErr
 	}
 	got, err := runCompiler(dir, os.Environ(), goblox, flags...)
 	if err != nil {
@@ -129,7 +128,7 @@ func runDiagnosticFixtures(oracle string, filter *regexp.Regexp, verbose bool) i
 		return 2
 	}
 	// expand 8.3 short names (C:/Users/PHASEN~1) so paths match the ones the program sees
-	if long, err := filepath.EvalSymlinks(tempRoot); err == nil {
+	if long, evalSymlinksErr := filepath.EvalSymlinks(tempRoot); evalSymlinksErr == nil {
 		tempRoot = long
 	}
 	defer os.RemoveAll(tempRoot)
@@ -154,9 +153,7 @@ func runDiagnosticFixtures(oracle string, filter *regexp.Regexp, verbose bool) i
 			fmt.Fprintln(os.Stderr, "goblox-fixtures:", err)
 			return 2
 		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for i := range next {
 				result := &outcomes[i]
 				fixture := filepath.Join(dir, "src", "diagnostics", fixtures[i])
@@ -166,11 +163,11 @@ func runDiagnosticFixtures(oracle string, filter *regexp.Regexp, verbose bool) i
 				var want compilerRun
 				result.differences, want, result.err = compareCompilers(dir, oracle, goblox, "--allowCommentDirectives", "--optimizedLoops")
 				result.codes = diagnosticCodePattern.FindAllString(want.stdout, -1)
-				if err := os.Remove(fixture); err != nil && result.err == nil {
-					result.err = err
+				if removeErr := os.Remove(fixture); removeErr != nil && result.err == nil {
+					result.err = removeErr
 				}
 			}
-		}()
+		})
 	}
 	for i := range fixtures {
 		next <- i
@@ -220,12 +217,12 @@ func prepareFixtureProject(oracle string, dir string) error {
 		return err
 	}
 	for _, name := range []string{filepath.Join("src", "tests"), filepath.Join("src", "main.server.ts")} {
-		if err := os.RemoveAll(filepath.Join(dir, name)); err != nil {
-			return err
+		if removeAllErr := os.RemoveAll(filepath.Join(dir, name)); removeAllErr != nil {
+			return removeAllErr
 		}
 	}
-	if err := os.MkdirAll(filepath.Join(dir, "src", "diagnostics"), 0o755); err != nil {
-		return err
+	if mkdirAllErr := os.MkdirAll(filepath.Join(dir, "src", "diagnostics"), 0o755); mkdirAllErr != nil {
+		return mkdirAllErr
 	}
 	tsconfigPath := filepath.Join(dir, "tsconfig.json")
 	tsconfig, err := os.ReadFile(tsconfigPath)

@@ -82,7 +82,7 @@ func runLune(opts luneOptions) int {
 	failed, _ := strconv.Atoi(matches[2])
 	fmt.Printf("%s: %s passed, %s failed, %s skipped\n", opts.compiler, matches[1], matches[2], matches[3])
 	if luneErr != nil || failed > 0 {
-		for _, line := range strings.Split(text, "\n") {
+		for line := range strings.SplitSeq(text, "\n") {
 			if strings.Contains(line, "[-]") && !opts.verbose {
 				fmt.Println(strings.TrimRight(line, "\r"))
 			}
@@ -99,7 +99,7 @@ func copyTestsProject(oracle string, keep bool) (string, func(), error) {
 		return "", nil, err
 	}
 	// expand 8.3 short names (C:/Users/PHASEN~1) so paths match the ones the program sees
-	if long, err := filepath.EvalSymlinks(tempDir); err == nil {
+	if long, evalSymlinksErr := filepath.EvalSymlinks(tempDir); evalSymlinksErr == nil {
 		tempDir = long
 	}
 	cleanup := func() { os.RemoveAll(tempDir) }

@@ -49,6 +49,7 @@ func writeFiles(t *testing.T, dir string, files map[string]string) {
 }
 
 func TestExamplePlugin(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	writeFiles(t, dir, map[string]string{
 		"tsconfig.json":   `{ "compilerOptions": { "strict": true, "target": "esnext", "module": "commonjs" }, "include": ["src"] }`,

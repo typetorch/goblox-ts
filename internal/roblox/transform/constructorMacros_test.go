@@ -11,6 +11,7 @@ import (
 // Expected Luau from roblox-ts 68648b0. The cases with arguments go through ensureTransformOrder and
 // transformExpression and are covered by the fixture harness instead.
 func TestConstructorMacros(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		source    string
 		className string
@@ -29,6 +30,7 @@ func TestConstructorMacros(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.source, func(t *testing.T) {
+			t.Parallel()
 			node := parseCallExpression(t, c.source)
 			prereqs := NewPrereqs()
 			result := CONSTRUCTOR_MACROS[c.className](nil, prereqs, node)
@@ -40,6 +42,7 @@ func TestConstructorMacros(t *testing.T) {
 }
 
 func TestCallMacros(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		source string
 		name   string
@@ -54,6 +57,7 @@ func TestCallMacros(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.source, func(t *testing.T) {
+			t.Parallel()
 			node := parseCallExpression(t, c.source)
 			prereqs := NewPrereqs()
 			result := CALL_MACROS[c.name](nil, prereqs, node, testId(c.name), c.args)
@@ -66,6 +70,7 @@ func TestCallMacros(t *testing.T) {
 
 // Expected Luau from roblox-ts 68648b0.
 func TestConstructorMacrosWithArguments(t *testing.T) {
+	t.Parallel()
 	source := `
 interface Array<T> { [n: number]: T }
 interface Boolean {}

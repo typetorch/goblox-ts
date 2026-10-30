@@ -1,24 +1,24 @@
 {
-	"name": "@typetorch/goblox",
-	"version": "0.0.0",
-	"description": "Alias of goblox, the Go port of the roblox-ts compiler. Installs goblox and exposes the same goblox bin.",
-	"keywords": ["roblox", "roblox-ts", "rbxtsc", "luau", "typescript", "compiler", "typetorch"],
-	"homepage": "https://github.com/typetorch/goblox-ts/tree/goblox/docs/goblox",
-	"bugs": "https://github.com/typetorch/goblox-ts/issues",
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/typetorch/goblox-ts.git",
-		"directory": "npm/typetorch-goblox"
-	},
-	"license": "Apache-2.0",
-	"bin": {
-		"goblox": "bin/goblox.js"
-	},
-	"files": ["bin"],
-	"engines": {
-		"node": ">=18"
-	},
-	"dependencies": {
-		"goblox": "0.0.0"
-	}
+    "name": "@typetorch/goblox",
+    "version": "0.0.0",
+    "description": "Alias of goblox, the Go port of the roblox-ts compiler. Installs goblox and exposes the same goblox bin.",
+    "keywords": ["roblox", "roblox-ts", "rbxtsc", "luau", "typescript", "compiler", "typetorch"],
+    "homepage": "https://github.com/typetorch/goblox-ts/tree/goblox/docs/goblox",
+    "bugs": "https://github.com/typetorch/goblox-ts/issues",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/typetorch/goblox-ts.git",
+        "directory": "npm/typetorch-goblox"
+    },
+    "license": "Apache-2.0",
+    "bin": {
+        "goblox": "bin/goblox.js"
+    },
+    "files": ["bin"],
+    "engines": {
+        "node": ">=18"
+    },
+    "dependencies": {
+        "goblox": "0.0.0"
+    }
 }

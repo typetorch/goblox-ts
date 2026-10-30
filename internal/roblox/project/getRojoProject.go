@@ -4,7 +4,6 @@ package project
 // collects are for roblox-ts's watch mode, which goblox does not port.
 
 import (
-	"encoding/json"
 	"maps"
 	"path/filepath"
 	"regexp"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/microsoft/typescript-go/internal/ast"
 	tsdiagnostics "github.com/microsoft/typescript-go/internal/diagnostics"
+	"github.com/microsoft/typescript-go/internal/json"
 	"github.com/microsoft/typescript-go/internal/roblox/diagnostics"
 	"github.com/microsoft/typescript-go/internal/roblox/nodepath"
 	"github.com/microsoft/typescript-go/internal/vfs"
@@ -114,9 +114,9 @@ func checkRojoProject(fs vfs.FS, configPath string) error {
 			return &rojoProjectReadError{"Error: ENOENT: no such file or directory, open '" + native + "'"}
 		}
 		var config struct {
-			Tree any `json:"tree"`
+			Tree any `json:"tree,case:ignore"`
 		}
-		if err := json.Unmarshal([]byte(contents), &config); err != nil {
+		if err := json.Unmarshal([]byte(contents), &config, json.AllowDuplicateNames(true)); err != nil {
 			// JSON.parse's messages are V8's; this keeps the kind of error
 			return &rojoProjectReadError{"SyntaxError: " + err.Error()}
 		}

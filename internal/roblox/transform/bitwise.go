@@ -10,9 +10,9 @@ import (
 // bitwiseOperatorMap is OPERATOR_MAP of bitwise.ts.
 var bitwiseOperatorMap = map[ast.Kind]string{
 	// bitwise
-	ast.KindLessThanLessThanToken:                   "lshift",
+	ast.KindLessThanLessThanToken:                  "lshift",
 	ast.KindGreaterThanGreaterThanGreaterThanToken: "rshift",
-	ast.KindGreaterThanGreaterThanToken:             "arshift",
+	ast.KindGreaterThanGreaterThanToken:            "arshift",
 
 	// bitwise compound assignment
 	ast.KindAmpersandEqualsToken:                         "band",

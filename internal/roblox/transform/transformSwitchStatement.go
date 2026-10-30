@@ -169,7 +169,7 @@ func transformSwitchStatement(state *TransformState, node *ast.Node) *luau.List 
 
 	statements := luau.MakeList()
 	canFallThroughTo := false
-	for i := 0; i < len(clauses); i++ {
+	for i := range clauses {
 		caseClauseNode := clauses[i]
 
 		if ast.IsCaseClause(caseClauseNode) {

@@ -96,7 +96,7 @@ func SolveTempIds(state *RenderState, ast ListOrNode) {
 			case *VariableDeclaration:
 				if l, ok := n.Left.(*List); ok {
 					l.ForEach(func(node Node) {
-						if id, ok := node.(*Identifier); ok {
+						if id, isIdentifier := node.(*Identifier); isIdentifier {
 							registerId(id.Name)
 						}
 					})

@@ -31,6 +31,7 @@ func commentTexts(comments *luau.List) []string {
 }
 
 func TestLastTokenShortcuts(t *testing.T) {
+	t.Parallel()
 	for _, source := range []string{
 		`
 // a

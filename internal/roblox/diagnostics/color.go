@@ -19,11 +19,11 @@ var ColorEnabled = func() bool {
 	return term.IsTerminal(int(os.Stdout.Fd()))
 }()
 
-func color(open, close string, text string) string {
+func color(openCode, closeCode string, text string) string {
 	if !ColorEnabled {
 		return text
 	}
-	return "\x1b[" + open + "m" + text + "\x1b[" + close + "m"
+	return "\x1b[" + openCode + "m" + text + "\x1b[" + closeCode + "m"
 }
 
 // Yellow is kleur.yellow.

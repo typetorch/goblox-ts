@@ -1,11 +1,12 @@
 package luau
 
 import (
-	"encoding/json"
 	"os"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/microsoft/typescript-go/internal/json"
 )
 
 // render.json holds hand-written ASTs and their rendering by the reference TypeScript renderer
@@ -41,7 +42,7 @@ func decode(t *testing.T, value any) ListOrNode {
 	if !ok {
 		t.Fatalf("not an object: %v", value)
 	}
-	if items, ok := obj["list"]; ok {
+	if items, isList := obj["list"]; isList {
 		list := MakeList()
 		for _, item := range items.([]any) {
 			list.Push(decode(t, item).(Node))
@@ -82,14 +83,15 @@ func decode(t *testing.T, value any) ListOrNode {
 }
 
 func TestRenderMatchesReference(t *testing.T) {
+	t.Parallel()
 	data, err := os.ReadFile("testdata/render.json")
 	if err != nil {
 		t.Fatal(err)
 	}
 	var fixtures []struct {
-		Name   string
-		Ast    any
-		Output string
+		Name   string `json:"name,case:ignore"`
+		Ast    any    `json:"ast,case:ignore"`
+		Output string `json:"output,case:ignore"`
 	}
 	if err := json.Unmarshal(data, &fixtures); err != nil {
 		t.Fatal(err)
@@ -99,6 +101,7 @@ func TestRenderMatchesReference(t *testing.T) {
 	}
 	for _, fixture := range fixtures {
 		t.Run(fixture.Name, func(t *testing.T) {
+			t.Parallel()
 			ast := decode(t, fixture.Ast).(*List)
 			got := RenderAST(ast)
 			if got != fixture.Output {
@@ -109,6 +112,7 @@ func TestRenderMatchesReference(t *testing.T) {
 }
 
 func TestCreateClonesParentedChildren(t *testing.T) {
+	t.Parallel()
 	id := Id("x")
 	first := Call(id)
 	second := Call(id)
@@ -126,6 +130,7 @@ func TestCreateClonesParentedChildren(t *testing.T) {
 }
 
 func TestListOperations(t *testing.T) {
+	t.Parallel()
 	a, b, c := Id("a"), Id("b"), Id("c")
 	list := MakeList(a)
 	list.Push(b)

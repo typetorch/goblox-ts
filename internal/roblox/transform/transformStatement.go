@@ -32,9 +32,9 @@ func init() {
 		ast.KindEmptyStatement:       statementNoEmit,
 
 		// banned statements
-		ast.KindForInStatement:      statementDiagnostic(diagnostics.Errors.NoForInStatement),
-		ast.KindLabeledStatement:    statementDiagnostic(diagnostics.Errors.NoLabeledStatement),
-		ast.KindDebuggerStatement:   statementDiagnostic(diagnostics.Errors.NoDebuggerStatement),
+		ast.KindForInStatement:    statementDiagnostic(diagnostics.Errors.NoForInStatement),
+		ast.KindLabeledStatement:  statementDiagnostic(diagnostics.Errors.NoLabeledStatement),
+		ast.KindDebuggerStatement: statementDiagnostic(diagnostics.Errors.NoDebuggerStatement),
 
 		// regular transforms
 		ast.KindBlock:                   transformBlock,

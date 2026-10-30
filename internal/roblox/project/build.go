@@ -439,8 +439,7 @@ func Build(ctx context.Context, opts BuildOptions) (*EmitResult, error) {
 
 	graphLoaded := false
 	result, err := build(ctx, fs, cwd, tsConfigPath, opts, &graphLoaded)
-	var diagnosticError *diagnostics.DiagnosticError
-	if errors.As(err, &diagnosticError) {
+	if diagnosticError, ok := errors.AsType[*diagnostics.DiagnosticError](err); ok {
 		return &EmitResult{EmitSkipped: true, Fatal: !graphLoaded, Diagnostics: diagnosticError.Diagnostics, WatchRoot: nodepath.Dirname(tsConfigPath)}, nil
 	}
 	if err != nil {
@@ -511,8 +510,8 @@ func build(ctx context.Context, fs vfs.FS, cwd string, tsConfigPath string, opts
 		// composite projects default to the config directory, rather than the common source directory
 		compilerOptions.RootDir = nodepath.Dirname(data.TsConfigPath)
 	}
-	if err := validateCompilerOptions(fs, compilerOptions, data.ProjectPath); err != nil {
-		return nil, err
+	if validateCompilerOptionsErr := validateCompilerOptions(fs, compilerOptions, data.ProjectPath); validateCompilerOptionsErr != nil {
+		return nil, validateCompilerOptionsErr
 	}
 
 	configPaths := map[string]bool{projectPathKey(fs, tsConfigPath): true}
@@ -527,8 +526,8 @@ func build(ctx context.Context, fs vfs.FS, cwd string, tsConfigPath string, opts
 
 	// ProjectGraph.refreshRojoProjects
 	if data.RojoConfigPath != "" {
-		if err := checkRojoProject(fs, data.RojoConfigPath); err != nil {
-			return nil, err
+		if checkRojoProjectErr := checkRojoProject(fs, data.RojoConfigPath); checkRojoProjectErr != nil {
+			return nil, checkRojoProjectErr
 		}
 	}
 	*graphLoaded = true
@@ -545,8 +544,8 @@ func build(ctx context.Context, fs vfs.FS, cwd string, tsConfigPath string, opts
 		program.BindSourceFiles()
 	})
 	pathTranslator := createPathTranslator(loaded.config, data.ProjectOptions.Luau)
-	if err := validateProjectOutputs(pathTranslator, program.Options()); err != nil {
-		return nil, err
+	if validateProjectOutputsErr := validateProjectOutputs(pathTranslator, program.Options()); validateProjectOutputsErr != nil {
+		return nil, validateProjectOutputsErr
 	}
 
 	benchmarkIfVerbose("copy include files", func() { err = copyInclude(data) })

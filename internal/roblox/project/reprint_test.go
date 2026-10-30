@@ -9,6 +9,7 @@ import (
 )
 
 func TestRemoveNonNullAccessParens(t *testing.T) {
+	t.Parallel()
 	const fileName = "/src/a.ts"
 	parse := func(text string) *ast.SourceFile {
 		return parser.ParseSourceFile(ast.SourceFileParseOptions{FileName: fileName, Path: fileName}, text, core.ScriptKindTS)
@@ -27,6 +28,7 @@ func TestRemoveNonNullAccessParens(t *testing.T) {
 }
 
 func TestReprintKeepsBlockComments(t *testing.T) {
+	t.Parallel()
 	for _, test := range []struct {
 		name string
 		text string
@@ -56,6 +58,7 @@ func TestReprintKeepsBlockComments(t *testing.T) {
 }
 
 func TestCalculateIndent(t *testing.T) {
+	t.Parallel()
 	for text, want := range map[string]int{"": 0, "a": 0, "  a": 2, "\ta": 4, "  \ta": 4, "\t  a": 6, "     \ta": 8} {
 		if got := calculateIndent(text); got != want {
 			t.Errorf("%q: got %d, want %d", text, got, want)

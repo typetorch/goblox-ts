@@ -1,21 +1,21 @@
 {
-	"compilerOptions": {
-		"allowSyntheticDefaultImports": true,
-		"downlevelIteration": true,
-		"module": "commonjs",
-		"moduleResolution": "Node",
-		"noLib": true,
-		"resolveJsonModule": true,
-		"experimentalDecorators": true,
-		"forceConsistentCasingInFileNames": true,
-		"moduleDetection": "force",
-		"strict": true,
-		"target": "ESNext",
-		"typeRoots": ["node_modules/@rbxts"],
-		"rootDir": "src",
-		"outDir": "out",
-		// Fails the build unless the binary links the Go port of @typetorch/transformer (-tags typetorch).
-		"plugins": [{ "transform": "@typetorch/transformer" }]
-	},
-	"include": ["./src/**/*.ts"]
+    "compilerOptions": {
+        "allowSyntheticDefaultImports": true,
+        "downlevelIteration": true,
+        "module": "commonjs",
+        "moduleResolution": "Node",
+        "noLib": true,
+        "resolveJsonModule": true,
+        "experimentalDecorators": true,
+        "forceConsistentCasingInFileNames": true,
+        "moduleDetection": "force",
+        "strict": true,
+        "target": "ESNext",
+        "typeRoots": ["node_modules/@rbxts"],
+        "rootDir": "src",
+        "outDir": "out",
+        // Fails the build unless the binary links the Go port of @typetorch/transformer (-tags typetorch).
+        "plugins": [{ "transform": "@typetorch/transformer" }]
+    },
+    "include": ["./src/**/*.ts"]
 }

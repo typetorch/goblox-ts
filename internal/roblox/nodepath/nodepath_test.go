@@ -6,7 +6,7 @@ import (
 )
 
 // Expected values are Node.js 26 results (node -p 'require("path").posix.<fn>(...)').
-func TestNodeSemantics(t *testing.T) {
+func TestNodeSemantics(t *testing.T) { //nolint:paralleltest // sets the package's Cwd.
 	Cwd = func() string { return "/cwd" }
 	cases := []struct{ got, want string }{
 		{Join("a", "b"), "a/b"},
@@ -57,7 +57,7 @@ func TestNodeSemantics(t *testing.T) {
 	}
 }
 
-func TestWindowsRoots(t *testing.T) {
+func TestWindowsRoots(t *testing.T) { //nolint:paralleltest // sets the package's Cwd.
 	Cwd = func() string { return "C:/cwd" }
 	cases := []struct{ got, want string }{
 		{Resolve("a"), "C:/cwd/a"},
@@ -85,7 +85,7 @@ func isPathDescendantOfReference(filePath, dirPath string) bool {
 	return dirPath == filePath || !strings.HasPrefix(Relative(dirPath, filePath), "..")
 }
 
-func TestIsPathDescendantOf(t *testing.T) {
+func TestIsPathDescendantOf(t *testing.T) { //nolint:paralleltest // sets the package's Cwd.
 	Cwd = func() string { return "/cwd" }
 	cases := []struct {
 		file, dir string
@@ -139,7 +139,7 @@ func TestIsPathDescendantOf(t *testing.T) {
 
 // TestIsPathDescendantOfMatchesReference compares against the original implementation on every pair of
 // generated paths.
-func TestIsPathDescendantOfMatchesReference(t *testing.T) {
+func TestIsPathDescendantOfMatchesReference(t *testing.T) { //nolint:paralleltest // sets the package's Cwd.
 	Cwd = func() string { return "C:/cwd" }
 	roots := []string{"", "/", "//", "C:/", "c:/", "C:\\", "D:/", "C:"}
 	segs := []string{"a", "A", "ab", ".", "..", "..a", "", "a\\b", "cwd", "Ä"}

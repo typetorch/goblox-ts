@@ -8,6 +8,7 @@ import (
 )
 
 func TestG2ValueToIdStr(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		value    luau.Expression
 		expected string
@@ -27,6 +28,7 @@ func TestG2ValueToIdStr(t *testing.T) {
 }
 
 func TestG2Assignment(t *testing.T) {
+	t.Parallel()
 	writable := luau.Id("a")
 	if actual := luau.RenderAST(luau.MakeList(createAssignmentStatement(writable, "+=", luau.Number(1), writable))); actual != "a += 1\n" {
 		t.Errorf("same readable: %q", actual)
@@ -48,6 +50,7 @@ func TestG2Assignment(t *testing.T) {
 }
 
 func TestG2Bitwise(t *testing.T) {
+	t.Parallel()
 	if !isBitwiseOperator(ast.KindCaretToken) || !isBitwiseOperator(ast.KindGreaterThanGreaterThanGreaterThanEqualsToken) || isBitwiseOperator(ast.KindPlusToken) {
 		t.Error("isBitwiseOperator")
 	}
@@ -59,6 +62,7 @@ func TestG2Bitwise(t *testing.T) {
 }
 
 func TestG2IsSafeInteger(t *testing.T) {
+	t.Parallel()
 	for value, expected := range map[float64]bool{0: true, -3: true, 1.5: false, 9007199254740991: true, 9007199254740992: false} {
 		if isSafeInteger(value) != expected {
 			t.Errorf("isSafeInteger(%v) != %v", value, expected)

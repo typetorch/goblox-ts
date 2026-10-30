@@ -22,7 +22,7 @@ func transformJsxChildren(state *TransformState, prereqs *Prereqs, children []*a
 		}
 	}
 
-	for i := 0; i < lastJsxChildIndex; i++ {
+	for i := range lastJsxChildIndex {
 		child := children[i]
 		if ast.IsJsxExpression(child) && child.AsJsxExpression().DotDotDotToken != nil {
 			DiagnosticService.AddDiagnostic(diagnostics.Errors.NoPrecedingJsxSpreadElement.Create(child))
@@ -65,7 +65,7 @@ func transformJsxChildren(state *TransformState, prereqs *Prereqs, children []*a
 // decoded entities can contain literal control characters.
 func escapeJsxTextControlCharacters(text string) string {
 	var sb strings.Builder
-	for i := 0; i < len(text); i++ {
+	for i := range len(text) {
 		c := text[i]
 		if c <= 0x1f || c == 0x7f {
 			fmt.Fprintf(&sb, `\x%02x`, c)

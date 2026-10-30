@@ -1,13 +1,13 @@
 package rojo
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/microsoft/typescript-go/internal/json"
 	"github.com/microsoft/typescript-go/internal/tspath"
 	"github.com/microsoft/typescript-go/internal/vfs/osvfs"
 )
@@ -17,25 +17,26 @@ import (
 
 type queries struct {
 	Projects []struct {
-		Config string
-		Files  []string
-	}
-	Find      []string
+		Config string   `json:"config"`
+		Files  []string `json:"files"`
+	} `json:"projects"`
+	Find      []string `json:"find"`
 	Synthetic struct {
-		Base  string
-		Files []string
-	}
-	Relative   [][2][]string
-	RbxPaths   [][]string
+		Base  string   `json:"base"`
+		Files []string `json:"files"`
+	} `json:"synthetic"`
+	Relative   [][2][]string `json:"relative"`
+	RbxPaths   [][]string    `json:"rbxPaths"`
 	Translator struct {
-		RootDir string
-		OutDir  string
-		Files   []string
-		Outputs []string
-	}
+		RootDir string   `json:"rootDir"`
+		OutDir  string   `json:"outDir"`
+		Files   []string `json:"files"`
+		Outputs []string `json:"outputs"`
+	} `json:"translator"`
 }
 
 func TestMatchesReference(t *testing.T) {
+	t.Parallel()
 	rootAbs, err := filepath.Abs("testdata")
 	if err != nil {
 		t.Fatal(err)
@@ -162,8 +163,14 @@ func TestMatchesReference(t *testing.T) {
 	for _, key := range []string{"projects", "find", "synthetic", "relative", "fileRelations", "networkTypes", "translator"} {
 		g, w := got.(map[string]any)[key], expected.(map[string]any)[key]
 		if !reflect.DeepEqual(g, w) {
-			gj, _ := json.MarshalIndent(g, "", "  ")
-			wj, _ := json.MarshalIndent(w, "", "  ")
+			gj, err := json.MarshalIndent(g, "", "  ")
+			if err != nil {
+				t.Fatal(err)
+			}
+			wj, err := json.MarshalIndent(w, "", "  ")
+			if err != nil {
+				t.Fatal(err)
+			}
 			t.Errorf("%s mismatch\n--- got\n%s\n--- want\n%s", key, gj, wj)
 		}
 	}

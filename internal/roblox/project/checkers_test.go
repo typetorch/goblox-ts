@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestDefaultCheckers(t *testing.T) {
+func TestDefaultCheckers(t *testing.T) { //nolint:paralleltest // sets GOMAXPROCS.
 	defer runtime.GOMAXPROCS(runtime.GOMAXPROCS(0))
 	for _, threads := range []int{1, 2, 3, 4, 6, 8, 12, 64} {
 		runtime.GOMAXPROCS(threads)

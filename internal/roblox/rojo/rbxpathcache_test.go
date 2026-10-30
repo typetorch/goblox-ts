@@ -7,6 +7,7 @@ import (
 )
 
 func TestGetRbxPathFromFilePathMemo(t *testing.T) {
+	t.Parallel()
 	r := newRojoResolver(nil)
 	r.partitions = []PartitionInfo{{RbxPath: RbxPath{"ReplicatedStorage"}, FsPath: "/game/out"}}
 

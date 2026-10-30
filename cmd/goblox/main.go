@@ -182,6 +182,7 @@ func runBuild(args []string) int {
 		getter := f.Value.(flag.Getter)
 		switch f.Name {
 		case "project", "p", "checkers", "timing", "cpuprofile", "memprofile", "logTruncatedPaths", "usePolling", "noIncremental", "emitFirst":
+			return
 		case "w", "watch":
 			watch = getter.Get().(bool)
 		case "i":

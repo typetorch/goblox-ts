@@ -32,17 +32,17 @@ func createBoilerplate(
 	statements := luau.MakeList()
 
 	/* boilerplate:
-		className = setmetatable({}, {
-			__tostring = function() return "className" end;
-		});
-		className.__index = className;
-		function className.new(...)
-			local self = setmetatable({}, className);
-			self:constructor(...);
-			return self;
-		end;
-		function className:constructor()
-		end;
+	className = setmetatable({}, {
+		__tostring = function() return "className" end;
+	});
+	className.__index = className;
+	function className.new(...)
+		local self = setmetatable({}, className);
+		self:constructor(...);
+		return self;
+	end;
+	function className:constructor()
+	end;
 	*/
 
 	// 	className = setmetatable({}, {
@@ -303,12 +303,12 @@ func transformClassLikeDeclaration(state *TransformState, node *ast.Node) (state
 		}
 
 		methodPrereqs := NewPrereqs()
-		statements := transformMethodDeclaration(state, methodPrereqs, method, &Pointer{
+		methodStatements := transformMethodDeclaration(state, methodPrereqs, method, &Pointer{
 			Name:  "name",
 			Value: internalName,
 		})
 		statementsInner.PushList(methodPrereqs.Statements)
-		statementsInner.PushList(statements)
+		statementsInner.PushList(methodStatements)
 	}
 
 	toStringProperty := typeGetProperty(instanceType, MAGIC_TO_STRING_METHOD)
@@ -337,9 +337,9 @@ func transformClassLikeDeclaration(state *TransformState, node *ast.Node) (state
 			statementsInner.PushList(transformBlock(state, declaration.AsClassStaticBlockDeclaration().Body))
 		} else {
 			propertyPrereqs := NewPrereqs()
-			statements := transformPropertyDeclaration(state, propertyPrereqs, declaration, internalName)
+			propertyStatements := transformPropertyDeclaration(state, propertyPrereqs, declaration, internalName)
 			statementsInner.PushList(propertyPrereqs.Statements)
-			statementsInner.PushList(statements)
+			statementsInner.PushList(propertyStatements)
 		}
 	}
 

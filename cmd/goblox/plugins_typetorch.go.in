@@ -1,0 +1,17 @@
+//go:build typetorch
+
+package main
+
+// Links the Go port of @typetorch/transformer (github.com/typetorch/transformer/go), which registers
+// itself in pkg/goblox's plugin registry. Copy this file to plugins_typetorch.go and build with a go.work
+// that uses both modules:
+//
+//	go work init ./goblox-ts ./typetorch-transformer/go
+//	cp goblox-ts/cmd/goblox/plugins_typetorch.go.in goblox-ts/cmd/goblox/plugins_typetorch.go
+//	go build -tags typetorch -o goblox.exe ./goblox-ts/cmd/goblox
+//
+// It isn't a .go file because go mod tidy reads every file whatever its build tags, and the transformer
+// isn't a module this repo requires.
+import _ "github.com/typetorch/transformer/go"
+
+const typetorchLinked = true

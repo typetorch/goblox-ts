@@ -99,6 +99,7 @@ func renderIfExpression(state *RenderState, node *IfExpression) string {
 	result := "if " + Render(state, node.Condition) + " then " + Render(state, node.Expression) + " "
 
 	currentAlternative := node.Alternative
+	var elseIfs strings.Builder
 	for {
 		alternative, ok := currentAlternative.(*IfExpression)
 		if !ok {
@@ -106,9 +107,10 @@ func renderIfExpression(state *RenderState, node *IfExpression) string {
 		}
 		condition := Render(state, alternative.Condition)
 		expression := Render(state, alternative.Expression)
-		result += "elseif " + condition + " then " + expression + " "
+		elseIfs.WriteString("elseif " + condition + " then " + expression + " ")
 		currentAlternative = alternative.Alternative
 	}
+	result += elseIfs.String()
 
 	result += "else " + Render(state, currentAlternative)
 
@@ -393,15 +395,17 @@ func renderIfStatement(state *RenderState, node *IfStatement) string {
 	result += renderBlock(state, node.Statements)
 
 	currentElseBody := node.ElseBody
+	var elseIfs strings.Builder
 	for {
 		elseIf, ok := currentElseBody.(*IfStatement)
 		if !ok {
 			break
 		}
-		result += state.Line("elseif " + Render(state, elseIf.Condition) + " then")
-		result += renderBlock(state, elseIf.Statements)
+		elseIfs.WriteString(state.Line("elseif " + Render(state, elseIf.Condition) + " then"))
+		elseIfs.WriteString(renderBlock(state, elseIf.Statements))
 		currentElseBody = elseIf.ElseBody
 	}
+	result += elseIfs.String()
 
 	if statements, ok := currentElseBody.(*List); ok && statements != nil && statements.IsNonEmpty() {
 		result += state.Line("else")

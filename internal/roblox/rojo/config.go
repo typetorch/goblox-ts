@@ -2,11 +2,12 @@ package rojo
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/microsoft/typescript-go/internal/json"
 )
 
 // RojoTree is a node of a Rojo project's "tree". Children keep JavaScript's Object.keys order.
@@ -35,52 +36,58 @@ type orderedObject struct {
 	values map[string]any
 }
 
+// jsonNumber is a JSON number's source text.
+type jsonNumber string
+
 func decodeValue(dec *json.Decoder) (any, error) {
-	tok, err := dec.Token()
+	tok, err := dec.ReadToken()
 	if err != nil {
 		return nil, err
 	}
-	switch t := tok.(type) {
-	case json.Delim:
-		switch t {
-		case '{':
-			obj := &orderedObject{values: map[string]any{}}
-			for dec.More() {
-				keyTok, err := dec.Token()
-				if err != nil {
-					return nil, err
-				}
-				key := keyTok.(string)
-				value, err := decodeValue(dec)
-				if err != nil {
-					return nil, err
-				}
-				if _, seen := obj.values[key]; !seen {
-					obj.keys = append(obj.keys, key)
-				}
-				obj.values[key] = value
-			}
-			if _, err := dec.Token(); err != nil {
+	switch tok.Kind() {
+	case '{':
+		obj := &orderedObject{values: map[string]any{}}
+		for dec.PeekKind() != '}' {
+			keyTok, err := dec.ReadToken()
+			if err != nil {
 				return nil, err
 			}
-			jsKeyOrder(obj.keys)
-			return obj, nil
-		case '[':
-			var arr []any
-			for dec.More() {
-				value, err := decodeValue(dec)
-				if err != nil {
-					return nil, err
-				}
-				arr = append(arr, value)
-			}
-			if _, err := dec.Token(); err != nil {
+			key := keyTok.String()
+			value, err := decodeValue(dec)
+			if err != nil {
 				return nil, err
 			}
-			return arr, nil
+			if _, seen := obj.values[key]; !seen {
+				obj.keys = append(obj.keys, key)
+			}
+			obj.values[key] = value
 		}
+		if _, err := dec.ReadToken(); err != nil {
+			return nil, err
+		}
+		jsKeyOrder(obj.keys)
+		return obj, nil
+	case '[':
+		var arr []any
+		for dec.PeekKind() != ']' {
+			value, err := decodeValue(dec)
+			if err != nil {
+				return nil, err
+			}
+			arr = append(arr, value)
+		}
+		if _, err := dec.ReadToken(); err != nil {
+			return nil, err
+		}
+		return arr, nil
+	case '"':
+		return tok.String(), nil
+	case '0':
+		return jsonNumber(tok.String()), nil
+	case 't', 'f':
+		return tok.Bool(), nil
 	}
-	return tok, nil
+	return nil, nil
 }
 
 // isArrayIndex reports whether key is a canonical array index ("0", "1", ... up to 2^32 - 2).
@@ -109,8 +116,10 @@ func jsKeyOrder(keys []string) {
 // ajv (without allErrors) it stops at the first failing keyword, in schema order, and returns the
 // message ajv's errorsText would.
 func parseRojoFile(text string) (*RojoFile, string) {
-	dec := json.NewDecoder(bytes.NewReader([]byte(text)))
-	dec.UseNumber()
+	// duplicate names are fine: the last one wins, as in JSON.parse
+	reader := bytes.NewReader([]byte(text))
+	dec := json.NewDecoder(reader)
+	dec.Reset(reader, json.AllowDuplicateNames(true))
 	value, err := decodeValue(dec)
 	if err != nil {
 		return nil, "data must be object"
@@ -120,7 +129,7 @@ func parseRojoFile(text string) (*RojoFile, string) {
 		return nil, "data must be object"
 	}
 	for _, required := range []string{"name", "tree"} {
-		if _, ok := root.values[required]; !ok {
+		if _, present := root.values[required]; !present {
 			return nil, fmt.Sprintf("data must have required property '%s'", required)
 		}
 	}
@@ -129,7 +138,7 @@ func parseRojoFile(text string) (*RojoFile, string) {
 		return nil, "data/name must be string"
 	}
 	if port, ok := root.values["servePort"]; ok {
-		if n, isNumber := port.(json.Number); !isNumber || strings.ContainsAny(string(n), ".eE") {
+		if n, isNumber := port.(jsonNumber); !isNumber || strings.ContainsAny(string(n), ".eE") {
 			return nil, "data/servePort must be integer"
 		}
 	}
