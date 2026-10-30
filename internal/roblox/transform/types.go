@@ -335,20 +335,26 @@ func isEmptyStringType(t *checker.Type) bool {
 }
 
 func isRobloxType(state *TransformState) TypeCheck {
-	typesPath := nodepath.Join(state.Data.NodeModulesPath, RBXTS_SCOPE, "types")
-	return func(t *checker.Type) bool {
-		symbol := t.Symbol()
-		if symbol == nil {
-			return false
-		}
-		for _, d := range symbol.Declarations {
-			filePath := ast.GetSourceFileOfNode(d).FileName()
-			if isPathDescendantOf(filePath, typesPath) {
-				return true
+	multiTransformState := state.MultiTransformState
+	if multiTransformState.isRobloxTypeCheck == nil {
+		typesPath := nodepath.Join(state.Data.NodeModulesPath, RBXTS_SCOPE, "types")
+		multiTransformState.isRobloxTypeCheck = func(t *checker.Type) bool {
+			symbol := t.Symbol()
+			if symbol == nil {
+				return false
 			}
+			return getOrSetDefault(multiTransformState.IsRobloxSymbolCache, symbol, func() bool {
+				for _, d := range symbol.Declarations {
+					filePath := ast.GetSourceFileOfNode(d).FileName()
+					if isPathDescendantOf(filePath, typesPath) {
+						return true
+					}
+				}
+				return false
+			})
 		}
-		return false
 	}
+	return multiTransformState.isRobloxTypeCheck
 }
 
 // isPathDescendantOf is Shared/util/isPathDescendantOf.ts.

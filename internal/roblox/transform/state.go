@@ -94,6 +94,9 @@ type MultiTransformState struct {
 	// type classifications stay valid for this compilation; emitted AST facts can still change
 	IsPrimitiveTypeCache                 map[*checker.Type]bool
 	IsRobloxTypeCache                    map[*checker.Type]bool
+	IsPossiblyRobloxTypeCache            map[*checker.Type]bool
+	IsRobloxSymbolCache                  map[*ast.Symbol]bool
+	HasCallSignaturesCache               map[*checker.Type]bool
 	FunctionEffects                      map[*ast.Symbol]*EvaluationEffects
 	BindingKeys                          map[*ast.Symbol]*BindingKey
 	BindingUsageBySourceFile             map[*ast.SourceFile]*BindingUsage
@@ -105,6 +108,9 @@ type MultiTransformState struct {
 	IsReportedByMultipleDefinitionsCache map[*ast.Symbol]bool
 	GetModuleExportsCache                map[*ast.Symbol][]*ast.Symbol
 	GetModuleExportsAliasMapCache        map[*ast.Symbol]map[*ast.Symbol]luau.Expression
+
+	// isRobloxType's predicate, built once: it needs the path of @rbxts/types.
+	isRobloxTypeCheck TypeCheck
 }
 
 // NewMultiTransformState is `new MultiTransformState()`.
@@ -112,6 +118,9 @@ func NewMultiTransformState() *MultiTransformState {
 	return &MultiTransformState{
 		IsPrimitiveTypeCache:                 map[*checker.Type]bool{},
 		IsRobloxTypeCache:                    map[*checker.Type]bool{},
+		IsPossiblyRobloxTypeCache:            map[*checker.Type]bool{},
+		IsRobloxSymbolCache:                  map[*ast.Symbol]bool{},
+		HasCallSignaturesCache:               map[*checker.Type]bool{},
 		FunctionEffects:                      map[*ast.Symbol]*EvaluationEffects{},
 		BindingKeys:                          map[*ast.Symbol]*BindingKey{},
 		BindingUsageBySourceFile:             map[*ast.SourceFile]*BindingUsage{},

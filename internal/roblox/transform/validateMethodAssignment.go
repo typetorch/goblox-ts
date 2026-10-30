@@ -8,12 +8,14 @@ import (
 	"github.com/microsoft/typescript-go/internal/roblox/diagnostics"
 )
 
-func hasCallSignatures(t *checker.Type) bool {
-	hasCallSignatures := false
-	walkTypes(t, func(t *checker.Type) {
-		hasCallSignatures = hasCallSignatures || len(typeGetCallSignatures(t)) > 0
+func hasCallSignatures(state *TransformState, t *checker.Type) bool {
+	return getOrSetDefault(state.MultiTransformState.HasCallSignaturesCache, t, func() bool {
+		hasCallSignatures := false
+		walkTypes(t, func(t *checker.Type) {
+			hasCallSignatures = hasCallSignatures || len(typeGetCallSignatures(t)) > 0
+		})
+		return hasCallSignatures
 	})
-	return hasCallSignatures
 }
 
 func isZeroParameterFunction(state *TransformState, node *ast.Node) bool {
@@ -66,7 +68,7 @@ func isZeroParameterFunction(state *TransformState, node *ast.Node) bool {
 }
 
 func validateTypes(state *TransformState, node *ast.Node, baseType *checker.Type, assignmentType *checker.Type) {
-	if hasCallSignatures(baseType) && hasCallSignatures(assignmentType) {
+	if hasCallSignatures(state, baseType) && hasCallSignatures(state, assignmentType) {
 		assignmentIsMethod := isMethodFromType(state, node, assignmentType)
 		if isMethodFromType(state, node, baseType) != assignmentIsMethod {
 			if assignmentIsMethod {
@@ -87,7 +89,7 @@ func validateTypes(state *TransformState, node *ast.Node, baseType *checker.Type
 func validateMethodExpression(state *TransformState, node *ast.Node, type_ *checker.Type) {
 	parent := skipUpwards(node).Parent
 	// object literal members are checked together with their contextual property types
-	if ast.IsPropertyAssignment(parent) || ast.IsShorthandPropertyAssignment(parent) || !hasCallSignatures(type_) {
+	if ast.IsPropertyAssignment(parent) || ast.IsShorthandPropertyAssignment(parent) || !hasCallSignatures(state, type_) {
 		return
 	}
 

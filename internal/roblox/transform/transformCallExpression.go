@@ -20,7 +20,9 @@ import (
  * To protect against this, we can wrap possibly-undefined arguments with `()` to coerce the values to `nil`
  */
 func fixVoidArgumentsForRobloxFunctions(state *TransformState, type_ *checker.Type, args []luau.Expression, nodeArguments []*ast.Node) {
-	if isPossiblyType(type_, isRobloxType(state)) {
+	if getOrSetDefault(state.MultiTransformState.IsPossiblyRobloxTypeCache, type_, func() bool {
+		return isPossiblyType(type_, isRobloxType(state))
+	}) {
 		for i := 0; i < len(args); i++ {
 			arg := args[i]
 			if i >= len(nodeArguments) {
