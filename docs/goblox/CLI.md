@@ -109,6 +109,9 @@ project.
 - A full goblox build of gnome-game takes about 5 s. That is in the range of an incremental rbxtsc rebuild,
   and it never misses a file that depends on a changed type.
 - Polling needs no file watcher dependency. fsnotify would be a new direct module requirement in go.mod.
+- Files whose modification time and size did not change are not read, parsed or bound again: the watcher
+  keeps them between rebuilds, like `tsc -w` (gnome-game: create program 138 ms → ~47 ms per rebuild). The type
+  check and the transform still cover the whole project.
 - `--writeOnlyChanged` is on by default in watch mode, so Rojo sees only outputs whose content changed.
   `--writeOnlyChanged=false` turns it off.
 

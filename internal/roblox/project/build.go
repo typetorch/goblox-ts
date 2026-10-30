@@ -45,6 +45,8 @@ type BuildOptions struct {
 	// Checkers and SingleThreaded are as in LoadOptions.
 	Checkers       int
 	SingleThreaded bool
+	// SourceFileCache, when set, keeps parsed and bound source files between builds (watch mode).
+	SourceFileCache *SourceFileCache
 }
 
 // CLIError is CLI/errors/CLIError.ts.
@@ -504,7 +506,7 @@ func build(ctx context.Context, fs vfs.FS, cwd string, tsConfigPath string, opts
 	}
 	var program *compiler.Program
 	benchmarkIfVerbose("create program", func() {
-		program = loaded.newProgram()
+		program = loaded.newProgramWithCache(opts.SourceFileCache)
 		// parse and bind now, so the steps below are timed apart from them
 		program.BindSourceFiles()
 	})

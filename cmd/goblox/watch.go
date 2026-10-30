@@ -36,6 +36,9 @@ func runWatch(opts project.BuildOptions, report func([]*ast.Diagnostic)) int {
 		opts.Overrides["writeOnlyChanged"] = true
 	}
 
+	// reuse the parsed and bound files that did not change, like tsc -w
+	opts.SourceFileCache = &project.SourceFileCache{}
+
 	root := watchRootFallback(opts)
 	var ignored []string
 	compile := func(initial bool) {
