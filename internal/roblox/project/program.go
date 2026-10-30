@@ -24,8 +24,8 @@ type LoadOptions struct {
 	CurrentDirectory string
 	// FS defaults to the OS file system with the bundled TypeScript libs.
 	FS vfs.FS
-	// Checkers is the number of type checkers (0 = typescript-go's default of 4). Each checker holds
-	// its own copy of the types it has resolved, so fewer checkers use less memory.
+	// Checkers is the number of type checkers (0 = DefaultCheckers(), from the core count). Each
+	// checker holds its own copy of the types it has resolved, so fewer checkers use less memory.
 	Checkers int
 	// SingleThreaded disables parallel parsing, binding and checking.
 	SingleThreaded bool
@@ -85,8 +85,11 @@ func loadConfig(opts LoadOptions) (*loadedConfig, []*ast.Diagnostic) {
 
 	extendedConfigCache := &tsc.ExtendedConfigCache{}
 	cliOptions := &core.CompilerOptions{}
-	if opts.Checkers > 0 {
+	if !opts.SingleThreaded {
 		checkers := opts.Checkers
+		if checkers <= 0 {
+			checkers = DefaultCheckers()
+		}
 		cliOptions.Checkers = &checkers
 	}
 	if opts.SingleThreaded {

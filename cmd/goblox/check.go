@@ -22,7 +22,7 @@ import (
 func runCheck(args []string) int {
 	flag := flag.NewFlagSet("goblox check", flag.ExitOnError)
 	projectPath := flag.String("p", ".", "path to tsconfig.json or the folder containing it")
-	checkers := flag.Int("checkers", 0, "number of type checkers (0 = typescript-go default of 4)")
+	checkers := flag.Int("checkers", 0, "number of type checkers (0 = min(4, physical cores), 4 with 8+ threads)")
 	calls := flag.String("calls", "", "print GetTypeAtLocation for every call expression in this source file")
 	noCheck := flag.Bool("nocheck", false, "skip the semantic check (program creation only)")
 	all := flag.Bool("all", false, "report diagnostics of every file, including declaration files in node_modules (roblox-ts only reports the files it compiles)")

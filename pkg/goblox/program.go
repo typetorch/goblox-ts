@@ -16,7 +16,7 @@ import (
 //		Project          string // tsconfig.json or the folder that contains it
 //		CurrentDirectory string // defaults to the working directory
 //		FS               vfs.FS // defaults to the OS file system with the bundled libs and the TS 7 compat rewrites
-//		Checkers         int    // number of type checkers, 0 = typescript-go's default of 4
+//		Checkers         int    // number of type checkers, 0 = min(4, physical cores); 4 with 8+ threads
 //		SingleThreaded   bool
 //	}
 type LoadOptions = project.LoadOptions

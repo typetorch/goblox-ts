@@ -81,7 +81,7 @@ options, as in roblox-ts.
 | `--emitFirst` | no | goblox only, watch mode only: errors don't block the emit (see Watch mode) |
 | `--luau` | `.luau` extension | same |
 | `--logTruncatedPaths` | not in roblox-ts 3.0.0 | accepted and ignored (goblox never truncates paths) |
-| `--checkers <n>` | – | goblox only: type checker count (default 4) |
+| `--checkers <n>` | – | goblox only: type checker count. Default: 4 with 8 or more threads, otherwise min(4, physical cores). Physical cores are read on Linux and macOS; elsewhere half the threads are assumed. `GOMAXPROCS` counts as the thread count |
 | `--timing` | – | goblox only: print `Build time:` on stderr |
 
 ### Output and exit codes

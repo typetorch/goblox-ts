@@ -97,7 +97,7 @@ func newBuildFlags() *buildFlags {
 	flags.String("rojo", "", "manually select Rojo project file")
 	flags.Bool("allowCommentDirectives", false, "allow @ts-ignore and similar comment directives")
 	flags.Bool("luau", false, "emit files with .luau extension")
-	f.checkers = flags.Int("checkers", 0, "number of type checkers (0 = typescript-go default of 4)")
+	f.checkers = flags.Int("checkers", 0, "number of type checkers (0 = min(4, physical cores), 4 with 8+ threads)")
 	f.timing = flags.Bool("timing", false, "print the build time")
 	f.cpuProfile = flags.String("cpuprofile", "", "write a Go CPU profile to this file (goblox only)")
 	f.memProfile = flags.String("memprofile", "", "write a Go heap profile to this file at exit (goblox only)")
