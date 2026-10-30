@@ -17,6 +17,8 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/microsoft/typescript-go/internal/ast"
 	"github.com/microsoft/typescript-go/internal/checker"
@@ -212,7 +214,7 @@ func panicMessage(value any) string {
 
 // transformFiles transforms and renders files, one goroutine per checker. results[i] must already hold
 // the pre-emit diagnostics of files[i]; files with pre-emit errors are not transformed.
-func transformFiles(ctx context.Context, program *compiler.Program, newState func(c *checker.Checker, services *transform.TransformServices, mts *transform.MultiTransformState, file *ast.SourceFile) *transform.TransformState, files []*ast.SourceFile, results []*fileResult) {
+func transformFiles(ctx context.Context, program *compiler.Program, renderTime *atomic.Int64, newState func(c *checker.Checker, services *transform.TransformServices, mts *transform.MultiTransformState, file *ast.SourceFile) *transform.TransformState, files []*ast.SourceFile, results []*fileResult) {
 	type group struct {
 		checker *checker.Checker
 		indices []int
@@ -271,7 +273,9 @@ func transformFiles(ctx context.Context, program *compiler.Program, newState fun
 					luauAST := transform.TransformSourceFile(state, file)
 					result.transformDiagnostics = transform.DiagnosticService.TakeFileDiagnostics(file)
 					if !hasErrors(result.transformDiagnostics) {
+						renderStart := time.Now()
 						result.source = luau.RenderAST(luauAST)
+						renderTime.Add(int64(time.Since(renderStart)))
 					}
 				}()
 				if result.panic != "" {
@@ -309,6 +313,7 @@ func compileFiles(ctx context.Context, fs vfs.FS, program *compiler.Program, dat
 
 	outDir := compilerOptions.OutDir
 
+	rojoStart := time.Now()
 	var rojoResolver *rojo.RojoResolver
 	if data.RojoConfigPath != "" {
 		rojoResolver = rojo.FromPath(fs, data.RojoConfigPath)
@@ -326,19 +331,25 @@ func compileFiles(ctx context.Context, fs vfs.FS, program *compiler.Program, dat
 			inputFileNames = append(inputFileNames, sourceFile.FileName())
 		}
 	}
-	checkRojoConfig(data, rojoResolver, getRootDirs(compilerOptions), inputFileNames, pathTranslator)
+	benchmarkIfVerbose("check rojo config and file names", func() {
+		checkRojoConfig(data, rojoResolver, getRootDirs(compilerOptions), inputFileNames, pathTranslator)
 
-	for _, sourceFile := range program.GetSourceFiles() {
-		if !strings.HasPrefix(nodepath.Normalize(sourceFile.FileName()), data.NodeModulesPath) {
-			checkFileName(sourceFile.FileName())
+		for _, sourceFile := range program.GetSourceFiles() {
+			if !strings.HasPrefix(nodepath.Normalize(sourceFile.FileName()), data.NodeModulesPath) {
+				checkFileName(sourceFile.FileName())
+			}
 		}
-	}
+	})
 
 	var pkgRojoResolvers []*rojo.RojoResolver
 	for _, typeRoot := range compilerOptions.TypeRoots {
 		pkgRojoResolvers = append(pkgRojoResolvers, rojo.Synthetic(fs, typeRoot))
 	}
 	nodeModulesPathMapping := createNodeModulesPathMapping(fs, compilerOptions.TypeRoots)
+	if LogService.Verbose {
+		LogService.Write("load rojo configs and package paths")
+		benchmarkEnd(rojoStart)
+	}
 
 	projectType := data.ProjectOptions.Type
 	if projectType == "" {
@@ -370,7 +381,6 @@ func compileFiles(ctx context.Context, fs vfs.FS, program *compiler.Program, dat
 	proxyProgram := program
 	var transformed map[string]string
 	if len(PluginEntries(program)) > 0 {
-		LogService.WriteLineIfVerbose("running transformers..")
 		plugins, errs := PluginsForProgram(program)
 		for _, err := range errs {
 			if message, isError := pluginErrorMessage(err); message != "" {
@@ -382,12 +392,18 @@ func compileFiles(ctx context.Context, fs vfs.FS, program *compiler.Program, dat
 			}
 		}
 		if len(plugins) > 0 {
-			result := RunPlugins(ctx, program, plugins, PluginOptions{
-				CurrentDirectory: data.ProjectPath,
-				ProjectType:      string(data.ProjectOptions.Type),
-				Verbose:          data.ProjectOptions.Verbose,
-				Files:            sourceFiles,
+			var result PluginResult
+			benchmarkIfVerbose("running transformers..", func() {
+				result = RunPlugins(ctx, program, plugins, PluginOptions{
+					CurrentDirectory: data.ProjectPath,
+					ProjectType:      string(data.ProjectOptions.Type),
+					Verbose:          data.ProjectOptions.Verbose,
+					Files:            sourceFiles,
+				})
 			})
+			if len(result.Transformed) > 0 {
+				LogService.WriteLineIfVerbose(fmt.Sprintf("%d/%d files re-printed", len(result.Transformed), len(sourceFiles)))
+			}
 			transform.DiagnosticService.AddDiagnostics(result.Diagnostics)
 			transformed = result.Transformed
 			if data.ProjectOptions.WriteTransformedFiles {
@@ -414,8 +430,11 @@ func compileFiles(ctx context.Context, fs vfs.FS, program *compiler.Program, dat
 			panic("compileFiles: " + sourceFile.FileName() + " is not in the program")
 		}
 	}
-	configDiagnostics := GetConfigDiagnostics(ctx, proxyProgram)
-	preEmit := getPreEmitDiagnostics(ctx, proxyProgram, proxyFiles, configDiagnostics)
+	var preEmit [][]*ast.Diagnostic
+	benchmarkIfVerbose(fmt.Sprintf("type check %d files", len(proxyFiles)), func() {
+		configDiagnostics := GetConfigDiagnostics(ctx, proxyProgram)
+		preEmit = getPreEmitDiagnostics(ctx, proxyProgram, proxyFiles, configDiagnostics)
+	})
 	results := make([]*fileResult, len(sourceFiles))
 	for i, sourceFile := range proxyFiles {
 		proxyDiagnostics := preEmit[i]
@@ -433,23 +452,31 @@ func compileFiles(ctx context.Context, fs vfs.FS, program *compiler.Program, dat
 	}
 
 	// transform in parallel
-	transformFiles(ctx, proxyProgram, func(c *checker.Checker, services *transform.TransformServices, mts *transform.MultiTransformState, file *ast.SourceFile) *transform.TransformState {
-		return transform.NewTransformState(
-			proxyProgram,
-			data,
-			services,
-			pathTranslator,
-			mts,
-			compilerOptions,
-			rojoResolver,
-			pkgRojoResolvers,
-			nodeModulesPathMapping,
-			runtimeLibRbxPath,
-			c,
-			projectType,
-			file,
-		)
-	}, proxyFiles, results)
+	var renderTime atomic.Int64
+	transformStart := time.Now()
+	benchmarkIfVerbose(fmt.Sprintf("transform and render %d files", len(proxyFiles)), func() {
+		transformFiles(ctx, proxyProgram, &renderTime, func(c *checker.Checker, services *transform.TransformServices, mts *transform.MultiTransformState, file *ast.SourceFile) *transform.TransformState {
+			return transform.NewTransformState(
+				proxyProgram,
+				data,
+				services,
+				pathTranslator,
+				mts,
+				compilerOptions,
+				rojoResolver,
+				pkgRojoResolvers,
+				nodeModulesPathMapping,
+				runtimeLibRbxPath,
+				c,
+				projectType,
+				file,
+			)
+		}, proxyFiles, results)
+	})
+	if LogService.Verbose {
+		LogService.WriteLine(fmt.Sprintf("  of which luau render: %d ms of %d ms (summed over the checkers' goroutines)",
+			time.Duration(renderTime.Load()).Milliseconds(), time.Since(transformStart).Milliseconds()))
+	}
 
 	// replay in file order: once a file has an error, roblox-ts transforms no further files
 	type fileWrite struct {
@@ -499,17 +526,24 @@ func compileFiles(ctx context.Context, fs vfs.FS, program *compiler.Program, dat
 	}
 
 	var emittedFiles []string
-	for _, write := range fileWriteQueue {
-		outPath := pathTranslator.GetOutputPath(write.sourceFile.FileName())
-		if data.ProjectOptions.WriteOnlyChanged {
-			if existing, err := os.ReadFile(outPath); err == nil && string(existing) == write.source {
-				continue
+	var writeErr error
+	benchmarkIfVerbose("writing compiled files", func() {
+		for _, write := range fileWriteQueue {
+			outPath := pathTranslator.GetOutputPath(write.sourceFile.FileName())
+			if data.ProjectOptions.WriteOnlyChanged {
+				if existing, err := os.ReadFile(outPath); err == nil && string(existing) == write.source {
+					continue
+				}
 			}
+			if err := outputFile(outPath, []byte(write.source)); err != nil {
+				writeErr = err
+				return
+			}
+			emittedFiles = append(emittedFiles, outPath)
 		}
-		if err := outputFile(outPath, []byte(write.source)); err != nil {
-			return emitResultFailure(err.Error())
-		}
-		emittedFiles = append(emittedFiles, outPath)
+	})
+	if writeErr != nil {
+		return emitResultFailure(writeErr.Error())
 	}
 
 	return &EmitResult{EmittedFiles: emittedFiles, EmitSkipped: hasErrors(diags), Diagnostics: diags, Panics: panics}
