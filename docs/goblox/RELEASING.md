@@ -7,7 +7,7 @@ Release. Pushing a `v*` tag starts it.
 
 Do these once, in this order. They need you: GitHub repo admin rights and npm's browser 2FA.
 
-1. **Default branch.** Open https://github.com/typetorch/goblox-ts/settings, go to **General → Default
+1. **Default branch.** (Done on 2026-10-30.) Open https://github.com/typetorch/goblox-ts/settings, go to **General → Default
    branch**, and click the ⇄ (switch) button. Choose **`goblox`**, click **Update**, then confirm with
    **I understand, update the default branch**. Without this step, the Actions tab has no "Run workflow"
    button for the dry run (tag pushes work either way).
@@ -24,7 +24,7 @@ Do these once, in this order. They need you: GitHub repo admin rights and npm's 
    `https://www.npmjs.com/package/<package>/access` for each of the eight packages and find **Trusted
    Publisher**. Click **GitHub Actions**, then fill in Organization or user `typetorch`, Repository
    `goblox-ts`, Workflow filename `release.yml`, and leave Environment empty. Click **Set up connection**.
-3. **Dry run.** Open Actions → **Release** → **Run workflow**, choose branch `goblox`, keep **Dry run**
+3. **Dry run.** (Passed on 2026-10-30: https://github.com/typetorch/goblox-ts/actions/runs/40976823073.) Open Actions → **Release** → **Run workflow**, choose branch `goblox`, keep **Dry run**
    ticked, and click **Run workflow** (or run `gh workflow run release.yml --ref goblox -f dry_run=true`). It
    should finish green, with `npm publish --dry-run` output for all eight packages.
 4. **Release.** `git tag v0.1.0 && git push origin v0.1.0` (see below).
