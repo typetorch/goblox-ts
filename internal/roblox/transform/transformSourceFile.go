@@ -133,7 +133,7 @@ func handleExports(state *TransformState, sourceFile *ast.SourceFile, symbol *as
 				continue
 			}
 
-			originalSymbol := state.TypeChecker.SkipAlias(exportSymbol)
+			originalSymbol := skipAliases(state.TypeChecker, exportSymbol)
 
 			// only export values
 			if !isSymbolOfValue(originalSymbol) {

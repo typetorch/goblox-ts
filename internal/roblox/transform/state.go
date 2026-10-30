@@ -537,7 +537,7 @@ func (s *TransformState) GetModuleExportsAliasMap(moduleSymbol *ast.Symbol) map[
 	}
 	aliasMap := map[*ast.Symbol]luau.Expression{}
 	for _, exportSymbol := range s.GetModuleExports(moduleSymbol) {
-		originalSymbol := s.TypeChecker.SkipAlias(exportSymbol)
+		originalSymbol := skipAliases(s.TypeChecker, exportSymbol)
 		var declaration *ast.Node
 		if len(exportSymbol.Declarations) > 0 {
 			declaration = exportSymbol.Declarations[0]

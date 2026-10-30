@@ -4,7 +4,6 @@ package transform
 
 import (
 	"github.com/microsoft/typescript-go/internal/ast"
-	"github.com/microsoft/typescript-go/internal/checker"
 	"github.com/microsoft/typescript-go/internal/roblox/luau"
 )
 
@@ -24,7 +23,7 @@ func isEnumMemberAccess(state *TransformState, node *ast.Node) bool {
 	return memberSymbol != nil &&
 		(memberSymbol.Flags&ast.SymbolFlagsEnumMember) != 0 &&
 		enumSymbol != nil &&
-		(checker.SkipAlias(enumSymbol, state.TypeChecker).Flags&ast.SymbolFlagsEnum) != 0
+		(skipAliases(state.TypeChecker, enumSymbol).Flags&ast.SymbolFlagsEnum) != 0
 }
 
 // expressionMightMutate is TSTransformer/util/expressionMightMutate.ts expressionMightMutate.

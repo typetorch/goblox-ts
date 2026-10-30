@@ -289,8 +289,16 @@ func isIterableFunctionType(state *TransformState) TypeCheck {
 
 func isLuaTupleType(state *TransformState) TypeCheck {
 	return func(t *checker.Type) bool {
-		return typeGetProperty(t, NOMINAL_LUA_TUPLE_NAME) ==
-			state.Services.MacroManager.GetSymbolOrThrow(NOMINAL_LUA_TUPLE_NAME)
+		macroManager := state.Services.MacroManager
+		if !macroManager.HasSymbol(NOMINAL_LUA_TUPLE_NAME) {
+			// A compiler-types without the nominal property: only an actual LuaTuple needs it. Compiling
+			// one as a plain value would change what the code does, so that stays an error.
+			if alias := t.Alias(); alias != nil && alias.Symbol() == macroManager.GetSymbolOrThrow(SYMBOL_NAMES.LuaTuple) {
+				macroManager.RequireSymbol(NOMINAL_LUA_TUPLE_NAME)
+			}
+			return false
+		}
+		return typeGetProperty(t, NOMINAL_LUA_TUPLE_NAME) == macroManager.GetSymbolOrThrow(NOMINAL_LUA_TUPLE_NAME)
 	}
 }
 

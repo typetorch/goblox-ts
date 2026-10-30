@@ -112,23 +112,29 @@ func projectError(message string) {
 	panic(&diagnostics.ProjectError{Message: message})
 }
 
+// Deliberate difference from roblox-ts: its MacroManager throws a ProjectError for any macro or symbol
+// that the installed @rbxts/types or @rbxts/compiler-types do not declare. Here the lookups return nil
+// and the macro is skipped: code can only reach a macro through a declaration, so a macro without one is
+// unused. See docs/goblox/PORTING.md, "Type package versions".
+
 func getConstructorInterface(typeChecker *checker.Checker, name string) *ast.Node {
-	symbol := getGlobalSymbolByNameOrThrow(typeChecker, name, ast.SymbolFlagsInterface)
+	symbol := getGlobalSymbol(typeChecker, name, ast.SymbolFlagsInterface)
+	if symbol == nil {
+		return nil
+	}
 	for _, declaration := range symbol.Declarations {
 		if ast.IsInterfaceDeclaration(declaration) {
 			return declaration
 		}
 	}
-	projectError("MacroManager could not find interface for " + name + TYPES_NOTICE)
 	return nil
 }
 
-func getGlobalSymbolByNameOrThrow(typeChecker *checker.Checker, name string, meaning ast.SymbolFlags) *ast.Symbol {
+func getGlobalSymbol(typeChecker *checker.Checker, name string, meaning ast.SymbolFlags) *ast.Symbol {
 	symbol := typeChecker.ResolveName(name, nil, meaning, false)
 	if symbol != nil {
-		return typeChecker.SkipAlias(symbol)
+		return skipAliases(typeChecker, symbol)
 	}
-	projectError("MacroManager could not find symbol for " + name + TYPES_NOTICE)
 	return nil
 }
 
@@ -139,7 +145,6 @@ func getConstructorSymbol(node *ast.Node) *ast.Symbol {
 			return member.Symbol()
 		}
 	}
-	projectError("MacroManager could not find constructor for " + node.Name().Text() + TYPES_NOTICE)
 	return nil
 }
 
@@ -148,6 +153,7 @@ func getConstructorSymbol(node *ast.Node) *ast.Symbol {
 type MacroManager struct {
 	typeChecker        *checker.Checker
 	symbols            map[string]*ast.Symbol
+	missingSymbols     map[string]bool
 	macroOnlyClasses   map[*ast.Symbol]bool
 	identifierMacros   map[*ast.Symbol]IdentifierMacro
 	callMacros         map[*ast.Symbol]CallMacro
@@ -160,6 +166,7 @@ func NewMacroManager(typeChecker *checker.Checker) *MacroManager {
 	m := &MacroManager{
 		typeChecker:        typeChecker,
 		symbols:            map[string]*ast.Symbol{},
+		missingSymbols:     map[string]bool{},
 		macroOnlyClasses:   map[*ast.Symbol]bool{},
 		identifierMacros:   map[*ast.Symbol]IdentifierMacro{},
 		callMacros:         map[*ast.Symbol]CallMacro{},
@@ -168,23 +175,32 @@ func NewMacroManager(typeChecker *checker.Checker) *MacroManager {
 	}
 
 	for name, macro := range IDENTIFIER_MACROS {
-		symbol := getGlobalSymbolByNameOrThrow(typeChecker, name, ast.SymbolFlagsVariable)
-		m.identifierMacros[symbol] = macro
+		if symbol := getGlobalSymbol(typeChecker, name, ast.SymbolFlagsVariable); symbol != nil {
+			m.identifierMacros[symbol] = macro
+		}
 	}
 
 	for name, macro := range CALL_MACROS {
-		symbol := getGlobalSymbolByNameOrThrow(typeChecker, name, ast.SymbolFlagsFunction)
-		m.callMacros[symbol] = macro
+		if symbol := getGlobalSymbol(typeChecker, name, ast.SymbolFlagsFunction); symbol != nil {
+			m.callMacros[symbol] = macro
+		}
 	}
 
 	for className, macro := range CONSTRUCTOR_MACROS {
 		interfaceDec := getConstructorInterface(typeChecker, className)
-		constructSymbol := getConstructorSymbol(interfaceDec)
-		m.constructorMacros[constructSymbol] = macro
+		if interfaceDec == nil {
+			continue
+		}
+		if constructSymbol := getConstructorSymbol(interfaceDec); constructSymbol != nil {
+			m.constructorMacros[constructSymbol] = macro
+		}
 	}
 
 	for className, methods := range PROPERTY_CALL_MACROS {
-		symbol := getGlobalSymbolByNameOrThrow(typeChecker, className, ast.SymbolFlagsInterface)
+		symbol := getGlobalSymbol(typeChecker, className, ast.SymbolFlagsInterface)
+		if symbol == nil {
+			continue
+		}
 
 		methodMap := map[string]*ast.Symbol{}
 		for _, declaration := range symbol.Declarations {
@@ -200,16 +216,18 @@ func NewMacroManager(typeChecker *checker.Checker) *MacroManager {
 		}
 
 		for methodName, macro := range methods {
-			methodSymbol := methodMap[methodName]
-			if methodSymbol == nil {
-				projectError("MacroManager could not find method for " + className + "." + methodName + TYPES_NOTICE)
+			if methodSymbol := methodMap[methodName]; methodSymbol != nil {
+				m.propertyCallMacros[methodSymbol] = macro
 			}
-			m.propertyCallMacros[methodSymbol] = macro
 		}
 	}
 
 	for _, symbolName := range symbolNamesValues {
-		symbol := getGlobalSymbolByNameOrThrow(typeChecker, symbolName, ast.SymbolFlagsAll)
+		symbol := getGlobalSymbol(typeChecker, symbolName, ast.SymbolFlagsAll)
+		if symbol == nil {
+			m.addMissingSymbol(symbolName)
+			continue
+		}
 		m.symbols[symbolName] = symbol
 		if MACRO_ONLY_CLASSES[symbolName] {
 			m.macroOnlyClasses[symbol] = true
@@ -229,14 +247,40 @@ func NewMacroManager(typeChecker *checker.Checker) *MacroManager {
 			m.symbols[NOMINAL_LUA_TUPLE_NAME] = nominalLuaTupleSymbol
 		}
 	}
+	if m.symbols[NOMINAL_LUA_TUPLE_NAME] == nil {
+		m.addMissingSymbol(NOMINAL_LUA_TUPLE_NAME)
+	}
 
 	return m
 }
 
+// addMissingSymbol records that the type packages do not declare name. Its symbol is a placeholder that
+// no type or declaration has, so the identity checks against it (isArrayType and the like) are false.
+func (m *MacroManager) addMissingSymbol(name string) {
+	m.symbols[name] = &ast.Symbol{Name: name}
+	m.missingSymbols[name] = true
+}
+
+// GetSymbolOrThrow returns the placeholder of addMissingSymbol for a symbol the type packages do not
+// declare, which is only good for identity checks. Code that reads the symbol uses RequireSymbol.
 func (m *MacroManager) GetSymbolOrThrow(name string) *ast.Symbol {
 	symbol := m.symbols[name]
 	assert(symbol != nil)
 	return symbol
+}
+
+// RequireSymbol is GetSymbolOrThrow for code that reads the symbol. It throws roblox-ts's ProjectError
+// if the type packages do not declare it.
+func (m *MacroManager) RequireSymbol(name string) *ast.Symbol {
+	if m.missingSymbols[name] {
+		projectError("MacroManager could not find symbol for " + name + TYPES_NOTICE)
+	}
+	return m.GetSymbolOrThrow(name)
+}
+
+// HasSymbol reports whether the type packages declare name.
+func (m *MacroManager) HasSymbol(name string) bool {
+	return !m.missingSymbols[name]
 }
 
 func (m *MacroManager) IsMacroOnlyClass(symbol *ast.Symbol) bool {
@@ -244,11 +288,11 @@ func (m *MacroManager) IsMacroOnlyClass(symbol *ast.Symbol) bool {
 }
 
 func (m *MacroManager) GetIdentifierMacro(symbol *ast.Symbol) IdentifierMacro {
-	return m.identifierMacros[m.typeChecker.SkipAlias(symbol)]
+	return m.identifierMacros[skipAliases(m.typeChecker, symbol)]
 }
 
 func (m *MacroManager) GetCallMacro(symbol *ast.Symbol) CallMacro {
-	return m.callMacros[m.typeChecker.SkipAlias(symbol)]
+	return m.callMacros[skipAliases(m.typeChecker, symbol)]
 }
 
 func (m *MacroManager) GetConstructorMacro(symbol *ast.Symbol) ConstructorMacro {

@@ -4,7 +4,6 @@ package transform
 
 import (
 	"github.com/microsoft/typescript-go/internal/ast"
-	"github.com/microsoft/typescript-go/internal/checker"
 	"github.com/microsoft/typescript-go/internal/roblox/diagnostics"
 	"github.com/microsoft/typescript-go/internal/roblox/luau"
 )
@@ -57,7 +56,7 @@ func transformExportAssignment(state *TransformState, node *ast.Node) *luau.List
 	}
 
 	if symbol != nil &&
-		(!isSymbolOfValue(checker.SkipAlias(symbol, state.TypeChecker)) ||
+		(!isSymbolOfValue(skipAliases(state.TypeChecker, symbol)) ||
 			(!state.CompilerOptions.VerbatimModuleSyntax.IsTrue() && state.TypeChecker.GetTypeOnlyAliasDeclaration(symbol) != nil)) {
 		return luau.MakeList()
 	}

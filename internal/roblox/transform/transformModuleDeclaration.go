@@ -4,7 +4,6 @@ package transform
 
 import (
 	"github.com/microsoft/typescript-go/internal/ast"
-	"github.com/microsoft/typescript-go/internal/checker"
 	"github.com/microsoft/typescript-go/internal/roblox/diagnostics"
 	"github.com/microsoft/typescript-go/internal/roblox/luau"
 )
@@ -86,7 +85,7 @@ func transformNamespace(state *TransformState, name *ast.Node, body *ast.Node) *
 		exportsMap := map[*ast.Node][]string{}
 		if len(moduleExports) > 0 {
 			for _, exportSymbol := range moduleExports {
-				originalSymbol := checker.SkipAlias(exportSymbol, state.TypeChecker)
+				originalSymbol := skipAliases(state.TypeChecker, exportSymbol)
 				if isSymbolOfValue(originalSymbol) && !isSymbolMutable(state, originalSymbol) {
 					valueDeclarationStatement := getValueDeclarationStatement(exportSymbol)
 					if valueDeclarationStatement != nil {

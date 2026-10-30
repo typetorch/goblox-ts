@@ -28,6 +28,11 @@ import (
 //    longer resolves non-relative imports from it. applyBaseUrlCompat restores the TypeScript 5
 //    behavior with an equivalent `"paths": {"*": ["./*"]}` relative to baseUrl (and makes existing
 //    `paths` relative to baseUrl, as TypeScript 5 did), and FilterCompatDiagnostics drops the TS5102.
+// 4. TypeScript 7 added checkCollisionWithGlobalObjectInGeneratedCode: with "module": "commonjs", which
+//    roblox-ts requires, a top level `Object` (`import Object from "@rbxts/object-utils"`) is TS2441,
+//    because TypeScript's CommonJS emit calls Object.defineProperty. goblox emits Luau, where the name is
+//    not special, and TypeScript 5 never reported it, so FilterCompatDiagnostics drops it. The other
+//    reserved names (`require`, `exports`) are in TypeScript 5 too, and rbxtsc reports them: they stay.
 
 var compilerTypesIterableArity = regexp.MustCompile(`(?m)^interface (AsyncIterable|Iterable|AsyncIterableIterator|IterableIterator)<T> `)
 
@@ -50,9 +55,12 @@ func (f *compatFS) ReadFile(path string) (string, bool) {
 	return contents, ok
 }
 
-// isCompatDiagnostic reports whether d is a "removed option" error for an option roblox-ts requires.
+// isCompatDiagnostic reports whether d is a "removed option" error for an option roblox-ts requires, or
+// the `Object` collision that only TypeScript 7 reports.
 func isCompatDiagnostic(d *ast.Diagnostic) bool {
 	switch d.Code() {
+	case 2441: // Duplicate identifier '{0}'. Compiler reserves name '{1}' in top level scope of a module.
+		return slices.Contains(d.MessageArgs(), "Object")
 	case 5102: // Option '{0}' has been removed. Please remove it from your configuration.
 		return slices.Contains(d.MessageArgs(), "downlevelIteration") || slices.Contains(d.MessageArgs(), "baseUrl")
 	case 5108: // Option '{0}={1}' has been removed. Please remove it from your configuration.

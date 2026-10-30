@@ -75,6 +75,37 @@ still compile.
   otherwise. Code that needs the name should switch on both types (both have `.Name`). Parameter properties are
   never in `SymbolToIdMap`, so the `*luau.Identifier` assertion in transformClassConstructor holds.
 
+## Type package versions
+
+goblox ports roblox-ts master, whose macro tables expect the newest `@rbxts/types` and `@rbxts/compiler-types`.
+For example, the `vector` table needs the `add`, `sub`, `mul`, `div` and `idiv` declarations that older `@rbxts/types`
+do not have in `macro_math.d.ts` (1.0.924 and 1.0.944 lack them, 1.0.957 has them).
+
+**Deliberate difference from roblox-ts.** roblox-ts's `MacroManager` constructor throws a `ProjectError` ("MacroManager
+could not find method for vector.add") for any macro or symbol the installed packages don't declare, whether or not
+the project uses it. The goblox one skips it:
+
+- A missing macro (identifier, call, constructor, or property call, down to one method) is left out of the table. Code
+  can only reach a macro through a declaration, so a macro with no declaration is unused.
+- A missing entry of `SYMBOL_NAMES` becomes a placeholder symbol, so identity checks such as `isArrayType` are false.
+- Reading a missing symbol's declarations still throws that `ProjectError` (`RequireSymbol`), and so does a `LuaTuple`
+  whose `compiler-types` has no `_nominal_LuaTuple`: compiling one as a plain value would change what the code does.
+  Those errors come from the file that uses the symbol, and don't stop projects that don't use it.
+
+roblox-ts 3.0.0 has no `vector` table, so these projects build with it. Master fails on them.
+
+## TypeScript 7 differences that reach the transform
+
+- **`Object` at the top level of a module.** TypeScript 7 added `checkCollisionWithGlobalObjectInGeneratedCode`, so
+  with `"module": "commonjs"` it reports TS2441 for `import Object from "@rbxts/object-utils"`. `FilterCompatDiagnostics`
+  drops that one case (compat.go). TS2441 for `require` and `exports` stays, since rbxtsc reports those too. Both
+  compilers accept `module`, `Promise`, `Reflect`, `WeakMap`, `WeakSet` and `Map` at `target: ESNext`.
+- **`export =` next to exported types.** TypeScript 7's binder flags the `export=` symbol of such a module as
+  `NamespaceModule`, and `resolveAlias` does not follow it. The checker's `SkipAlias` then returns a symbol with no value
+  meaning, and the import would be dropped with no diagnostic (`@rbxts/quickzone` 1.4.6 declares its types this way).
+  The transform uses `skipAliases`, which goes on to the variable as TypeScript 5 does. The Go port of
+  `@typetorch/transformer` still calls `SkipAlias` directly (`classes_transformState.go`).
+
 ## Running the harness
 
 ```

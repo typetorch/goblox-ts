@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/microsoft/typescript-go/internal/ast"
-	"github.com/microsoft/typescript-go/internal/checker"
 	"github.com/microsoft/typescript-go/internal/roblox/luau"
 )
 
@@ -20,7 +19,7 @@ func isExportSpecifierValue(state *TransformState, element *ast.Node) bool {
 	}
 
 	aliasSymbol := state.TypeChecker.GetSymbolAtLocation(element.Name())
-	if aliasSymbol != nil && isSymbolOfValue(checker.SkipAlias(aliasSymbol, state.TypeChecker)) {
+	if aliasSymbol != nil && isSymbolOfValue(skipAliases(state.TypeChecker, aliasSymbol)) {
 		return true
 	}
 

@@ -4,7 +4,6 @@ package transform
 
 import (
 	"github.com/microsoft/typescript-go/internal/ast"
-	"github.com/microsoft/typescript-go/internal/checker"
 	"github.com/microsoft/typescript-go/internal/roblox/luau"
 )
 
@@ -19,7 +18,7 @@ func transformImportEqualsDeclaration(state *TransformState, node *ast.Node) *lu
 		statements := luau.MakeList()
 		aliasSymbol := state.TypeChecker.GetSymbolAtLocation(node.Name())
 		assert(aliasSymbol != nil)
-		isValue := isSymbolOfValue(checker.SkipAlias(aliasSymbol, state.TypeChecker))
+		isValue := isSymbolOfValue(skipAliases(state.TypeChecker, aliasSymbol))
 		if !isValue && !state.CompilerOptions.VerbatimModuleSyntax.IsTrue() {
 			return statements
 		}

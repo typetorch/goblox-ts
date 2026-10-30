@@ -19,7 +19,7 @@ func getIterableElementType(state *TransformState, type_ *checker.Type, node *as
 	}
 
 	iterable := c.GetDeclaredTypeOfSymbol(
-		state.Services.MacroManager.GetSymbolOrThrow(SYMBOL_NAMES.Iterable),
+		state.Services.MacroManager.RequireSymbol(SYMBOL_NAMES.Iterable),
 	)
 	iteratorName := typeGetProperties(iterable)[0].Name
 	var iterator *ast.Symbol
