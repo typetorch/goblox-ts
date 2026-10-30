@@ -40,7 +40,7 @@ func runWatch(opts project.BuildOptions, report func([]*ast.Diagnostic)) int {
 	opts.SourceFileCache = &project.SourceFileCache{}
 	// and compile only what a change can reach
 	if opts.Incremental != nil {
-		opts.Incremental = &project.IncrementalSession{}
+		opts.Incremental.Memory = true
 	}
 
 	root := watchRootFallback(opts)

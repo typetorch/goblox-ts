@@ -73,6 +73,7 @@ type buildFlags struct {
 	memProfile  *string
 	// noIncremental compiles every file, without the cache and without watch mode's state
 	noIncremental *bool
+	emitFirst     *bool
 }
 
 func newBuildFlags() *buildFlags {
@@ -101,6 +102,7 @@ func newBuildFlags() *buildFlags {
 	f.cpuProfile = flags.String("cpuprofile", "", "write a Go CPU profile to this file (goblox only)")
 	f.memProfile = flags.String("memprofile", "", "write a Go heap profile to this file at exit (goblox only)")
 	f.noIncremental = flags.Bool("noIncremental", false, "compile every file, ignoring what the last build left (goblox only)")
+	f.emitFirst = flags.Bool("emitFirst", false, "in watch mode, write the files without errors and report the errors after (goblox only)")
 	flags.Usage = func() {
 		fmt.Fprintf(flags.Output(), "%s\n\nUsage: goblox [build|watch] [flags]\n       goblox check [flags]\n\nFlags:\n", versionString())
 		flags.PrintDefaults()
@@ -170,7 +172,7 @@ func runBuild(args []string) int {
 	flags.Visit(func(f *flag.Flag) {
 		getter := f.Value.(flag.Getter)
 		switch f.Name {
-		case "project", "p", "checkers", "timing", "cpuprofile", "memprofile", "logTruncatedPaths", "usePolling", "noIncremental":
+		case "project", "p", "checkers", "timing", "cpuprofile", "memprofile", "logTruncatedPaths", "usePolling", "noIncremental", "emitFirst":
 		case "w", "watch":
 			watch = getter.Get().(bool)
 		case "i":
@@ -189,7 +191,13 @@ func runBuild(args []string) int {
 		return 1
 	}
 
+	if *f.emitFirst && !watch {
+		report([]*ast.Diagnostic{diagnostics.CreateTextDiagnostic("--emitFirst needs --watch", tsdiagnostics.CategoryError)})
+		return 1
+	}
+
 	opts := project.BuildOptions{
+		EmitFirst:        *f.emitFirst,
 		Project:          *f.projectPath,
 		CurrentDirectory: cwd,
 		FS:               fs,

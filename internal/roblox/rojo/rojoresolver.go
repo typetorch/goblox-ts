@@ -323,10 +323,10 @@ func (r *RojoResolver) parsePath(itemPath string) {
 }
 
 func (r *RojoResolver) searchDirectory(directory string, item string) {
-	realPath := r.fs.Realpath(directory)
-	children := readdir(r.fs, realPath)
+	// the entries follow symlinks, so nothing here needs a Realpath (which opens the file on Windows)
+	entries := r.fs.GetAccessibleEntries(directory)
 
-	if slices.Contains(children, rojoDefaultName) {
+	if slices.Contains(entries.Files, rojoDefaultName) || slices.Contains(entries.Directories, rojoDefaultName) {
 		r.parseConfig(nodepath.Join(directory, rojoDefaultName), false)
 		return
 	}
@@ -336,21 +336,15 @@ func (r *RojoResolver) searchDirectory(directory string, item string) {
 	}
 
 	// *.project.json
-	for _, child := range children {
-		childPath := nodepath.Join(directory, child)
-		childRealPath := r.fs.Realpath(childPath)
-		if r.fs.FileExists(childRealPath) && child != rojoDefaultName && rojoFileRegex.MatchString(child) {
-			r.parseConfig(childPath, false)
+	for _, child := range slices.Sorted(slices.Values(entries.Files)) {
+		if rojoFileRegex.MatchString(child) {
+			r.parseConfig(nodepath.Join(directory, child), false)
 		}
 	}
 
 	// folders
-	for _, child := range children {
-		childPath := nodepath.Join(directory, child)
-		childRealPath := r.fs.Realpath(childPath)
-		if r.fs.DirectoryExists(childRealPath) {
-			r.searchDirectory(childPath, child)
-		}
+	for _, child := range slices.Sorted(slices.Values(entries.Directories)) {
+		r.searchDirectory(nodepath.Join(directory, child), child)
 	}
 
 	if item != "" {

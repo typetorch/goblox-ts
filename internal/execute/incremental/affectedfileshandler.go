@@ -67,6 +67,10 @@ func (h *affectedFilesHandler) removeDiagnosticsOfLibraryFiles() {
 }
 
 func (h *affectedFilesHandler) computeDtsSignature(file *ast.SourceFile) string {
+	// The declaration emit of a JSON file doesn't describe its shape: the version is the signature
+	if tspath.FileExtensionIs(file.FileName(), tspath.ExtensionJson) {
+		return ""
+	}
 	var signature string
 	done := h.program.beginNestedEmit()
 	defer done()

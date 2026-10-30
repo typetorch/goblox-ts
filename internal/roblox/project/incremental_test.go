@@ -129,6 +129,10 @@ type incrementalFixture struct {
 	persist bool
 	session *IncrementalSession
 	cache   *SourceFileCache
+	// emitFirst is the next incremental build's EmitFirst
+	emitFirst bool
+	// watchPersist is what `goblox -w` does: keep the state in memory and write the cache too
+	watchPersist bool
 }
 
 const incrementalTestProjectJSON = `{
@@ -162,6 +166,7 @@ func incrementalTestTsconfig(plugins bool, extra string) string {
 		"strict": true,
 		"target": "ESNext",
 		"experimentalDecorators": true,
+		"resolveJsonModule": true,
 		"typeRoots": ["node_modules/@rbxts"],
 		"types": ["types", "compiler-types"],
 		"rootDir": "src",
@@ -210,7 +215,7 @@ func newIncrementalFixture(t *testing.T, rbxts string, plugins bool, persist boo
 	}
 	// imports below src go through baseUrl
 	editTestFile(t, dir, "tsconfig.json", `"rootDir": "src",`, `"rootDir": "src", "baseUrl": "src",`)
-	return &incrementalFixture{t: t, dir: dir, persist: persist, session: &IncrementalSession{Persist: persist}, cache: &SourceFileCache{}}
+	return &incrementalFixture{t: t, dir: dir, persist: persist, session: &IncrementalSession{Persist: persist, Memory: !persist}, cache: &SourceFileCache{}}
 }
 
 func (f *incrementalFixture) build(incremental bool) *EmitResult {
@@ -225,10 +230,14 @@ func (f *incrementalFixture) build(incremental bool) *EmitResult {
 		if f.persist {
 			// a new process
 			f.session = &IncrementalSession{Persist: true}
+		} else if f.watchPersist {
+			f.session.Persist = true
+			opts.SourceFileCache = f.cache
 		} else {
 			opts.SourceFileCache = f.cache
 		}
 		opts.Incremental = f.session
+		opts.EmitFirst = f.emitFirst
 	}
 	result, err := Build(context.Background(), opts)
 	if err != nil {
@@ -414,6 +423,39 @@ func runIncrementalFixtures(t *testing.T, rbxts string, plugins bool, persist bo
 	}
 	f.check("deleted file")
 
+	// JSON is a program file and an asset
+	writeTestFile(t, dir, "src/shared/data.json", `{ "size": 1 }`)
+	writeTestFile(t, dir, "src/client/usesdata.ts", "import data from \"shared/data.json\";\nexport const SIZE: number = data.size;\n")
+	f.check("added JSON")
+	writeTestFile(t, dir, "src/shared/data.json", `{ "size": 2 }`)
+	f.check("JSON value")
+	writeTestFile(t, dir, "src/shared/data.json", `{ "size": "big" }`)
+	result = f.check("JSON that breaks its importer")
+	f.wantErrorIn("JSON that breaks its importer", result, "client/usesdata.ts")
+	writeTestFile(t, dir, "src/shared/data.json", `{ "size": 3 }`)
+	f.check("JSON fixed")
+	if err := os.Remove(filepath.Join(dir, "src/shared/data.json")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(dir, "src/client/usesdata.ts")); err != nil {
+		t.Fatal(err)
+	}
+	f.check("deleted JSON")
+
+	// export * order, and what the Rojo walk finds
+	writeTestFile(t, dir, "src/shared/star.ts", "export const FIRST = 1;\nexport const SECOND = 2;\n")
+	writeTestFile(t, dir, "src/shared/reexport.ts", "export * from \"./star\";\n")
+	f.check("export star")
+	writeTestFile(t, dir, "src/shared/star.ts", "export const SECOND = 2;\nexport const FIRST = 1;\n")
+	f.check("export star, other order")
+	if err := os.Remove(filepath.Join(dir, "src/shared/star.ts")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(dir, "src/shared/reexport.ts")); err != nil {
+		t.Fatal(err)
+	}
+	f.check("export star deleted")
+
 	// a .d.ts and the options reach every file
 	editTestFile(t, dir, "src/shared/globals.d.ts", "declare const GLOBAL_LIMIT: number;", "declare const GLOBAL_LIMIT: number;\ndeclare const GLOBAL_OTHER: number;")
 	f.check("changed d.ts")
@@ -517,6 +559,47 @@ func runIncrementalFixtures(t *testing.T, rbxts string, plugins bool, persist bo
 		f.check("cache: written again")
 		f.compiled("cache: written again", 0)
 	}
+}
+
+// TestEmitFirst: the files without errors are written, the file with the error keeps its output, and the
+// errors don't leave anything behind once they are fixed.
+func TestEmitFirst(t *testing.T) {
+	oracle := os.Getenv("GOBLOX_ORACLE")
+	if oracle == "" {
+		oracle = defaultOracle
+	}
+	rbxts := filepath.Join(oracle, "tests", "node_modules", "@rbxts")
+	if _, err := os.Stat(filepath.Join(rbxts, "compiler-types")); err != nil {
+		t.Skipf("no @rbxts/compiler-types in the oracle (set GOBLOX_ORACLE): %v", err)
+	}
+	f := newIncrementalFixture(t, rbxts, false, false)
+	f.watchPersist = true
+	dir := f.dir
+	f.check("cold")
+
+	before := readTestFile(t, dir, "out/client/quiet.luau")
+	editTestFile(t, dir, "src/client/quiet.ts", "QUIET = 1", "QUIET: string = 1")
+	editTestFile(t, dir, "src/server/other.ts", "TYPED_PORT + 1", "TYPED_PORT + 2")
+	f.emitFirst = true
+	result := f.build(true)
+	f.emitFirst = false
+	f.wantErrorIn("emit first", result, "client/quiet.ts")
+	if !strings.Contains(readTestFile(t, dir, "out/server/other.luau"), "+ 2") {
+		t.Errorf("the file without errors was not written:\n%s", readTestFile(t, dir, "out/server/other.luau"))
+	}
+	if got := readTestFile(t, dir, "out/client/quiet.luau"); got != before {
+		t.Errorf("the file with the error was written:\n%s", got)
+	}
+
+	editTestFile(t, dir, "src/client/quiet.ts", "QUIET: string = 1", "QUIET = 2")
+	f.emitFirst = true
+	result = f.build(true)
+	f.emitFirst = false
+	if hasErrors(result.Diagnostics) {
+		t.Errorf("fixed: %v", diagnosticLines(result.Diagnostics))
+	}
+	f.check("fixed")
+	f.compiled("fixed", 0)
 }
 
 func TestDecoratorText(t *testing.T) {
