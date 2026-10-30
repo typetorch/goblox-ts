@@ -54,9 +54,24 @@ type hasFacts interface {
 	setFacts(facts any)
 }
 
-// GetFacts returns the evaluation facts of node (nil when it has none). Store values, not pointers, so a
-// clone keeps the facts of its original at clone time, like the TypeScript object spread.
+// FactsCloner is implemented by facts stored as a pointer and updated in place: cloneNode gives every clone
+// its own copy, so a clone keeps the facts of its original at clone time, like the TypeScript object spread.
+type FactsCloner interface {
+	CloneFacts() any
+}
+
+// GetFacts returns the evaluation facts of node (nil when it has none). Store values, or pointers that
+// implement FactsCloner, so a clone keeps the facts of its original at clone time.
 func GetFacts(node Node) any { return node.(hasFacts).getFacts() }
+
+// cloneNode is node.shallowClone() with its own copy of pointer facts (see FactsCloner).
+func cloneNode(node Node) Node {
+	clone := node.shallowClone()
+	if facts, ok := clone.(hasFacts).getFacts().(FactsCloner); ok {
+		clone.(hasFacts).setFacts(facts.CloneFacts())
+	}
+	return clone
+}
 
 // SetFacts replaces the evaluation facts of node.
 func SetFacts(node Node, facts any) { node.(hasFacts).setFacts(facts) }
@@ -64,7 +79,7 @@ func SetFacts(node Node, facts any) { node.(hasFacts).setFacts(facts) }
 // ShallowClone is `{ ...node, parent: undefined }`: a copy of node (fields and facts) without a parent. Its
 // children are shared with node until Create adopts them.
 func ShallowClone(node Node) Node {
-	clone := node.shallowClone()
+	clone := cloneNode(node)
 	clone.setParent(nil)
 	return clone
 }
@@ -81,7 +96,7 @@ func adopt(parent Node, child Node) Node {
 		return nil
 	}
 	if child.Parent() != nil {
-		clone := child.shallowClone()
+		clone := cloneNode(child)
 		clone.setParent(parent)
 		return clone
 	}

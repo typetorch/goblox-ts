@@ -15,8 +15,9 @@ type BindingKey struct {
 // Binding is a *BindingKey, string, number or sentinel value.
 type Binding = any
 
-// annotated is the set of symbol-keyed facts of a luau node. It is stored by value through luau.SetFacts,
-// so a shallow clone keeps the facts its original had when it was cloned (luau.create copies symbol keys).
+// annotated is the set of symbol-keyed facts of a luau node. It is stored as a *annotated through
+// luau.SetFacts and updated in place; luau gives every clone its own copy (CloneFacts), so a shallow clone
+// keeps the facts its original had when it was cloned (luau.create copies symbol keys).
 type annotated struct {
 	binding      Binding // nil when absent
 	constant     bool
@@ -26,15 +27,26 @@ type annotated struct {
 	stableLookup bool
 }
 
+// CloneFacts implements luau.FactsCloner.
+func (facts *annotated) CloneFacts() any {
+	clone := *facts
+	return &clone
+}
+
 func getAnnotated(node luau.Node) annotated {
-	facts, _ := luau.GetFacts(node).(annotated)
-	return facts
+	if facts, ok := luau.GetFacts(node).(*annotated); ok {
+		return *facts
+	}
+	return annotated{}
 }
 
 func updateAnnotated(node luau.Node, update func(facts *annotated)) {
-	facts := getAnnotated(node)
-	update(&facts)
-	luau.SetFacts(node, facts)
+	facts, ok := luau.GetFacts(node).(*annotated)
+	if !ok {
+		facts = &annotated{}
+		luau.SetFacts(node, facts)
+	}
+	update(facts)
 }
 
 // markConstantReference is TSTransformer/util/evaluation/facts.ts markConstantReference.

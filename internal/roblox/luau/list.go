@@ -61,7 +61,7 @@ func IsList(value ListOrNode) bool {
 func (list *List) Clone() *List {
 	newList := MakeList()
 	list.ForEach(func(element Node) {
-		newList.Push(element.shallowClone())
+		newList.Push(cloneNode(element))
 	})
 	return newList
 }
