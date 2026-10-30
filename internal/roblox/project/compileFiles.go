@@ -556,7 +556,20 @@ func compileFilesPrinting(ctx context.Context, fs vfs.FS, program *compiler.Prog
 	var fileWriteQueue []fileWrite
 	var panics map[string]string
 	failed := hasErrors(diags)
-	for i, sourceFile := range proxyFiles {
+	// the order only decides which errors are reported, so a clean build doesn't pay for it
+	replayOrder := make([]int, 0, len(proxyFiles))
+	for i, result := range results {
+		replayOrder = append(replayOrder, i)
+		if hasErrors(result.preEmitDiagnostics) || hasErrors(result.transformDiagnostics) || result.panic != "" {
+			replayOrder = nil
+			break
+		}
+	}
+	if replayOrder == nil {
+		replayOrder = fileReplayOrder(ctx, program, sourceFiles)
+	}
+	for _, i := range replayOrder {
+		sourceFile := proxyFiles[i]
 		result := results[i]
 		diags = append(diags, result.preEmitDiagnostics...)
 		if (failed && !keepGoing) || hasErrors(result.preEmitDiagnostics) {

@@ -156,6 +156,21 @@ declare const   service :string;
 	return files
 }
 
+// compileOrderFiles has a program order of helper.ts, a.ts, b.ts and c.ts. b.ts and c.ts end in a transform error.
+func compileOrderFiles(c string, overrides map[string]*string) map[string]*string {
+	files := map[string]*string{
+		"src/main.server.ts": nil,
+		"src/a.ts":           text("import { helper } from \"./helper\";\nexport const a = helper;\n"),
+		"src/b.ts":           text("export const b = null;\n"),
+		"src/c.ts":           text(c + "export const d = null;\n"),
+		"src/helper.ts":      text("export const helper = \"helper\";\n"),
+	}
+	for name, contents := range overrides {
+		files[name] = contents
+	}
+	return files
+}
+
 func cliScenarios() []cliScenario {
 	withoutTsconfig := map[string]*string{"tsconfig.json": nil}
 	typeError := map[string]*string{"src/bad.ts": text("export const a: string = 1;\n")}
@@ -201,6 +216,19 @@ func cliScenarios() []cliScenario {
 		{name: "--type without value", flags: []string{"--type"}},
 		{name: "--usePolling without --watch", flags: []string{"--usePolling"}},
 		{name: "type error", files: typeError},
+		// the importers of a file come right after it, and an error stops the transforms: only c.ts's error is reported
+		{name: "compile order: importers", mustPrint: "src/c.ts", files: compileOrderFiles("import { helper } from \"./helper\";\nexport const c = helper;\n", nil)},
+		{name: "compile order: type error", mustPrint: "src/c.ts", files: compileOrderFiles("import { helper } from \"./helper\";\nexport const c: number = helper;\n", map[string]*string{
+			"src/b.ts": text("export const b = null;\n"),
+		})},
+		{name: "compile order: augmentation", mustPrint: "src/c.ts", files: compileOrderFiles("export {};\ndeclare module \"./helper\" {\n\tinterface H {\n\t\tc: number;\n\t}\n}\n", map[string]*string{
+			"src/helper.ts": text("export interface H {}\nexport const helper = \"helper\";\n"),
+		})},
+		{name: "compile order: reference", mustPrint: "src/c.ts", files: compileOrderFiles("/// <reference path=\"./helper.d.ts\" />\nexport {};\n", map[string]*string{
+			"src/a.ts":        text("/// <reference path=\"./helper.d.ts\" />\nexport {};\n"),
+			"src/helper.ts":   nil,
+			"src/helper.d.ts": text("declare const helper: string;\n"),
+		})},
 		{name: "--noInclude", flags: []string{"--noInclude"}},
 		{name: "--type game", flags: []string{"--type", "game"}},
 		{name: "--type model", flags: []string{"--type", "model"}, files: modelRojo},
