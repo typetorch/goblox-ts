@@ -352,7 +352,7 @@ local x = _valueExisted
 				t.Fatalf("no macro %s.%s", c.className, c.method)
 			}
 			prereqs := NewPrereqs()
-			result := macro(nil, prereqs, node, receiver, append([]luau.Expression(nil), c.args...))
+			result := macro(&TransformState{Data: &ProjectData{}}, prereqs, node, receiver, append([]luau.Expression(nil), c.args...))
 			got := renderMacroResult(prereqs, result)
 			if want := testTabs(c.want); got != want {
 				t.Errorf("got:\n%s\nwant:\n%s", got, want)
