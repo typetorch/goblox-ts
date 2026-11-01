@@ -94,8 +94,8 @@ type incrementalBuild struct {
 }
 
 // incrementalEligible is false for what the state can't describe. KeepGoing writes the good files of a
-// failed build. writeTransformedFiles and logTruthyChanges are about every file, and declaration outputs
-// aren't emitted yet. removeComments takes the JSDoc @metadata tags out of the d.ts signatures, though
+// failed build. writeTransformedFiles and logTruthyChanges are about every file, and the state doesn't
+// track declaration outputs (emitDeclarations writes them for the compiled files only). removeComments takes the JSDoc @metadata tags out of the d.ts signatures, though
 // macros read them from other files. assumeChangesOnlyAffectDirectDependencies skips dependents on purpose.
 func incrementalEligible(opts BuildOptions, data *transform.ProjectData, options *core.CompilerOptions) bool {
 	if opts.Incremental == nil || opts.KeepGoing {
