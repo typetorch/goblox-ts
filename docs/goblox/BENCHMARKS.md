@@ -275,6 +275,41 @@ Correctness on the same copy (`gnome_check.sh`, 61 steps: 20 scripted edits plus
 diagnostics and output of each incremental build matched a `--noIncremental` build, apart from `builtAt` in
 `shared/build.luau`. After the watch runs above, the 407 outputs matched a clean build too.
 
+### Again on main (2026-11-01, `5f08c9a77`)
+
+The same scenarios after the plugin-per-checker, compile order, declaration emit and transform commits on main.
+Same desktop, a fresh copy of gnome-game (`b6e33b3`, 407 compiled files), goblox built with `-tags typetorch`
+against typetorch-transformer `go-port` (`d3e0c4c`). Medians of 3, ms, process start to exit:
+
+| one-shot `goblox build` | cold | warm | comment | leaf | shared |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| rbxtsc | 18653 | 5726 | 14851 | 6353 | 14741 |
+| goblox | 2114 | 426 | 615 | 603 | 1585 |
+| goblox, second pass | 2120 | 426 | 584 | 610 | 1602 |
+
+Runs: rbxtsc cold 19030 / 18653 / 17789, warm 5753 / 5726 / 5706, comment 14851 / 15311 / 14686, leaf 6282 / 6353 /
+6470, shared 15472 / 14343 / 14741. goblox cold 2233 / 2114 / 2072, warm 426 / 409 / 454, comment 595 / 615 / 757,
+leaf 601 / 742 / 603, shared 1675 / 1585 / 1559.
+
+A warm build is ~100 ms slower than on Oct 30, spread over steps that existed then (parse tsconfig 57 → 70-88 ms,
+create program, copy non-compiled files 35 ms), so it's likely the machine. Shared got faster (2758 → 1585) with the
+transform and plugin work on main. A trailing comment in `shared/net.ts` now compiles 0 files: the plugin prints the
+same text, so the program of the plugins' output doesn't change.
+
+| `goblox -w` (save to "Found N errors", incl. polling and debounce) | runs (ms) |
+| --- | --- |
+| first build, cache present | 413 |
+| leaf | 813 / 584 / 572 |
+| comment in `shared/net.ts` | 566 / 566 / 571 |
+| shared | 1463 / 1466 / 1496 |
+| adding a type error (160 files) | 1387 |
+| another edit, error still reported | 1457 |
+| fixing it | 595 |
+
+Correctness: `gnome_check.sh` (seed 7, 61 steps) matched a `--noIncremental` build on every step, and the watch
+outputs matched a clean build (407 of 407 files). `go test ./internal/roblox/... ./pkg/goblox/...` and the oracle
+harness (73/73) pass on the same commit.
+
 ## Incremental design (implemented, see CLI.md "Incremental builds")
 
 The notes this work followed, for items #1 and #2 of BENCHMARKS-espresso.md. `internal/roblox/project/incremental.go` has
