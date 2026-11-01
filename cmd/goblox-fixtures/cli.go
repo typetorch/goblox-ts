@@ -385,7 +385,7 @@ func projectOutputs(dir string, skip map[string]bool) (map[string]string, error)
 			if err != nil {
 				return err
 			}
-			outputs[rel] = string(contents)
+			outputs[rel] = withOracleHeader(string(contents))
 		}
 		return nil
 	})

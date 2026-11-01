@@ -69,6 +69,7 @@ type PartialProjectOptions map[string]any
 var booleanOptions = map[string]bool{
 	"noInclude":              true,
 	"luau":                   true,
+	"stripComments":          true,
 	"optimizedLoops":         true,
 	"allowCommentDirectives": true,
 	"logTruthyChanges":       true,
@@ -110,6 +111,8 @@ func ApplyProjectOptions(options *transform.ProjectOptions, partial PartialProje
 			options.AllowCommentDirectives = value.(bool)
 		case "luau":
 			options.Luau = value.(bool)
+		case "stripComments":
+			options.StripComments = value.(bool)
 		}
 	}
 }

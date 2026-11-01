@@ -100,3 +100,21 @@ if (x) f(); /* l */
 		}
 	}
 }
+
+func TestStripComments(t *testing.T) {
+	t.Parallel()
+	source := "//!strict\n// note\nf();\n//!midfile\ng();\n"
+	file := parser.ParseSourceFile(ast.SourceFileParseOptions{FileName: "/test.ts", Path: "/test.ts"}, source, core.ScriptKindTS)
+	state := &TransformState{
+		SourceFile:     file,
+		sourceFileText: source,
+		Data:           &ProjectData{ProjectOptions: ProjectOptions{StripComments: true}},
+	}
+	statements := file.Statements.Nodes
+	if got, want := commentTexts(state.sourceComments(statements[0].Pos())), []string{"!strict"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("first statement: comments %q, want %q", got, want)
+	}
+	if got := commentTexts(state.sourceComments(statements[1].Pos())); len(got) != 0 {
+		t.Errorf("second statement: comments %q, want none", got)
+	}
+}

@@ -82,6 +82,7 @@ options, as in roblox-ts.
 | `--noIncremental` | no | goblox only: compile every file, ignoring what the last build left |
 | `--emitFirst` | no | goblox only, watch mode only: errors don't block the emit (see Watch mode) |
 | `--luau` | `.luau` extension | same |
+| `--stripComments` | no | goblox only: leave comments out of the output, except the compiler header and `//!` directives at the top of a file. Also `"stripComments": true` under `rbxts` in tsconfig.json. Unlike `removeComments`, it keeps incremental builds |
 | `--logTruncatedPaths` | not in roblox-ts 3.0.0 | accepted and ignored (goblox never truncates paths) |
 | `--checkers <n>` | – | goblox only: type checker count. Default: 4 with 8 or more threads, otherwise min(4, physical cores). Physical cores are read on Linux and macOS; elsewhere half the threads are assumed. `GOMAXPROCS` counts as the thread count |
 | `--timing` | – | goblox only: print `Build time:` on stderr |
@@ -109,6 +110,8 @@ stdout, stderr and every file written. It is byte-for-byte, except for these int
 the exit code is compared:
 
 - `--version`, `--help` and `--verbose` print goblox's own text (see above).
+- The header of a compiled file is `-- goblox, a roblox-ts fork. goblox v<version>, roblox-ts v3.0.0`. The harness puts
+  roblox-ts's header back before it compares output files.
 - A tsconfig.json that isn't valid JSON is reported by typescript-go's parser, which can pick another code than
   TypeScript 5.9's (TS1005 for TS1136).
 - A Rojo project file that isn't valid JSON gets the same `Unable to read Rojo project` error, but the text after

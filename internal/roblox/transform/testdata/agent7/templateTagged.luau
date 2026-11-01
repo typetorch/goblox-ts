@@ -1,4 +1,4 @@
--- Compiled with roblox-ts v3.0.0
+-- goblox, a roblox-ts fork. goblox v0.0.0-dev, roblox-ts v3.0.0
 local tagged0 = tag({ "plain" })
 local tagged1 = tag({ "a ", " b ", " c" }, n, s)
 local tagged2 = tag({ "", "" }, n)

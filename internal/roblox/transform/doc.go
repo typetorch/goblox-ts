@@ -19,6 +19,9 @@ package transform
 // 68648b0); it is printed in the header of every compiled file.
 const COMPILER_VERSION = "3.0.0"
 
+// GOBLOX_VERSION is goblox's own version, also in that header. cmd/goblox sets it to its release version.
+var GOBLOX_VERSION = "0.0.0-dev"
+
 const (
 	PARENT_FIELD = "Parent"
 	RBXTS_SCOPE  = "@rbxts"

@@ -1,4 +1,4 @@
--- Compiled with roblox-ts v3.0.0
+-- goblox, a roblox-ts fork. goblox v0.0.0-dev, roblox-ts v3.0.0
 local sub1 = `a {n} b`
 local sub2 = `{n}{s}`
 local _exp = f()

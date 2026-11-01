@@ -26,6 +26,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/diagnosticwriter"
 	"github.com/microsoft/typescript-go/internal/roblox/diagnostics"
 	"github.com/microsoft/typescript-go/internal/roblox/project"
+	"github.com/microsoft/typescript-go/internal/roblox/transform"
 	"github.com/microsoft/typescript-go/internal/tspath"
 )
 
@@ -40,6 +41,7 @@ func versionString() string {
 }
 
 func main() {
+	transform.GOBLOX_VERSION = version
 	args := os.Args[1:]
 	// yargs' .version(): -v/--version wins over everything else, with any command
 	for _, arg := range args {
@@ -98,6 +100,7 @@ func newBuildFlags() *buildFlags {
 	flags.String("rojo", "", "manually select Rojo project file")
 	flags.Bool("allowCommentDirectives", false, "allow @ts-ignore and similar comment directives")
 	flags.Bool("luau", false, "emit files with .luau extension")
+	flags.Bool("stripComments", false, "leave comments out of the output, except the compiler header and //! directives (goblox only)")
 	f.checkers = flags.Int("checkers", 0, "number of type checkers (0 = min(4, physical cores), 4 with 8+ threads)")
 	f.timing = flags.Bool("timing", false, "print the build time")
 	f.cpuProfile = flags.String("cpuprofile", "", "write a Go CPU profile to this file (goblox only)")

@@ -1,4 +1,4 @@
--- Compiled with roblox-ts v3.0.0
+-- goblox, a roblox-ts fork. goblox v0.0.0-dev, roblox-ts v3.0.0
 local TS = require(game:GetService("ReplicatedStorage"):WaitForChild("include"):WaitForChild("RuntimeLib"))
 local c1 = if n > 0 then "pos" else "neg"
 local _result

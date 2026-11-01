@@ -43,6 +43,14 @@ import (
 	"github.com/peter-evans/patience"
 )
 
+// gobloxHeader is the one intended difference in the output: the header of a compiled file names goblox.
+var gobloxHeader = regexp.MustCompile(`(?m)^-- goblox, a roblox-ts fork\. goblox v\S+, roblox-ts v(\S+?)(\r?)$`)
+
+// withOracleHeader gives goblox's output the header roblox-ts writes, to compare the rest byte for byte.
+func withOracleHeader(contents string) string {
+	return gobloxHeader.ReplaceAllString(contents, "-- Compiled with roblox-ts v$1$2")
+}
+
 func main() {
 	os.Exit(run())
 }
@@ -189,13 +197,14 @@ func run() int {
 			status = "extra"
 		default:
 			want, _ := os.ReadFile(filepath.Join(expectedDir, name))
-			got, _ := os.ReadFile(filepath.Join(actualDir, name))
-			if string(want) == string(got) {
+			gotContents, _ := os.ReadFile(filepath.Join(actualDir, name))
+			got := withOracleHeader(string(gotContents))
+			if string(want) == got {
 				status = "match"
 			} else {
 				status = "differs"
 				if *verbose {
-					lines := patience.Diff(stringutil.SplitLines(string(want)), stringutil.SplitLines(string(got)))
+					lines := patience.Diff(stringutil.SplitLines(string(want)), stringutil.SplitLines(got))
 					detail = patience.UnifiedDiffTextWithOptions(lines, patience.UnifiedDiffOptions{
 						Precontext:  3,
 						Postcontext: 3,

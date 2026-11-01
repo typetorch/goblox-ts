@@ -43,6 +43,8 @@ type ProjectOptions struct {
 	OptimizedLoops         bool
 	AllowCommentDirectives bool
 	Luau                   bool
+	// StripComments (goblox only) leaves the source's comments and the macro markers out of the output
+	StripComments bool
 }
 
 // DEFAULT_PROJECT_OPTIONS is Shared/constants.ts DEFAULT_PROJECT_OPTIONS.
@@ -433,6 +435,24 @@ func (s *TransformState) getLeadingCommentsAt(pos int) *luau.List {
 			text = getBlockCommentText(source)
 		}
 		result.Push(luau.NewComment(text))
+	}
+	return result
+}
+
+// sourceComments is getLeadingCommentsAt for the output. StripComments keeps only the `//!` directives at the
+// top of the file: they change how Luau compiles it, and anywhere else they are plain comments.
+func (s *TransformState) sourceComments(pos int) *luau.List {
+	comments := s.getLeadingCommentsAt(pos)
+	if !s.Data.ProjectOptions.StripComments {
+		return comments
+	}
+	result := luau.MakeList()
+	if pos == 0 {
+		comments.ForEach(func(comment luau.Node) {
+			if strings.HasPrefix(comment.(*luau.Comment).Text, "!") {
+				result.Push(comment)
+			}
+		})
 	}
 	return result
 }

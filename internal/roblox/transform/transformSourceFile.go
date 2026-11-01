@@ -221,7 +221,7 @@ func transformSourceFile(state *TransformState, node *ast.SourceFile) *luau.List
 
 	// add build information to the tree
 	if !state.Data.ProjectOptions.NoCompilerHeader {
-		headerStatements.Push(luau.NewComment(" Compiled with roblox-ts v" + COMPILER_VERSION))
+		headerStatements.Push(luau.NewComment(" goblox, a roblox-ts fork. goblox v" + GOBLOX_VERSION + ", roblox-ts v" + COMPILER_VERSION))
 	}
 
 	// add the Runtime library to the tree if it is used

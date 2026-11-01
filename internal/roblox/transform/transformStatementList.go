@@ -81,7 +81,7 @@ func transformStatementList(state *TransformState, parent *ast.Node, statements 
 
 		// iterate through each of the leading comments of the statement
 		if !state.CompilerOptions.RemoveComments.IsTrue() {
-			result.PushList(state.GetLeadingComments(statement))
+			result.PushList(state.sourceComments(statement.Pos()))
 		}
 
 		// check statement for hoisting
@@ -114,13 +114,13 @@ func transformStatementList(state *TransformState, parent *ast.Node, statements 
 
 	if !state.CompilerOptions.RemoveComments.IsTrue() {
 		if pos, ok := getLastTokenPos(statements); ok {
-			result.PushList(state.getLeadingCommentsAt(pos))
+			result.PushList(state.sourceComments(pos))
 			return result
 		}
 		lastToken := getLastToken(state, parent, statements)
 		// see ProjectData.TransformersRan: TypeScript's printer drops the comments before the end of the file
 		if lastToken != nil && !(state.transformersRan() && lastToken.Kind == ast.KindEndOfFile) {
-			result.PushList(state.GetLeadingComments(lastToken))
+			result.PushList(state.sourceComments(lastToken.Pos()))
 		}
 	}
 

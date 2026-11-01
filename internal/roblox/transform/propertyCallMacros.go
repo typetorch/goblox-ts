@@ -973,7 +973,7 @@ func wrapComments(methodName string, callback PropertyCallMacro) PropertyCallMac
 	return func(state *TransformState, prereqs *Prereqs, callNode *ast.Node, callExp luau.Expression, args []luau.Expression) luau.Expression {
 		expressionPrereqs := NewPrereqs()
 		expression := callback(state, expressionPrereqs, callNode, callExp, args)
-		if expressionPrereqs.Statements.Size() > 1 {
+		if expressionPrereqs.Statements.Size() > 1 && !state.Data.ProjectOptions.StripComments {
 			expressionPrereqs.Unshift(header(methodName))
 			expressionPrereqs.Push(footer(methodName))
 		}
