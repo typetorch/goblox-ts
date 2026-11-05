@@ -180,7 +180,7 @@ has the parsed and bound files and the incremental state in memory (gnome-game, 
 ~175 ms, a leaf edit 410 → ~275 ms). The two only need to run as the same user; typetorch isn't involved.
 
 - Every watcher listens on a local socket named after its tsconfig's path (case-folded on case-insensitive file
-  systems): `$XDG_RUNTIME_DIR/<hash>.sock` or `$TMPDIR/goblox-<uid>/<hash>.sock` (owner-only), and
+  systems): `goblox-<uid>/<hash>.sock` in `$XDG_RUNTIME_DIR`, or in `$TMPDIR` without it (owner-only), and
   `%TEMP%\goblox\<hash>.sock` on Windows. A second watcher of the project doesn't listen. A socket left by a
   watcher that was killed is removed by the next one.
 - The build is handed off only when the watcher would build exactly what this process would: the same goblox
