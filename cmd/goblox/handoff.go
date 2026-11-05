@@ -215,10 +215,10 @@ func handOff(opts project.BuildOptions, out consoleOutput) (code int, handedOff 
 	defer conn.Close()
 
 	request := handoffRequest{Version: version, Identity: project.BuildIdentity(), Settings: settings, Project: opts.Project, Overrides: opts.Overrides}
-	if err := conn.SetDeadline(time.Now().Add(handoffAnswerTimeout)); err != nil {
+	if conn.SetDeadline(time.Now().Add(handoffAnswerTimeout)) != nil {
 		return 0, false
 	}
-	if err := writeJSONFrame(conn, frameRequest, &request); err != nil {
+	if writeJSONFrame(conn, frameRequest, &request) != nil {
 		return 0, false
 	}
 	reader := bufio.NewReader(conn)
@@ -227,7 +227,7 @@ func handOff(opts project.BuildOptions, out consoleOutput) (code int, handedOff 
 	if err != nil || kind != frameAnswer || json.Unmarshal(payload, &answer) != nil || !answer.Accepted {
 		return 0, false
 	}
-	if err := conn.SetDeadline(time.Time{}); err != nil {
+	if conn.SetDeadline(time.Time{}) != nil {
 		return 0, false
 	}
 

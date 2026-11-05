@@ -55,7 +55,7 @@ func TestHandoffFrames(t *testing.T) {
 	}
 }
 
-func TestHandoffSettings(t *testing.T) { //nolint:paralleltest // t.Setenv
+func TestHandoffSettings(t *testing.T) {
 	tsConfigPath := "/game/tsconfig.json"
 	base := func() project.BuildOptions {
 		return project.BuildOptions{
@@ -118,7 +118,7 @@ func TestHandoffSettings(t *testing.T) { //nolint:paralleltest // t.Setenv
 	if handoffDisabledByEnv() {
 		t.Error("GOBLOX_NO_HANDOFF=0 disabled the handoff")
 	}
-	for _, name := range []string{"TYPETORCH_DEBUG_MACROS", "GOBLOX_TEST_SETTING", "TS_GO_TEST_SETTING"} { //nolint:paralleltest // t.Setenv
+	for _, name := range []string{"TYPETORCH_DEBUG_MACROS", "GOBLOX_TEST_SETTING", "TS_GO_TEST_SETTING"} {
 		t.Run(name, func(t *testing.T) {
 			t.Setenv(name, "0")
 			if got := settings(base()); got == want {
