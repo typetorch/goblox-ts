@@ -69,6 +69,8 @@ type incrementalState struct {
 	files           map[string]*incrementalFile
 	rojoFingerprint string
 	rojoWarnings    []string
+	// rojoConfigFiles are the Rojo project files of the build (watch mode only: not in the cache file)
+	rojoConfigFiles []string
 }
 
 // incrementalFile is what the last good build knows about one compiled file.
@@ -99,6 +101,7 @@ type incrementalBuild struct {
 	blocked         bool
 	rojoFingerprint string
 	rojoWarnings    []string
+	rojoConfigFiles []string
 }
 
 // incrementalEligible is false for what the state can't describe. KeepGoing writes the good files of a
@@ -213,6 +216,7 @@ func (b *incrementalBuild) checkRojo(rojoResolver *rojo.RojoResolver, pkgRojoRes
 	}
 	b.rojoFingerprint = hex.EncodeToString(hash.Sum(nil))
 	b.rojoWarnings = rojoResolver.GetWarnings()
+	b.rojoConfigFiles = rojoResolver.ConfigFiles()
 	if b.old != nil && b.old.rojoFingerprint != b.rojoFingerprint {
 		LogService.WriteLineIfVerbose("incremental: the Rojo project changed, compiling everything")
 		b.old = nil
@@ -306,6 +310,7 @@ func (b *incrementalBuild) commit(ctx context.Context, program *compiler.Program
 		files:           make(map[string]*incrementalFile, len(sourceFiles)),
 		rojoFingerprint: b.rojoFingerprint,
 		rojoWarnings:    b.rojoWarnings,
+		rojoConfigFiles: b.rojoConfigFiles,
 	}
 	for _, sourceFile := range sourceFiles {
 		fileName := sourceFile.FileName()
@@ -461,7 +466,7 @@ func incrementalKey(fs vfs.FS, loaded *loadedConfig, data *transform.ProjectData
 	// package.json and the lockfile can be above the project, in a monorepo
 	for directory := data.ProjectPath; ; {
 		writeFile(nodepath.Join(directory, "package.json"))
-		for _, lockfile := range []string{"bun.lock", "bun.lockb", "package-lock.json", "yarn.lock", "pnpm-lock.yaml"} {
+		for _, lockfile := range packageLockfiles {
 			writeFile(nodepath.Join(directory, lockfile))
 		}
 		parent := nodepath.Dirname(directory)

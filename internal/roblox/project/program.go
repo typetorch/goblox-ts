@@ -71,6 +71,8 @@ type loadedConfig struct {
 	extendedConfigCache *tsc.ExtendedConfigCache
 }
 
+// loadConfig parses the tsconfig. With errors, the result is only good for what the tsconfig extends, and it
+// is nil when the tsconfig could not be read.
 func loadConfig(opts LoadOptions) (*loadedConfig, []*ast.Diagnostic) {
 	fs := opts.FS
 	if fs == nil {
@@ -97,6 +99,9 @@ func loadConfig(opts LoadOptions) (*loadedConfig, []*ast.Diagnostic) {
 	}
 	config, errs := tsoptions.GetParsedCommandLineOfConfigFile(configFileName, cliOptions, nil, host, extendedConfigCache)
 	if len(errs) > 0 {
+		if config != nil {
+			return &loadedConfig{host: host, configFileName: configFileName, config: config, extendedConfigCache: extendedConfigCache}, errs
+		}
 		return nil, errs
 	}
 	if config.CompilerOptions().Types == nil {
@@ -106,6 +111,9 @@ func loadConfig(opts LoadOptions) (*loadedConfig, []*ast.Diagnostic) {
 		cliOptions.Types = []string{"*"}
 		config, errs = tsoptions.GetParsedCommandLineOfConfigFile(configFileName, cliOptions, nil, host, extendedConfigCache)
 		if len(errs) > 0 {
+			if config != nil {
+				return &loadedConfig{host: host, configFileName: configFileName, config: config, extendedConfigCache: extendedConfigCache}, errs
+			}
 			return nil, errs
 		}
 	}

@@ -156,6 +156,8 @@ type RojoResolver struct {
 	filePathToRbxPathMap map[string]RbxPath
 	isolatedContainers   []RbxPath
 	IsGame               bool
+	// configFiles are the project files parseConfig read, for watch mode
+	configFiles []string
 
 	// rbxPathCache memoizes GetRbxPathFromFilePath (file path -> RbxPath). The transform asks for the
 	// same files over and over (every import of a module, from every checker goroutine), and the
@@ -257,7 +259,13 @@ func FromTree(fs vfs.FS, basePath string, tree *RojoTree) *RojoResolver {
 	return resolver
 }
 
+// ConfigFiles returns the project files the resolver read, in the order it read them.
+func (r *RojoResolver) ConfigFiles() []string {
+	return r.configFiles
+}
+
 func (r *RojoResolver) parseConfig(rojoConfigFilePath string, doNotPush bool) {
+	r.configFiles = append(r.configFiles, rojoConfigFilePath)
 	if pathExists(r.fs, rojoConfigFilePath) {
 		realPath := r.fs.Realpath(rojoConfigFilePath)
 		text, _ := r.fs.ReadFile(realPath)

@@ -40,11 +40,7 @@ type EmitResult struct {
 	EmitSkipped bool
 	// Fatal means ProjectBuild's constructor threw these diagnostics, so the CLI logs them as a LoggableError
 	// instead of passing them to its diagnostic reporter.
-	Fatal bool
-	// WatchRoot is the directory of the project's tsconfig.json, and OutputRoots are the directories the
-	// build writes (outDir, the include folder, ...). Watch mode polls WatchRoot without OutputRoots.
-	WatchRoot    string
-	OutputRoots  []string
+	Fatal        bool
 	Diagnostics  []*ast.Diagnostic
 	EmittedFiles []string
 	// Panics maps the file name of every file whose transform panicked (an unported stub or an internal
@@ -52,6 +48,8 @@ type EmitResult struct {
 	Panics map[string]string
 	// needsPrintedPositions: see compileFilesPrinting
 	needsPrintedPositions bool
+	// rojoConfigFiles are the Rojo project files the resolver read (see BuildOptions.Watch)
+	rojoConfigFiles []string
 }
 
 // FILENAME_WARNINGS is Shared/constants.ts FILENAME_WARNINGS.
@@ -325,7 +323,7 @@ func compileFiles(ctx context.Context, fs vfs.FS, program *compiler.Program, dat
 // in the printed text of the file, so a diagnostic in a file that wasn't printed (printUnchanged is off
 // and no plugin changed it) can't be reported as is: the result then only has needsPrintedPositions, and
 // nothing was written. Builds without such a diagnostic, nearly all of them, don't pay for the prints.
-func compileFilesPrinting(ctx context.Context, fs vfs.FS, program *compiler.Program, data *transform.ProjectData, pathTranslator *rojo.PathTranslator, sourceFiles []*ast.SourceFile, keepGoing bool, printUnchanged bool, inc *incrementalBuild) *EmitResult {
+func compileFilesPrinting(ctx context.Context, fs vfs.FS, program *compiler.Program, data *transform.ProjectData, pathTranslator *rojo.PathTranslator, sourceFiles []*ast.SourceFile, keepGoing bool, printUnchanged bool, inc *incrementalBuild) (emitResult *EmitResult) {
 	compilerOptions := program.Options()
 
 	outDir := compilerOptions.OutDir
@@ -338,7 +336,7 @@ func compileFilesPrinting(ctx context.Context, fs vfs.FS, program *compiler.Prog
 		}
 		_, errs := PluginsForProgram(program)
 		reportPluginErrors(errs)
-		return &EmitResult{Diagnostics: transform.DiagnosticService.Flush()}
+		return &EmitResult{Diagnostics: transform.DiagnosticService.Flush(), rojoConfigFiles: inc.old.rojoConfigFiles}
 	}
 
 	rojoStart := time.Now()
@@ -352,6 +350,7 @@ func compileFilesPrinting(ctx context.Context, fs vfs.FS, program *compiler.Prog
 	} else {
 		rojoResolver = rojo.Synthetic(rojoFS, outDir)
 	}
+	defer func() { emitResult.rojoConfigFiles = rojoResolver.ConfigFiles() }()
 
 	for _, warning := range rojoResolver.GetWarnings() {
 		LogService.Warn(warning)

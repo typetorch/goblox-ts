@@ -7,10 +7,10 @@ package main
 
 import (
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"time"
 
@@ -45,8 +45,9 @@ func runWatch(opts project.BuildOptions, report func([]*ast.Diagnostic)) int {
 		opts.Incremental.Background = true
 	}
 
-	root := watchRootFallback(opts)
-	var ignored []string
+	// the inputs the last build read: the first build reports them
+	watcher := &fileWatcher{}
+	opts.Watch = &project.WatchList{}
 	compile := func(initial bool) {
 		if initial {
 			reportWatchStatus("Starting compilation in watch mode...")
@@ -54,14 +55,8 @@ func runWatch(opts project.BuildOptions, report func([]*ast.Diagnostic)) int {
 			reportWatchStatus("File change detected. Starting incremental compilation...")
 		}
 		result, errorCount, _ := buildOnce(opts, report)
-		if result != nil {
-			if result.WatchRoot != "" {
-				root = result.WatchRoot
-			}
-			if len(result.OutputRoots) > 0 {
-				ignored = result.OutputRoots
-			}
-		}
+		// a build that failed before it read everything keeps watching what the last one read too
+		watcher.setList(*opts.Watch, result == nil || result.Fatal)
 		plural := "s"
 		if errorCount == 1 {
 			plural = ""
@@ -77,100 +72,147 @@ func runWatch(opts project.BuildOptions, report func([]*ast.Diagnostic)) int {
 	}
 
 	compile(true)
-	if root == "" {
+	if !projectPathExists(opts) || watcher.empty() {
 		// "Unable to find tsconfig.json!": nothing to watch
 		return 1
 	}
-	previous := snapshotWatchedFiles(root, ignored)
+	watcher.take()
 	for {
 		time.Sleep(watchPollInterval)
-		current := snapshotWatchedFiles(root, ignored)
-		if sameSnapshot(previous, current) {
+		if !watcher.changed() {
 			continue
 		}
 		// wait until the files stop changing (an editor saving several files, a git checkout)
 		for {
+			watcher.take()
 			time.Sleep(watchDebounce)
-			settled := snapshotWatchedFiles(root, ignored)
-			if sameSnapshot(current, settled) {
+			if !watcher.changed() {
 				break
 			}
-			current = settled
 		}
 		compile(false)
 		// outputs are ignored, but a build can also touch inputs (none today); start from after the build
-		previous = snapshotWatchedFiles(root, ignored)
+		watcher.take()
 	}
 }
 
-// watchRootFallback is the folder to watch before the first build reports its tsconfig's folder: the
-// -p path's folder (or the path itself when it is a folder). "" when it does not exist.
-func watchRootFallback(opts project.BuildOptions) string {
-	p := tspath.GetNormalizedAbsolutePath(opts.Project, opts.CurrentDirectory)
-	info, err := os.Stat(p)
-	if err != nil {
-		return ""
-	}
-	if !info.IsDir() {
-		return tspath.GetDirectoryPath(p)
-	}
-	return p
+// projectPathExists is whether the -p path (a tsconfig, or a folder at or below the one that has it) exists.
+func projectPathExists(opts project.BuildOptions) bool {
+	_, err := os.Stat(tspath.GetNormalizedAbsolutePath(opts.Project, opts.CurrentDirectory))
+	return err == nil
 }
 
+// watchedFile is what a poll compares. exists is false for a watched file that is missing.
 type watchedFile struct {
-	modTime time.Time
+	modTime int64
 	size    int64
+	exists  bool
 }
 
-// snapshotWatchedFiles lists the files below root with their modification times, without
-// node_modules, .git and the build's own outputs (setupProjectWatchProgram's `ignored`).
-func snapshotWatchedFiles(root string, ignored []string) map[string]watchedFile {
-	files := map[string]watchedFile{}
-	ignoredKeys := make(map[string]bool, len(ignored))
-	for _, dir := range ignored {
-		if dir != "" {
-			ignoredKeys[watchPathKey(dir)] = true
+// fileWatcher polls the inputs of the last build (project.WatchList): it walks the source folders, without
+// node_modules, .git and the build's outputs (setupProjectWatchProgram's `ignored`), and checks the single
+// files. The snapshot is filled once and then compared in place, so an idle poll allocates only what the
+// file system calls do.
+type fileWatcher struct {
+	dirs    []string
+	files   []string
+	ignored []string
+	// snapshot has every path the last take visited
+	snapshot map[string]watchedFile
+	// visits counts the paths the last take visited, so a deleted file is noticed without a second map
+	visits int
+	// walker is the platform's walk state (watch_linux.go)
+	walker dirWalker
+}
+
+// setList replaces the paths to watch, or adds to them when keep is set.
+func (w *fileWatcher) setList(list project.WatchList, keep bool) {
+	if !keep {
+		w.dirs, w.files, w.ignored = nil, nil, nil
+	}
+	w.dirs = appendWatchPaths(w.dirs, list.Dirs)
+	w.files = appendWatchPaths(w.files, list.Files)
+	w.ignored = appendWatchPaths(w.ignored, list.Ignored)
+}
+
+func appendWatchPaths(paths []string, add []string) []string {
+	for _, path := range add {
+		path = filepath.Clean(filepath.FromSlash(path))
+		if !slices.ContainsFunc(paths, func(other string) bool { return sameWatchPath(other, path) }) {
+			paths = append(paths, path)
 		}
 	}
-	_ = filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
-		if err != nil {
-			// a file deleted while walking; the next poll sees the deletion
-			return nil
-		}
-		if entry.IsDir() {
-			name := entry.Name()
-			if path != root && (name == "node_modules" || name == ".git" || ignoredKeys[watchPathKey(path)]) {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		info, err := entry.Info()
-		if err != nil {
-			return nil
-		}
-		files[path] = watchedFile{modTime: info.ModTime(), size: info.Size()}
-		return nil
+	return paths
+}
+
+func (w *fileWatcher) empty() bool {
+	return len(w.dirs) == 0 && len(w.files) == 0
+}
+
+// take fills the snapshot with the current state of the watched paths.
+func (w *fileWatcher) take() {
+	if w.snapshot == nil {
+		w.snapshot = map[string]watchedFile{}
+	}
+	clear(w.snapshot)
+	w.visits = 0
+	w.visit(func(path string, file watchedFile) bool {
+		// a walk's path can be a view of its buffer
+		w.snapshot[strings.Clone(path)] = file
+		w.visits++
+		return true
 	})
-	return files
 }
 
-func watchPathKey(path string) string {
-	key := filepath.Clean(filepath.FromSlash(path))
-	if os.PathSeparator == '\\' {
-		key = strings.ToLower(key)
-	}
-	return key
-}
-
-func sameSnapshot(a, b map[string]watchedFile) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for path, file := range a {
-		other, ok := b[path]
-		if !ok || !other.modTime.Equal(file.modTime) || other.size != file.size {
+// changed is whether a watched path differs from the snapshot. It stops at the first difference.
+func (w *fileWatcher) changed() bool {
+	visits := 0
+	differs := false
+	w.visit(func(path string, file watchedFile) bool {
+		visits++
+		if old, ok := w.snapshot[path]; !ok || old != file {
+			differs = true
 			return false
 		}
+		return true
+	})
+	return differs || visits != w.visits
+}
+
+// visit calls fn for every watched file, until fn returns false. path is only valid during the call.
+func (w *fileWatcher) visit(fn func(path string, file watchedFile) bool) {
+	for _, path := range w.files {
+		file := watchedFile{}
+		if info, err := os.Stat(path); err == nil {
+			file = watchedFile{modTime: info.ModTime().UnixNano(), size: info.Size(), exists: true}
+		}
+		if !fn(path, file) {
+			return
+		}
 	}
-	return true
+	for _, root := range w.dirs {
+		if !w.walk(root, fn) {
+			return
+		}
+	}
+}
+
+func (w *fileWatcher) skipDir(path string, name string) bool {
+	if name == "node_modules" || name == ".git" {
+		return true
+	}
+	for _, ignored := range w.ignored {
+		if sameWatchPath(path, ignored) {
+			return true
+		}
+	}
+	return false
+}
+
+// sameWatchPath compares two clean paths, ignoring case on Windows.
+func sameWatchPath(a, b string) bool {
+	if os.PathSeparator == '\\' {
+		return strings.EqualFold(a, b)
+	}
+	return a == b
 }

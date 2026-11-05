@@ -124,12 +124,27 @@ The contents of a `.d.ts.map` aren't compared, as typescript-go's source map gen
 
 ### Watch mode
 
-roblox-ts watches with chokidar and rebuilds only the changed files. goblox polls file modification times
-under the tsconfig's folder every 250 ms. It skips `node_modules`, `.git` and the build's own outputs (outDir,
-declarationDir and the include folder). It waits 100 ms for changes to settle and then compiles the files the
-changes can reach (see Incremental builds).
+roblox-ts watches the rootDir/rootDirs with chokidar and rebuilds only the changed files. goblox polls file
+modification times every 250 ms, but only of what the last build read:
+
+- the rootDir/rootDirs, without `node_modules`, `.git` and the build's own outputs (outDir, declarationDir and
+  the include folder)
+- the tsconfig and every config it extends or references
+- the Rojo project file and the project files it nests (outside `node_modules`). Without a Rojo project file, it
+  watches for a new `default.project.json`
+- `typetorch.json`, and `package.json` with the lockfiles (`bun.lock`, `bun.lockb`, `package-lock.json`,
+  `yarn.lock`, `pnpm-lock.yaml`) in the project's folder and every folder above it
+- the program's files outside rootDir that aren't in `node_modules`, such as a `typings` folder in `include`
+
+Other folders next to the tsconfig (`.claude`, `.typetorch`, docs, assets) aren't walked. A new file outside
+rootDir that `include` would match is picked up by the next rebuild, not by the watcher. A build that fails
+before it reads everything (a broken tsconfig) keeps watching what the last build read. Without a tsconfig, it
+watches for a `tsconfig.json` in the folders the build looked in. It waits 100 ms for changes to settle and then
+compiles the files the changes can reach (see Incremental builds).
 
 - Polling needs no file watcher dependency. fsnotify would be a new direct module requirement in go.mod.
+- A poll compares with the last snapshot in place. On Linux it reads the folders with getdents and fstatat,
+  so it allocates almost nothing (700 files: 1.6–2.2 ms and 12 KB per poll on a 2-core laptop).
 - Files whose modification time and size did not change are not read, parsed or bound again: the watcher
   keeps them between rebuilds, like `tsc -w` (gnome-game: create program 138 ms → ~47 ms per rebuild).
 - The first build uses the cache file of the last one-shot or watch build, and every build writes it, when the
@@ -152,7 +167,7 @@ src/bad.ts:1:7 - error TS2322: Type 'number' is not assignable to type 'string'.
 ```
 
 A build that fails before compiling, such as a broken rojo project, counts as 1 error, and watching
-continues. In rbxtsc that kills the watcher. When there is no tsconfig.json, goblox exits with 1.
+continues. In rbxtsc that kills the watcher. When the `-p` path doesn't exist, goblox exits with 1.
 
 ### Incremental builds and tsbuildinfo
 

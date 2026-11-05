@@ -53,6 +53,8 @@ type BuildOptions struct {
 	// blocking the emit (`--emitFirst`, watch mode only). What a build with errors writes is not part of
 	// the incremental state, so those files are compiled again by the next build.
 	EmitFirst bool
+	// Watch, when set, receives what the build read (watch mode polls only that).
+	Watch *WatchList
 }
 
 // CLIError is CLI/errors/CLIError.ts.
@@ -60,14 +62,16 @@ type CLIError struct{ Message string }
 
 func (e *CLIError) Error() string { return e.Message }
 
-// findTsConfigPath is build.ts findTsConfigPath.
-func findTsConfigPath(fs vfs.FS, cwd string, projectPath string) (string, error) {
+// findTsConfigPath is build.ts findTsConfigPath. Every tsconfig.json it looked for goes to watch, so a
+// watcher sees one being created.
+func findTsConfigPath(fs vfs.FS, cwd string, projectPath string, watch *WatchList) (string, error) {
 	tsConfigPath := nodepath.Resolve(cwd, projectPath)
 	if !fs.FileExists(tsConfigPath) {
 		// ts.findConfigFile
 		found := ""
 		for directory := tsConfigPath; ; {
 			candidate := nodepath.Join(directory, "tsconfig.json")
+			watch.addFile(candidate)
 			if fs.FileExists(candidate) {
 				found = candidate
 				break
@@ -83,6 +87,7 @@ func findTsConfigPath(fs vfs.FS, cwd string, projectPath string) (string, error)
 		}
 		tsConfigPath = found
 	}
+	watch.addFile(tsConfigPath)
 	return nodepath.Resolve(cwd, tsConfigPath), nil
 }
 
@@ -138,7 +143,7 @@ func isSolutionConfig(config *tsoptions.ParsedCommandLine) bool {
 
 // mapReferencePaths is ProjectGraph.ts mapReferencePaths for the root project: the import path of every
 // file of the (transitively) referenced projects. Referenced projects are not built; build them first.
-func mapReferencePaths(fs vfs.FS, cwd string, root *tsoptions.ParsedCommandLine, projectOptions func(own PartialProjectOptions) transform.ProjectOptions) (map[string]string, error) {
+func mapReferencePaths(fs vfs.FS, cwd string, root *tsoptions.ParsedCommandLine, projectOptions func(own PartialProjectOptions) transform.ProjectOptions, watch *WatchList) (map[string]string, error) {
 	paths := map[string]string{}
 	visited := map[string]bool{}
 
@@ -150,7 +155,13 @@ func mapReferencePaths(fs vfs.FS, cwd string, root *tsoptions.ParsedCommandLine,
 		}
 		visited[key] = true
 
+		watch.addFile(configPath)
 		loaded, errs := loadConfig(LoadOptions{Project: configPath, CurrentDirectory: cwd, FS: fs})
+		if loaded != nil {
+			for _, extended := range loaded.config.ExtendedSourceFiles() {
+				watch.addFile(extended)
+			}
+		}
 		if len(errs) > 0 {
 			return &diagnostics.DiagnosticError{Diagnostics: errs}
 		}
@@ -218,6 +229,17 @@ func getOutputRoots(pathTranslator *rojo.PathTranslator, compilerOptions *core.C
 		}
 	}
 	return roots
+}
+
+// addWatchedSources adds the source folders and the output folders of compilerOptions to watch.
+func addWatchedSources(watch *WatchList, compilerOptions *core.CompilerOptions) {
+	for _, dir := range getRootDirs(compilerOptions) {
+		watch.addDir(dir)
+	}
+	watch.addIgnored(compilerOptions.OutDir)
+	if compilerOptions.GetEmitDeclarations() {
+		watch.addIgnored(compilerOptions.DeclarationDir)
+	}
 }
 
 func validateProjectOutputs(pathTranslator *rojo.PathTranslator, compilerOptions *core.CompilerOptions) error {
@@ -436,20 +458,24 @@ func Build(ctx context.Context, opts BuildOptions) (*EmitResult, error) {
 	if projectPath == "" {
 		projectPath = "."
 	}
-	tsConfigPath, err := findTsConfigPath(fs, cwd, projectPath)
+	opts.Watch.reset()
+	defer opts.Watch.finish(fs)
+	tsConfigPath, err := findTsConfigPath(fs, cwd, projectPath, opts.Watch)
 	if err != nil {
 		return nil, err
 	}
+	// createProjectData's package.json and incrementalKey's, which a failed build may not get to
+	opts.Watch.addPackageFiles(nodepath.Dirname(tsConfigPath))
+	opts.Watch.addFile(nodepath.Join(nodepath.Dirname(tsConfigPath), "typetorch.json"))
 
 	graphLoaded := false
 	result, err := build(ctx, fs, cwd, tsConfigPath, opts, &graphLoaded)
 	if diagnosticError, ok := errors.AsType[*diagnostics.DiagnosticError](err); ok {
-		return &EmitResult{EmitSkipped: true, Fatal: !graphLoaded, Diagnostics: diagnosticError.Diagnostics, WatchRoot: nodepath.Dirname(tsConfigPath)}, nil
+		return &EmitResult{EmitSkipped: true, Fatal: !graphLoaded, Diagnostics: diagnosticError.Diagnostics}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	result.WatchRoot = nodepath.Dirname(tsConfigPath)
 	result.Diagnostics = compiler.SortAndDeduplicateDiagnostics(result.Diagnostics)
 	result.EmitSkipped = hasErrors(result.Diagnostics)
 	return result, nil
@@ -481,6 +507,13 @@ func build(ctx context.Context, fs vfs.FS, cwd string, tsConfigPath string, opts
 		Checkers:         opts.Checkers,
 		SingleThreaded:   opts.SingleThreaded,
 	})
+	if loaded != nil {
+		// also with errors, so fixing an extended config rebuilds
+		for _, extended := range loaded.config.ExtendedSourceFiles() {
+			opts.Watch.addFile(extended)
+		}
+		addWatchedSources(opts.Watch, loaded.config.CompilerOptions())
+	}
 	if len(errs) > 0 {
 		return nil, &diagnostics.DiagnosticError{Diagnostics: errs}
 	}
@@ -507,12 +540,22 @@ func build(ctx context.Context, fs vfs.FS, cwd string, tsConfigPath string, opts
 	if err != nil {
 		return nil, err
 	}
+	if !isPackageProject(data) {
+		opts.Watch.addIgnored(data.ProjectOptions.IncludePath)
+	}
+	if data.RojoConfigPath != "" {
+		opts.Watch.addFile(data.RojoConfigPath)
+	} else {
+		// the project file FindRojoConfigFilePath looks for first
+		opts.Watch.addFile(nodepath.Join(data.ProjectPath, rojoDefaultProjectName))
+	}
 
 	// getParsedCommandLine
 	compilerOptions := loaded.config.CompilerOptions()
 	if compilerOptions.Composite.IsTrue() && compilerOptions.RootDir == "" {
 		// composite projects default to the config directory, rather than the common source directory
 		compilerOptions.RootDir = nodepath.Dirname(data.TsConfigPath)
+		opts.Watch.addDir(compilerOptions.RootDir)
 	}
 	if validateCompilerOptionsErr := validateCompilerOptions(fs, compilerOptions, data.ProjectPath); validateCompilerOptionsErr != nil {
 		return nil, validateCompilerOptionsErr
@@ -523,7 +566,7 @@ func build(ctx context.Context, fs vfs.FS, cwd string, tsConfigPath string, opts
 		configPaths[projectPathKey(fs, extended)] = true
 	}
 
-	data.ProjectReferencePaths, err = mapReferencePaths(fs, cwd, loaded.config, referenceOptions)
+	data.ProjectReferencePaths, err = mapReferencePaths(fs, cwd, loaded.config, referenceOptions, opts.Watch)
 	if err != nil {
 		return nil, err
 	}
@@ -547,6 +590,14 @@ func build(ctx context.Context, fs vfs.FS, cwd string, tsConfigPath string, opts
 		// parse and bind now, so the steps below are timed apart from them
 		program.BindSourceFiles()
 	})
+	if opts.Watch != nil {
+		// files the include patterns or imports pull in from outside rootDir, such as a typings folder
+		for _, sourceFile := range program.GetSourceFiles() {
+			if !program.IsSourceFileFromExternalLibrary(sourceFile) && !isNodeModulesPath(sourceFile.FileName()) {
+				opts.Watch.addFile(sourceFile.FileName())
+			}
+		}
+	}
 	pathTranslator := createPathTranslator(loaded.config, data.ProjectOptions.Luau)
 	if validateProjectOutputsErr := validateProjectOutputs(pathTranslator, program.Options()); validateProjectOutputsErr != nil {
 		return nil, validateProjectOutputsErr
@@ -582,7 +633,11 @@ func build(ctx context.Context, fs vfs.FS, cwd string, tsConfigPath string, opts
 	// compileFiles checks the rebound plugin output, which can differ from the original TypeScript
 	keepGoing := opts.KeepGoing || opts.EmitFirst
 	result = compileFiles(ctx, fs, program, data, pathTranslator, sourceFiles, keepGoing, inc)
-	result.OutputRoots = append(getOutputRoots(pathTranslator, program.Options()), data.ProjectOptions.IncludePath)
+	for _, rojoConfigFile := range result.rojoConfigFiles {
+		if !isNodeModulesPath(rojoConfigFile) {
+			opts.Watch.addFile(rojoConfigFile)
+		}
+	}
 	if !result.EmitSkipped || keepGoing {
 		benchmarkIfVerbose("copy non-compiled files", func() {
 			err = syncProjectOutputs(fs, program, outputs, data.ProjectOptions.WriteOnlyChanged || inc != nil)
