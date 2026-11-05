@@ -76,16 +76,18 @@ func runCheck(args []string) int {
 		if *all {
 			diags = append(diags, project.GetPreEmitDiagnostics(ctx, program, nil)...)
 		} else {
-			// Check every file in parallel first (as tsc does), then collect the diagnostics of the
-			// files roblox-ts would compile.
-			program.GetSemanticDiagnostics(ctx, nil)
-			diags = append(diags, program.GetGlobalDiagnostics(ctx)...)
+			// Check only the files roblox-ts would compile, in parallel, as a build does. The declaration
+			// files in node_modules are checked only as far as those files use them.
+			var files []*ast.SourceFile
 			for _, fileName := range program.CommandLine().FileNames() {
-				file := program.GetSourceFile(fileName)
-				if file == nil || file.IsDeclarationFile {
-					continue
+				if file := program.GetSourceFile(fileName); file != nil && !file.IsDeclarationFile {
+					files = append(files, file)
 				}
-				diags = append(diags, program.GetSemanticDiagnostics(ctx, file)...)
+			}
+			semantic := program.GetSemanticDiagnosticsWithoutNoEmitFiltering(ctx, files)
+			diags = append(diags, program.GetGlobalDiagnostics(ctx)...)
+			for _, file := range files {
+				diags = append(diags, compiler.FilterNoEmitSemanticDiagnostics(semantic[file], program.Options())...)
 			}
 			diags = project.FilterCompatDiagnostics(diags)
 		}
