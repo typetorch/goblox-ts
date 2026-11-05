@@ -146,3 +146,10 @@ node goblox-ts/npm/scripts/assemble.mjs --version 0.1.0-local --binaries bin --o
 `optionalDependencies`.
 
 To run a local binary through an installed `goblox` package, set `GOBLOX_BINARY=/path/to/goblox`.
+
+## Profile-guided optimization
+
+`cmd/goblox/default.pgo` is a CPU profile of a fresh `goblox build --cpuprofile` of a real game (gnome-game, 647
+files). `go build` uses it automatically (`-pgo=auto`) to inline and lay out the hot paths. Refresh it when the
+transform or the checker changes a lot: take a profile with the release binary and replace the file. A stale profile
+only costs speed, never correctness. Strip local paths from it first (the binary's path is in the string table).
