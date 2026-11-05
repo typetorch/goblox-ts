@@ -42,6 +42,7 @@ func versionString() string {
 
 func main() {
 	transform.GOBLOX_VERSION = version
+	project.TuneGC()
 	args := os.Args[1:]
 	// yargs' .version(): -v/--version wins over everything else, with any command
 	for _, arg := range args {

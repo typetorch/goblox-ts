@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -66,6 +67,13 @@ func runWatch(opts project.BuildOptions, report func([]*ast.Diagnostic)) int {
 			plural = ""
 		}
 		reportWatchStatus(fmt.Sprintf("Found %d error%s. Watching for file changes.", errorCount, plural))
+		// the watcher idles between builds: hand the build's garbage back once the state is saved
+		go func() {
+			if opts.Incremental != nil {
+				opts.Incremental.WaitForSave()
+			}
+			debug.FreeOSMemory()
+		}()
 	}
 
 	compile(true)
