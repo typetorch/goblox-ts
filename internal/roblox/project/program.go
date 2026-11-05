@@ -122,14 +122,15 @@ func loadConfig(opts LoadOptions) (*loadedConfig, []*ast.Diagnostic) {
 }
 
 func (c *loadedConfig) newProgram() *compiler.Program {
-	return c.newProgramWithCache(nil)
+	return c.newProgramWithCache(nil, false)
 }
 
-// newProgramWithCache creates the program, reusing the unchanged files of cache when it is not nil.
-func (c *loadedConfig) newProgramWithCache(cache *SourceFileCache) *compiler.Program {
+// newProgramWithCache creates the program, reusing the unchanged files of cache when it is not nil. verify
+// is SourceFileCache's.
+func (c *loadedConfig) newProgramWithCache(cache *SourceFileCache, verify bool) *compiler.Program {
 	var compilerHost compiler.CompilerHost = compiler.NewCachedFSCompilerHost(c.host.cwd, c.host.fs, bundled.LibPath(), c.extendedConfigCache, nil, nil)
 	if cache != nil {
-		compilerHost = &cachingCompilerHost{CompilerHost: compilerHost, cache: cache}
+		compilerHost = &cachingCompilerHost{CompilerHost: compilerHost, cache: cache, verify: verify}
 	}
 	program := compiler.NewProgram(compiler.ProgramOptions{Config: c.config, Host: compilerHost})
 	if cache != nil {

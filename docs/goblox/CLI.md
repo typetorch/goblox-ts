@@ -86,6 +86,7 @@ options, as in roblox-ts.
 | `--logTruncatedPaths` | not in roblox-ts 3.0.0 | accepted and ignored (goblox never truncates paths) |
 | `--checkers <n>` | – | goblox only: type checker count. Default: 4 with 8 or more threads, otherwise min(4, physical cores). Physical cores are read on Linux and macOS; elsewhere half the threads are assumed. `GOMAXPROCS` counts as the thread count |
 | `--timing` | – | goblox only: print `Build time:` on stderr |
+| `--noHandoff` | – | goblox only: build in this process even when a `goblox -w` of the project is running (see Build handoff). Also `GOBLOX_NO_HANDOFF=1`. On a watcher: don't take builds |
 
 ### Output and exit codes
 
@@ -171,6 +172,31 @@ src/bad.ts:1:7 - error TS2322: Type 'number' is not assignable to type 'string'.
 
 A build that fails before compiling, such as a broken rojo project, counts as 1 error, and watching
 continues. In rbxtsc that kills the watcher. When the `-p` path doesn't exist, goblox exits with 1.
+
+### Build handoff
+
+A one-shot `goblox build` of a project that a `goblox -w` is watching runs on the watcher: the watcher already
+has the parsed and bound files and the incremental state in memory (gnome-game, 406 files: no change 250 →
+~175 ms, a leaf edit 410 → ~275 ms). The two only need to run as the same user; typetorch isn't involved.
+
+- Every watcher listens on a local socket named after its tsconfig's path (case-folded on case-insensitive file
+  systems): `$XDG_RUNTIME_DIR/<hash>.sock` or `$TMPDIR/goblox-<uid>/<hash>.sock` (owner-only), and
+  `%TEMP%\goblox\<hash>.sock` on Windows. A second watcher of the project doesn't listen. A socket left by a
+  watcher that was killed is removed by the next one.
+- The build is handed off only when the watcher would build exactly what this process would: the same goblox
+  executable, tsconfig, working folder, flags (except `--verbose`, `--timing` and `--writeOnlyChanged`, which
+  don't change the outputs), colors, and `GOBLOX_*`, `TYPETORCH_*` and `TS_GO_*` variables. With plugins linked
+  in (the typetorch build), `--verbose` builds aren't handed off: the plugins' logs go to the watcher's console.
+- The watcher runs it between its own builds, and reads every file it would reuse to compare it with the disk,
+  so a change that kept the size and modification time is still seen. The client prints what the build printed,
+  on stdout and stderr, and exits with its code. The watcher prints one status line,
+  `Build requested by goblox build.`
+- Everything else builds in this process, as without a watcher: no watcher answering within 200 ms, other
+  options, a watcher that goes away mid-build, a plugin that printed during the build (the watcher then drops
+  its incremental state, so this build compiles every file), `--cpuprofile` or `--memprofile`, `--noHandoff` or
+  `GOBLOX_NO_HANDOFF=1`. The client prints nothing until the build is over, so nothing is printed twice.
+- Outputs are written to a temporary file next to them and renamed, so a build that stops halfway leaves no
+  partial file.
 
 ### Incremental builds and tsbuildinfo
 

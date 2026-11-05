@@ -2,7 +2,9 @@ package project
 
 // SourceFileCache keeps parsed and bound source files between the builds of a watch session, like
 // typescript-go's own `tsc -w` (internal/execute/watcher.go watchCompilerHost): a file whose
-// modification time and size did not change is not read, parsed or bound again.
+// modification time and size did not change is not parsed or bound again. With verify (a build handed to
+// the watcher, see BuildOptions.VerifySourceFiles) such a file is still read and its text compared, as an
+// edit within the file system's time resolution that keeps the size (a git checkout) looks unchanged.
 
 import (
 	"sync"
@@ -28,6 +30,8 @@ type cachedSourceFile struct {
 type cachingCompilerHost struct {
 	compiler.CompilerHost
 	cache *SourceFileCache
+	// verify compares the text of a cached file with the file system's
+	verify bool
 }
 
 func (h *cachingCompilerHost) GetSourceFile(opts ast.SourceFileParseOptions) *ast.SourceFile {
@@ -35,7 +39,13 @@ func (h *cachingCompilerHost) GetSourceFile(opts ast.SourceFileParseOptions) *as
 	if value, ok := h.cache.files.Load(opts.Path); ok {
 		cached := value.(*cachedSourceFile)
 		if info != nil && info.ModTime().Equal(cached.modTime) && info.Size() == cached.size && cached.file.ParseOptions() == opts {
-			return cached.file
+			if !h.verify {
+				return cached.file
+			}
+			// the text compilerHost.GetSourceFile would parse
+			if text, ok := h.CompilerHost.FS().ReadFile(opts.FileName); ok && text == cached.file.Text() {
+				return cached.file
+			}
 		}
 	}
 	file := h.CompilerHost.GetSourceFile(opts)

@@ -47,6 +47,9 @@ type BuildOptions struct {
 	SingleThreaded bool
 	// SourceFileCache, when set, keeps parsed and bound source files between builds (watch mode).
 	SourceFileCache *SourceFileCache
+	// VerifySourceFiles reads every file SourceFileCache would reuse and compares its text, instead of
+	// trusting an unchanged modification time and size.
+	VerifySourceFiles bool
 	// Incremental, when set, compiles only what changed since the last good build of the session.
 	Incremental *IncrementalSession
 	// EmitFirst writes the outputs of the files without errors and reports the errors afterwards, instead of
@@ -61,6 +64,17 @@ type BuildOptions struct {
 type CLIError struct{ Message string }
 
 func (e *CLIError) Error() string { return e.Message }
+
+// FindTsConfigPath is the tsconfig.json a build of projectPath (the -p flag) from cwd uses.
+func FindTsConfigPath(fs vfs.FS, cwd string, projectPath string) (string, error) {
+	return findTsConfigPath(fs, cwd, projectPath, nil)
+}
+
+// BuildIdentity changes with the compiler, including a local build with the same version: two processes
+// with the same identity are the same executable.
+func BuildIdentity() string {
+	return gobloxBuildIdentity()
+}
 
 // findTsConfigPath is build.ts findTsConfigPath. Every tsconfig.json it looked for goes to watch, so a
 // watcher sees one being created.
@@ -586,7 +600,7 @@ func build(ctx context.Context, fs vfs.FS, cwd string, tsConfigPath string, opts
 	}
 	var program *compiler.Program
 	benchmarkIfVerbose("create program", func() {
-		program = loaded.newProgramWithCache(opts.SourceFileCache)
+		program = loaded.newProgramWithCache(opts.SourceFileCache, opts.VerifySourceFiles)
 		// parse and bind now, so the steps below are timed apart from them
 		program.BindSourceFiles()
 	})

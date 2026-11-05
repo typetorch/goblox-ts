@@ -54,6 +54,8 @@ type IncrementalSession struct {
 	saving sync.WaitGroup
 
 	state *incrementalState
+	// cachePath is the cache file of the last build that had one
+	cachePath string
 	// proxyFiles keeps the parsed and bound text of re-printed files between the builds of a session
 	proxyFiles sync.Map // tspath.Path -> *ast.SourceFile
 	// lastCompiled counts the files the last build checked and transformed
@@ -137,6 +139,15 @@ func (s *IncrementalSession) WaitForSave() {
 	s.saving.Wait()
 }
 
+// Forget drops the state, in memory and in the cache file, so that the next build compiles every file.
+func (s *IncrementalSession) Forget() {
+	s.saving.Wait()
+	s.state = nil
+	if s.cachePath != "" {
+		_ = os.Remove(s.cachePath)
+	}
+}
+
 // begin picks the state to compare with and checks the outputs it describes.
 func (s *IncrementalSession) begin(fs vfs.FS, loaded *loadedConfig, data *transform.ProjectData, pathTranslator *rojo.PathTranslator, program *compiler.Program, sourceFiles []*ast.SourceFile, outputs *projectOutputs) *incrementalBuild {
 	s.saving.Wait()
@@ -149,6 +160,9 @@ func (s *IncrementalSession) begin(fs vfs.FS, loaded *loadedConfig, data *transf
 		b.cachePath = incrementalCachePath(pathTranslator.BuildInfoOutputPath)
 		if b.cachePath == "" && !s.Memory {
 			return nil
+		}
+		if b.cachePath != "" {
+			s.cachePath = b.cachePath
 		}
 		if b.cachePath != "" && s.state == nil {
 			s.state = readIncrementalCache(b.cachePath, b.key, loaded, program)

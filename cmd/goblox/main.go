@@ -78,6 +78,7 @@ type buildFlags struct {
 	// noIncremental compiles every file, without the cache and without watch mode's state
 	noIncremental *bool
 	emitFirst     *bool
+	noHandoff     *bool
 }
 
 func newBuildFlags() *buildFlags {
@@ -108,6 +109,7 @@ func newBuildFlags() *buildFlags {
 	f.memProfile = flags.String("memprofile", "", "write a Go heap profile to this file at exit (goblox only)")
 	f.noIncremental = flags.Bool("noIncremental", false, "compile every file, ignoring what the last build left (goblox only)")
 	f.emitFirst = flags.Bool("emitFirst", false, "in watch mode, write the files without errors and report the errors after (goblox only)")
+	f.noHandoff = flags.Bool("noHandoff", false, "build in this process, even when a `goblox -w` of the project could build it (goblox only)")
 	flags.Usage = func() {
 		fmt.Fprintf(flags.Output(), "%s\n\nUsage: goblox [build|watch] [flags]\n       goblox check [flags]\n\nFlags:\n", versionString())
 		flags.PrintDefaults()
@@ -185,7 +187,7 @@ func runBuild(args []string) int {
 	flags.Visit(func(f *flag.Flag) {
 		getter := f.Value.(flag.Getter)
 		switch f.Name {
-		case "project", "p", "checkers", "timing", "cpuprofile", "memprofile", "logTruncatedPaths", "usePolling", "noIncremental", "emitFirst":
+		case "project", "p", "checkers", "timing", "cpuprofile", "memprofile", "logTruncatedPaths", "usePolling", "noIncremental", "emitFirst", "noHandoff":
 			return
 		case "w", "watch":
 			watch = getter.Get().(bool)
@@ -197,8 +199,6 @@ func runBuild(args []string) int {
 			overrides[f.Name] = getter.Get()
 		}
 	})
-
-	report := newReporter(cwd, fs.UseCaseSensitiveFileNames())
 
 	opts := project.BuildOptions{
 		EmitFirst:        *f.emitFirst,
@@ -212,13 +212,35 @@ func runBuild(args []string) int {
 		opts.Incremental = &project.IncrementalSession{Persist: true}
 	}
 	if watch {
-		return runWatch(opts, report)
+		return runWatch(opts, newHandoffServer(opts, *f.noHandoff || handoffDisabledByEnv()))
 	}
 
-	_, errorCount, ok := buildOnce(opts, report)
+	// a running `goblox -w` of the project builds it with what it already parsed, when it can build it
+	// exactly as this process would
+	code, handedOff := 0, false
+	if *f.cpuProfile == "" && *f.memProfile == "" && !*f.noHandoff && !handoffDisabledByEnv() {
+		code, handedOff = handOff(opts, stdOutput)
+	}
+	if !handedOff {
+		code = buildExitCode(buildOnce(opts, stdOutput))
+	}
 	if *f.timing {
 		fmt.Fprintf(os.Stderr, "Build time: %v\n", time.Since(start).Round(time.Millisecond))
 	}
+	return code
+}
+
+// consoleOutput is where a build reports: the process's stdout and stderr, or the client of a handed-off
+// build.
+type consoleOutput struct {
+	stdout io.Writer
+	stderr io.Writer
+}
+
+var stdOutput = consoleOutput{stdout: os.Stdout, stderr: os.Stderr}
+
+// buildExitCode is the exit code of a build that buildOnce returned.
+func buildExitCode(_ *project.EmitResult, errorCount int, ok bool) int {
 	if !ok || errorCount > 0 {
 		return 1
 	}
@@ -244,48 +266,48 @@ func formattingOptions(cwd string, useCaseSensitiveFileNames bool) *diagnosticwr
 }
 
 // newReporter is ts.createDiagnosticReporter(ts.sys, true).
-func newReporter(cwd string, useCaseSensitiveFileNames bool) func([]*ast.Diagnostic) {
+func newReporter(cwd string, useCaseSensitiveFileNames bool, out io.Writer) func([]*ast.Diagnostic) {
 	formatOpts := formattingOptions(cwd, useCaseSensitiveFileNames)
 	return func(diags []*ast.Diagnostic) {
 		for _, d := range diags {
-			diagnostics.WriteWithColorAndContext(os.Stdout, d, formatOpts)
-			fmt.Fprint(os.Stdout, newLine)
+			diagnostics.WriteWithColorAndContext(out, d, formatOpts)
+			fmt.Fprint(out, newLine)
 		}
 	}
 }
 
 // logDiagnostics is LoggableError.log(): LogService.writeLine(formatDiagnostics(diagnostics)).
-func logDiagnostics(opts project.BuildOptions, diags []*ast.Diagnostic) {
+func logDiagnostics(opts project.BuildOptions, diags []*ast.Diagnostic, out io.Writer) {
 	formatOpts := formattingOptions(opts.CurrentDirectory, opts.FS.UseCaseSensitiveFileNames())
 	for _, d := range diags {
-		diagnostics.WriteWithColorAndContext(os.Stdout, d, formatOpts)
+		diagnostics.WriteWithColorAndContext(out, d, formatOpts)
 	}
-	fmt.Fprint(os.Stdout, "\n")
+	fmt.Fprint(out, "\n")
 }
 
 // buildOnce runs one build and reports its diagnostics, and its panics on stderr. ok is false when the
 // build failed before compiling (a CLIError, a ProjectError or an I/O error), which was reported as one
 // error and is in err; errorCount counts error diagnostics.
-func buildOnce(opts project.BuildOptions, report func([]*ast.Diagnostic)) (result *project.EmitResult, errorCount int, ok bool) {
+func buildOnce(opts project.BuildOptions, out consoleOutput) (result *project.EmitResult, errorCount int, ok bool) {
 	result, err := project.Build(context.Background(), opts)
 	if err != nil {
 		var projectError *diagnostics.ProjectError
 		var cliError *project.CLIError
 		switch {
 		case errors.As(err, &projectError):
-			logDiagnostics(opts, []*ast.Diagnostic{diagnostics.CreateTextDiagnostic(projectError.Message, tsdiagnostics.CategoryError)})
+			logDiagnostics(opts, []*ast.Diagnostic{diagnostics.CreateTextDiagnostic(projectError.Message, tsdiagnostics.CategoryError)}, out.stdout)
 		case errors.As(err, &cliError):
-			logDiagnostics(opts, []*ast.Diagnostic{diagnostics.CreateTextDiagnostic(cliError.Message, tsdiagnostics.CategoryError)})
+			logDiagnostics(opts, []*ast.Diagnostic{diagnostics.CreateTextDiagnostic(cliError.Message, tsdiagnostics.CategoryError)}, out.stdout)
 		default:
-			fmt.Fprintln(os.Stderr, err)
+			fmt.Fprintln(out.stderr, err)
 		}
 		return nil, 1, false
 	}
 
 	if result.Fatal {
-		logDiagnostics(opts, result.Diagnostics)
+		logDiagnostics(opts, result.Diagnostics, out.stdout)
 	} else {
-		report(result.Diagnostics)
+		newReporter(opts.CurrentDirectory, opts.FS.UseCaseSensitiveFileNames(), out.stdout)(result.Diagnostics)
 	}
 	if len(result.Panics) > 0 {
 		files := make([]string, 0, len(result.Panics))
@@ -294,7 +316,7 @@ func buildOnce(opts project.BuildOptions, report func([]*ast.Diagnostic)) (resul
 		}
 		sort.Strings(files)
 		for _, file := range files {
-			fmt.Fprintf(os.Stderr, "goblox: %s: %s\n", file, strings.TrimSpace(result.Panics[file]))
+			fmt.Fprintf(out.stderr, "goblox: %s: %s\n", file, strings.TrimSpace(result.Panics[file]))
 		}
 	}
 	for _, d := range result.Diagnostics {

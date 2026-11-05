@@ -31,6 +31,20 @@ type Logger struct {
 	partial bool
 }
 
+// Redirect sends the log to out, starting where a new process would, until restore is called. A build
+// handed off to a watcher logs to the client that asked for it.
+func (l *Logger) Redirect(out io.Writer) (restore func()) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	oldOut, oldPartial := l.out, l.partial
+	l.out, l.partial = out, false
+	return func() {
+		l.mu.Lock()
+		defer l.mu.Unlock()
+		l.out, l.partial = oldOut, oldPartial
+	}
+}
+
 func (l *Logger) Write(message string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()

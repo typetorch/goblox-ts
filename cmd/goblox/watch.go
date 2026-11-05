@@ -15,7 +15,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/microsoft/typescript-go/internal/ast"
 	"github.com/microsoft/typescript-go/internal/roblox/project"
 	"github.com/microsoft/typescript-go/internal/tspath"
 )
@@ -32,38 +31,18 @@ func reportWatchStatus(message string) {
 	fmt.Fprintf(os.Stdout, "[\x1b[90m%s\x1b[0m] %s\n\n", time.Now().Format("3:04:05 PM"), message)
 }
 
-func runWatch(opts project.BuildOptions, report func([]*ast.Diagnostic)) int {
-	// a full rebuild rewrites every output; only the changed ones should reach Rojo
-	if _, given := opts.Overrides["writeOnlyChanged"]; !given {
-		opts.Overrides["writeOnlyChanged"] = true
-	}
-
-	// reuse the parsed and bound files that did not change, like tsc -w
-	opts.SourceFileCache = &project.SourceFileCache{}
-	// and compile only what a change can reach
-	if opts.Incremental != nil {
-		opts.Incremental.Memory = true
-		opts.Incremental.Background = true
-	}
-
+func runWatch(opts project.BuildOptions, handoff *handoffServer) int {
+	session := newWatchSession(opts)
+	opts = session.opts
 	// the inputs the last build read: the first build reports them
 	watcher := &fileWatcher{}
-	opts.Watch = &project.WatchList{}
-	// builds counts the builds; a save that finishes after the next build started leaves the GC alone
-	var gcMu sync.Mutex
-	builds := 0
 	compile := func(initial bool) {
 		if initial {
 			reportWatchStatus("Starting compilation in watch mode...")
 		} else {
 			reportWatchStatus("File change detected. Starting incremental compilation...")
 		}
-		gcMu.Lock()
-		builds++
-		build := builds
-		project.SetBuildGC(true)
-		gcMu.Unlock()
-		result, errorCount, _ := buildOnce(opts, report)
+		result, errorCount, _ := session.build(opts, stdOutput)
 		// a build that failed before it read everything keeps watching what the last one read too
 		watcher.setList(*opts.Watch, result == nil || result.Fatal)
 		plural := "s"
@@ -71,19 +50,6 @@ func runWatch(opts project.BuildOptions, report func([]*ast.Diagnostic)) int {
 			plural = ""
 		}
 		reportWatchStatus(fmt.Sprintf("Found %d error%s. Watching for file changes.", errorCount, plural))
-		// the watcher idles between builds: Go's default GOGC, and the build's garbage handed back once the
-		// state is saved
-		go func() {
-			if opts.Incremental != nil {
-				opts.Incremental.WaitForSave()
-			}
-			gcMu.Lock()
-			defer gcMu.Unlock()
-			if build == builds {
-				project.SetBuildGC(false)
-				debug.FreeOSMemory()
-			}
-		}()
 	}
 
 	compile(true)
@@ -91,9 +57,21 @@ func runWatch(opts project.BuildOptions, report func([]*ast.Diagnostic)) int {
 		// "Unable to find tsconfig.json!": nothing to watch
 		return 1
 	}
+	// one-shot builds of the project can be handed to this watcher from now on (handoff.go)
+	if handoff.listen() {
+		defer handoff.close()
+		handoff.closeOnSignal()
+	}
 	watcher.take()
+	poll := time.NewTimer(watchPollInterval)
 	for {
-		time.Sleep(watchPollInterval)
+		select {
+		case job := <-handoff.requests():
+			session.handOff(job)
+			continue
+		case <-poll.C:
+			poll.Reset(watchPollInterval)
+		}
 		if !watcher.changed() {
 			continue
 		}
@@ -109,6 +87,57 @@ func runWatch(opts project.BuildOptions, report func([]*ast.Diagnostic)) int {
 		// outputs are ignored, but a build can also touch inputs (none today); start from after the build
 		watcher.take()
 	}
+}
+
+// newWatchSession sets opts up for watch mode.
+func newWatchSession(opts project.BuildOptions) *watchSession {
+	// a full rebuild rewrites every output; only the changed ones should reach Rojo
+	if _, given := opts.Overrides["writeOnlyChanged"]; !given {
+		opts.Overrides["writeOnlyChanged"] = true
+	}
+
+	// reuse the parsed and bound files that did not change, like tsc -w
+	opts.SourceFileCache = &project.SourceFileCache{}
+	// and compile only what a change can reach
+	if opts.Incremental != nil {
+		opts.Incremental.Memory = true
+		opts.Incremental.Background = true
+	}
+	opts.Watch = &project.WatchList{}
+	return &watchSession{opts: opts}
+}
+
+// watchSession runs the builds of a watcher: its own, and the ones handed off to it.
+type watchSession struct {
+	opts project.BuildOptions
+	// gcMu guards builds, which counts the builds; a save that finishes after the next build started leaves
+	// the GC alone
+	gcMu   sync.Mutex
+	builds int
+}
+
+// build is buildOnce with the GC tuned for a build, and back to Go's default once the state is saved.
+func (w *watchSession) build(opts project.BuildOptions, out consoleOutput) (*project.EmitResult, int, bool) {
+	w.gcMu.Lock()
+	w.builds++
+	build := w.builds
+	project.SetBuildGC(true)
+	w.gcMu.Unlock()
+	result, errorCount, ok := buildOnce(opts, out)
+	// the watcher idles between builds: Go's default GOGC, and the build's garbage handed back once the
+	// state is saved
+	go func() {
+		if opts.Incremental != nil {
+			opts.Incremental.WaitForSave()
+		}
+		w.gcMu.Lock()
+		defer w.gcMu.Unlock()
+		if build == w.builds {
+			project.SetBuildGC(false)
+			debug.FreeOSMemory()
+		}
+	}()
+	return result, errorCount, ok
 }
 
 // projectPathExists is whether the -p path (a tsconfig, or a folder at or below the one that has it) exists.
