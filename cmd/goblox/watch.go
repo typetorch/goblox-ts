@@ -12,6 +12,7 @@ import (
 	"runtime/debug"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/microsoft/typescript-go/internal/ast"
@@ -48,12 +49,20 @@ func runWatch(opts project.BuildOptions, report func([]*ast.Diagnostic)) int {
 	// the inputs the last build read: the first build reports them
 	watcher := &fileWatcher{}
 	opts.Watch = &project.WatchList{}
+	// builds counts the builds; a save that finishes after the next build started leaves the GC alone
+	var gcMu sync.Mutex
+	builds := 0
 	compile := func(initial bool) {
 		if initial {
 			reportWatchStatus("Starting compilation in watch mode...")
 		} else {
 			reportWatchStatus("File change detected. Starting incremental compilation...")
 		}
+		gcMu.Lock()
+		builds++
+		build := builds
+		project.SetBuildGC(true)
+		gcMu.Unlock()
 		result, errorCount, _ := buildOnce(opts, report)
 		// a build that failed before it read everything keeps watching what the last one read too
 		watcher.setList(*opts.Watch, result == nil || result.Fatal)
@@ -62,12 +71,18 @@ func runWatch(opts project.BuildOptions, report func([]*ast.Diagnostic)) int {
 			plural = ""
 		}
 		reportWatchStatus(fmt.Sprintf("Found %d error%s. Watching for file changes.", errorCount, plural))
-		// the watcher idles between builds: hand the build's garbage back once the state is saved
+		// the watcher idles between builds: Go's default GOGC, and the build's garbage handed back once the
+		// state is saved
 		go func() {
 			if opts.Incremental != nil {
 				opts.Incremental.WaitForSave()
 			}
-			debug.FreeOSMemory()
+			gcMu.Lock()
+			defer gcMu.Unlock()
+			if build == builds {
+				project.SetBuildGC(false)
+				debug.FreeOSMemory()
+			}
 		}()
 	}
 

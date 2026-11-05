@@ -145,6 +145,9 @@ compiles the files the changes can reach (see Incremental builds).
 - Polling needs no file watcher dependency. fsnotify would be a new direct module requirement in go.mod.
 - A poll compares with the last snapshot in place. On Linux it reads the folders with getdents and fstatat,
   so it allocates almost nothing (700 files: 1.6–2.2 ms and 12 KB per poll on a 2-core laptop).
+- The GC uses the build's GOGC (400) only while a build runs. Between builds it uses Go's default (100), and the
+  build's garbage is handed back to the OS once the incremental state is saved. GOGC or GOMEMLIMIT in the
+  environment leave the GC settings alone.
 - Files whose modification time and size did not change are not read, parsed or bound again: the watcher
   keeps them between rebuilds, like `tsc -w` (gnome-game: create program 138 ms → ~47 ms per rebuild).
 - The first build uses the cache file of the last one-shot or watch build, and every build writes it, when the
