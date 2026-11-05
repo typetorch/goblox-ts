@@ -456,6 +456,12 @@ func compileFilesPrinting(ctx context.Context, fs vfs.FS, program *compiler.Prog
 				}
 			}
 			proxyProgram = result.Program
+			if inc != nil {
+				// the original program's checkers are idle from here on
+				inc.precomputeOriginalSignatures(ctx, proxyProgram)
+				// every return waits for them, so no build leaves them reading its program
+				defer inc.originalSignatures.Wait()
+			}
 		}
 	}
 

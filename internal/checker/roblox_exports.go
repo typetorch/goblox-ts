@@ -76,6 +76,27 @@ func (c *Checker) GetJsxFragmentFactoryEntity(location *ast.Node) *ast.Node {
 	return c.getJsxFragmentFactoryEntity(location)
 }
 
+// MarkLinkedReferencesRecursively is EmitResolver.MarkLinkedReferencesRecursively without the checker lock.
+// The type check marks the imports a file uses as values; without it (noCheck), this does.
+func (c *Checker) MarkLinkedReferencesRecursively(file *ast.SourceFile) {
+	if !ast.IsParseTreeNode(file.AsNode()) {
+		return
+	}
+	var visit ast.Visitor
+	visit = func(n *ast.Node) bool {
+		if ast.IsImportEqualsDeclaration(n) && n.ModifierFlags()&ast.ModifierFlagsExport == 0 {
+			return false // marked in a chain when referenced
+		}
+		if ast.IsImportDeclaration(n) {
+			return false // what the other nodes mark
+		}
+		c.markLinkedReferences(n, ReferenceHintUnspecified, nil, nil)
+		n.ForEachChild(visit)
+		return false
+	}
+	file.ForEachChild(visit)
+}
+
 // IsReferencedAliasDeclaration is EmitResolver.IsReferencedAliasDeclaration without the checker lock.
 func (c *Checker) IsReferencedAliasDeclaration(node *ast.Node) bool {
 	if !c.canCollectSymbolAliasAccessibilityData || !ast.IsParseTreeNode(node) {

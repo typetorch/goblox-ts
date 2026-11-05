@@ -93,6 +93,8 @@ type incrementalBuild struct {
 
 	original *incremental.Program
 	proxy    *incremental.Program
+	// originalSignatures is precomputeOriginalSignatures's work
+	originalSignatures sync.WaitGroup
 	// blocked is set by a diagnostic that belongs to no compiled file, which only a full build reproduces
 	blocked         bool
 	rojoFingerprint string
@@ -333,6 +335,7 @@ func (b *incrementalBuild) commit(ctx context.Context, program *compiler.Program
 			b.proxy.MarkClean(file)
 		}
 	}
+	b.originalSignatures.Wait()
 	if b.original != nil {
 		// the plugins' diagnostics block the commit, so what they ran on is clean
 		for _, file := range program.GetSourceFiles() {
@@ -346,6 +349,16 @@ func (b *incrementalBuild) commit(ctx context.Context, program *compiler.Program
 	} else {
 		b.save(ctx, proxyProgram, state)
 	}
+}
+
+// precomputeOriginalSignatures computes the original program's d.ts signatures while the proxy program is
+// checked and transformed: they use the original program's checkers, which the plugins are done with.
+func (b *incrementalBuild) precomputeOriginalSignatures(ctx context.Context, proxyProgram *compiler.Program) {
+	if b.original == nil || b.original.GetProgram() == proxyProgram {
+		return
+	}
+	original := b.original
+	b.originalSignatures.Go(func() { original.ComputeMissingSignatures(ctx) })
 }
 
 // save computes the d.ts signatures the next build compares with, writes the cache and keeps the state.

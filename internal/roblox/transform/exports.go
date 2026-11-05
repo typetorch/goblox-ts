@@ -15,6 +15,10 @@ func CreateTransformServices(typeChecker *checker.Checker) *TransformServices {
 
 // TransformSourceFile is transformSourceFile.
 func TransformSourceFile(state *TransformState, sourceFile *ast.SourceFile) *luau.List {
+	if state.CompilerOptions.NoCheck.IsTrue() {
+		// import elision reads what the type check marks, as TypeScript's ImportElisionTransformer does
+		state.TypeChecker.MarkLinkedReferencesRecursively(sourceFile)
+	}
 	return transformSourceFile(state, sourceFile)
 }
 
