@@ -41,6 +41,7 @@ func runWatch(opts project.BuildOptions, report func([]*ast.Diagnostic)) int {
 	// and compile only what a change can reach
 	if opts.Incremental != nil {
 		opts.Incremental.Memory = true
+		opts.Incremental.Background = true
 	}
 
 	root := watchRootFallback(opts)

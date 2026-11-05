@@ -420,6 +420,10 @@ func syncProjectOutputs(fs vfs.FS, program *compiler.Program, outputs *projectOu
 // Build is `rbxtsc build` for one project. It returns an error for the failures roblox-ts reports as a
 // LoggableError (CLIError, ProjectError); everything else is in the result's diagnostics.
 func Build(ctx context.Context, opts BuildOptions) (*EmitResult, error) {
+	if opts.Incremental != nil {
+		// the last build's save reads its program, which shares parsed files with this one
+		opts.Incremental.WaitForSave()
+	}
 	fs := opts.FS
 	if fs == nil {
 		fs = DefaultFS()

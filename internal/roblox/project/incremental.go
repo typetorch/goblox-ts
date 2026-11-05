@@ -46,6 +46,12 @@ import (
 type IncrementalSession struct {
 	Persist bool
 	Memory  bool
+	// Background finishes saving the state after the build returns (watch mode): the outputs are written
+	// and reported first, and the next build waits for the save.
+	Background bool
+
+	// saving is the save that Background left running
+	saving sync.WaitGroup
 
 	state *incrementalState
 	// proxyFiles keeps the parsed and bound text of re-printed files between the builds of a session
@@ -121,8 +127,14 @@ func incrementalCachePath(buildInfoPath string) string {
 	return strings.TrimSuffix(buildInfoPath, extension) + ".goblox" + extension
 }
 
+// WaitForSave waits for the save a Background build left running.
+func (s *IncrementalSession) WaitForSave() {
+	s.saving.Wait()
+}
+
 // begin picks the state to compare with and checks the outputs it describes.
 func (s *IncrementalSession) begin(fs vfs.FS, loaded *loadedConfig, data *transform.ProjectData, pathTranslator *rojo.PathTranslator, program *compiler.Program, sourceFiles []*ast.SourceFile, outputs *projectOutputs) *incrementalBuild {
+	s.saving.Wait()
 	b := &incrementalBuild{session: s}
 	b.key = incrementalKey(fs, loaded, data, pathTranslator, program, outputs)
 	if b.key == "" {
@@ -328,6 +340,16 @@ func (b *incrementalBuild) commit(ctx context.Context, program *compiler.Program
 		}
 	}
 
+	if b.session.Background {
+		ctx = context.WithoutCancel(ctx)
+		b.session.saving.Go(func() { b.save(ctx, proxyProgram, state) })
+	} else {
+		b.save(ctx, proxyProgram, state)
+	}
+}
+
+// save computes the d.ts signatures the next build compares with, writes the cache and keeps the state.
+func (b *incrementalBuild) save(ctx context.Context, proxyProgram *compiler.Program, state *incrementalState) {
 	var wg sync.WaitGroup
 	if b.original != nil && b.original.GetProgram() != proxyProgram {
 		wg.Go(func() {
