@@ -32,12 +32,15 @@ func reportWatchStatus(message string) {
 }
 
 // runWatch is the watch loop. After hibernateAfter without a build (0 = never), the watcher drops what it
-// keeps in memory between builds and only polls; the next change rebuilds from the cache file.
-func runWatch(opts project.BuildOptions, handoff *handoffServer, hibernateAfter time.Duration) int {
+// keeps in memory between builds and only polls; the next change rebuilds from the cache file. usePolling
+// turns the OS's change events off (watch_native.go), so only the poll notices changes.
+func runWatch(opts project.BuildOptions, handoff *handoffServer, hibernateAfter time.Duration, usePolling bool) int {
 	session := newWatchSession(opts)
 	opts = session.opts
 	// the inputs the last build read: the first build reports them
 	watcher := &fileWatcher{}
+	native := newNativeWatch(usePolling)
+	defer native.close()
 	compile := func(initial bool) {
 		if initial {
 			reportWatchStatus("Starting compilation in watch mode...")
@@ -47,6 +50,7 @@ func runWatch(opts project.BuildOptions, handoff *handoffServer, hibernateAfter 
 		result, errorCount, _ := session.build(opts, stdOutput)
 		// a build that failed before it read everything keeps watching what the last one read too
 		watcher.setList(*opts.Watch, result == nil || result.Fatal)
+		native.follow(watcher)
 		plural := "s"
 		if errorCount == 1 {
 			plural = ""
@@ -65,14 +69,15 @@ func runWatch(opts project.BuildOptions, handoff *handoffServer, hibernateAfter 
 		handoff.closeOnSignal()
 	}
 	watcher.take()
-	poll := time.NewTimer(watchPollInterval)
+	poll := time.NewTimer(native.pollInterval())
 	for {
 		select {
 		case job := <-handoff.requests():
 			session.handOff(job)
 			continue
+		case <-native.wake:
 		case <-poll.C:
-			poll.Reset(watchPollInterval)
+			poll.Reset(native.pollInterval())
 		}
 		if !watcher.changed() {
 			if hibernateAfter > 0 && session.idleFor() >= hibernateAfter && session.hibernate() {
@@ -83,7 +88,7 @@ func runWatch(opts project.BuildOptions, handoff *handoffServer, hibernateAfter 
 		// wait until the files stop changing (an editor saving several files, a git checkout)
 		for {
 			watcher.take()
-			time.Sleep(watchDebounce)
+			time.Sleep(native.debounce())
 			if !watcher.changed() {
 				break
 			}

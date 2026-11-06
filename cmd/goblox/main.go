@@ -90,7 +90,7 @@ func newBuildFlags() *buildFlags {
 	flags.StringVar(f.projectPath, "p", ".", "project path (alias of --project)")
 	flags.Bool("watch", false, "enable watch mode")
 	flags.Bool("w", false, "enable watch mode (alias of --watch)")
-	flags.Bool("usePolling", false, "use polling for watch mode (goblox always polls)")
+	flags.Bool("usePolling", false, "use polling for watch mode, without the OS's change events")
 	flags.Bool("verbose", false, "enable verbose logs")
 	flags.Bool("noInclude", false, "do not copy include files")
 	flags.Bool("logTruthyChanges", false, "logs changes to truthiness evaluation from Lua truthiness rules")
@@ -215,7 +215,7 @@ func runBuild(args []string) int {
 		opts.Incremental = &project.IncrementalSession{Persist: true}
 	}
 	if watch {
-		return runWatch(opts, newHandoffServer(opts, *f.noHandoff || handoffDisabledByEnv()), *f.hibernateAfter)
+		return runWatch(opts, newHandoffServer(opts, *f.noHandoff || handoffDisabledByEnv()), *f.hibernateAfter, flags.Lookup("usePolling").Value.(flag.Getter).Get().(bool))
 	}
 
 	// a running `goblox -w` of the project builds it with what it already parsed, when it can build it

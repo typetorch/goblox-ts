@@ -68,7 +68,7 @@ options, as in roblox-ts.
 | --- | --- | --- |
 | `-p`, `--project <path>` | tsconfig.json, or a folder at or below the one that has it | same |
 | `-w`, `--watch` | watch mode | same (see Watch mode) |
-| `--usePolling` | chokidar polling | accepted; goblox always polls |
+| `--usePolling` | chokidar polling | turns off the OS's change events; goblox then only polls (see Watch mode) |
 | `--verbose` | verbose logs | same, plus a `<step> ( <n> ms )` line for every build step (parse tsconfig, create program, project outputs, rojo, transformers, type check, transform and render, write, copy) |
 | `--noInclude` | don't copy the runtime library | same |
 | `--logTruthyChanges` | log truthiness differences | same |
@@ -173,6 +173,13 @@ src/bad.ts:1:7 - error TS2322: Type 'number' is not assignable to type 'string'.
 
 A build that fails before compiling, such as a broken rojo project, counts as 1 error, and watching
 continues. In rbxtsc that kills the watcher. When the `-p` path doesn't exist, goblox exits with 1.
+
+goblox also asks the OS to report changes to the watched paths (fanotify or inotify on Linux, FSEvents on
+macOS, ReadDirectoryChangesW on Windows, typescript-go's `internal/fswatch`), and looks at once when one
+arrives, settling for 30 ms instead of 100 ms. The events only wake it: what changed is still decided by the
+poll's comparison, so a missed or spurious event can't change a build. With the OS events working the poll
+runs once a second as a net; when they can't be set up, or a watch ends, it polls every 250 ms as before.
+`--usePolling` turns the OS events off.
 
 After `--hibernateAfter` without a build (default `1h`, `0` = never; goblox only), the watcher drops what it
 keeps in memory between builds, the parsed files and the incremental state, and keeps polling. It prints
