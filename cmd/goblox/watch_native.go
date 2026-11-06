@@ -136,7 +136,9 @@ func (n *nativeWatch) event(events []fswatch.Event, err error) {
 	}
 	select {
 	case n.wake <- struct{}{}:
+		// the loop looks at its next turn
 	default:
+		// a wake is already pending: the loop looks once for both
 	}
 }
 
@@ -168,7 +170,7 @@ func (p *watchPaths) watched(path string) bool {
 // ignoredPath is what a poll's walk skips: node_modules, .git and the build's outputs.
 func (p *watchPaths) ignoredPath(path string) bool {
 	path = filepath.Clean(path)
-	for _, segment := range strings.Split(filepath.ToSlash(path), "/") {
+	for segment := range strings.SplitSeq(filepath.ToSlash(path), "/") {
 		if segment == "node_modules" || segment == ".git" {
 			return true
 		}

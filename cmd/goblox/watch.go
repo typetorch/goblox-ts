@@ -76,6 +76,7 @@ func runWatch(opts project.BuildOptions, handoff *handoffServer, hibernateAfter 
 			session.handOff(job)
 			continue
 		case <-native.wake:
+			// the OS reported a change: look now, without waiting for the poll
 		case <-poll.C:
 			poll.Reset(native.pollInterval())
 		}
