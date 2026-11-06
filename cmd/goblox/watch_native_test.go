@@ -108,9 +108,8 @@ func TestNativeWatchDisabled(t *testing.T) {
 func TestNativeWatchIgnoredPath(t *testing.T) {
 	t.Parallel()
 	out := filepath.Join(string(filepath.Separator)+"game", "out")
-	n := newNativeWatch(false)
-	n.ignored = []string{out}
 	game := string(filepath.Separator) + "game"
+	paths := &watchPaths{dirs: []string{filepath.Join(game, "src")}, files: []string{filepath.Join(game, "tsconfig.json")}, ignored: []string{out}}
 	for _, c := range []struct {
 		path string
 		want bool
@@ -123,8 +122,40 @@ func TestNativeWatchIgnoredPath(t *testing.T) {
 		{filepath.Join(game, "src", ".git", "x"), true},
 		{filepath.Join(game, "src", "main.ts"), false},
 	} {
-		if got := n.ignoredPath(c.path); got != c.want {
+		if got := paths.ignoredPath(c.path); got != c.want {
 			t.Errorf("ignoredPath(%q) = %v, want %v", c.path, got, c.want)
+		}
+	}
+}
+
+func TestNativeWatchFilters(t *testing.T) {
+	t.Parallel()
+	game := string(filepath.Separator) + "game"
+	paths := &watchPaths{
+		dirs:    []string{filepath.Join(game, "src")},
+		files:   []string{filepath.Join(game, "tsconfig.json"), filepath.Join(game, "package.json"), filepath.Join(string(filepath.Separator), "package.json")},
+		ignored: []string{filepath.Join(game, "src", "out")},
+	}
+	for _, c := range []struct {
+		path      string
+		watched   bool
+		inProject bool
+	}{
+		{filepath.Join(game, "src", "main.ts"), true, true},
+		{filepath.Join(game, "src", "a", "b.ts"), true, true},
+		{filepath.Join(game, "src", "out", "main.luau"), false, true},
+		{filepath.Join(game, "src", "node_modules", "x.ts"), false, true},
+		{filepath.Join(game, "tsconfig.json"), true, true},
+		{filepath.Join(game, "notes.txt"), false, true},
+		{filepath.Join(game, ".claude", "x.json"), false, true},
+		{filepath.Join(string(filepath.Separator), "package.json"), true, false},
+		{filepath.Join(string(filepath.Separator), "other.txt"), false, false},
+	} {
+		if got := paths.watched(c.path); got != c.watched {
+			t.Errorf("watched(%q) = %v, want %v", c.path, got, c.watched)
+		}
+		if got := paths.inProject(c.path); got != c.inProject {
+			t.Errorf("inProject(%q) = %v, want %v", c.path, got, c.inProject)
 		}
 	}
 }

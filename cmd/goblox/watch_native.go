@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/microsoft/typescript-go/internal/fswatch"
@@ -30,12 +31,18 @@ type nativeWatch struct {
 	disabled bool
 	// wake has room for one signal: a change while one is pending adds nothing
 	wake chan struct{}
-
-	mu sync.Mutex
 	// working is false when a watch could not be set up or ended; the watcher then polls as without it
-	working bool
+	working atomic.Bool
+	// paths is what the watches cover. The callbacks read it without a lock: it is replaced, never changed.
+	paths atomic.Pointer[watchPaths]
+
+	// mu guards watches
+	mu      sync.Mutex
 	watches []fswatch.Watch
-	// dirs and files are what the watches cover
+}
+
+// watchPaths are a fileWatcher's paths.
+type watchPaths struct {
 	dirs    []string
 	files   []string
 	ignored []string
@@ -43,14 +50,14 @@ type nativeWatch struct {
 
 // newNativeWatch returns a native watch, or one that never wakes the loop when disabled (--usePolling).
 func newNativeWatch(disabled bool) *nativeWatch {
-	return &nativeWatch{disabled: disabled, wake: make(chan struct{}, 1)}
+	n := &nativeWatch{disabled: disabled, wake: make(chan struct{}, 1)}
+	n.paths.Store(&watchPaths{})
+	return n
 }
 
-// active is whether the OS reports changes to every watched path, so the poll can be slow.
+// active is whether the OS reports changes, so the poll can be slow.
 func (n *nativeWatch) active() bool {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	return n.working
+	return n.working.Load()
 }
 
 // pollInterval and debounce are the watch loop's timings: slower polls and a shorter settle with native
@@ -76,47 +83,56 @@ func (n *nativeWatch) follow(w *fileWatcher) {
 	}
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	if n.watches != nil && slices.Equal(n.dirs, w.dirs) && slices.Equal(n.files, w.files) && slices.Equal(n.ignored, w.ignored) {
+	old := n.paths.Load()
+	if n.watches != nil && slices.Equal(old.dirs, w.dirs) && slices.Equal(old.files, w.files) && slices.Equal(old.ignored, w.ignored) {
 		return
 	}
 	n.closeLocked()
-	n.dirs, n.files, n.ignored = slices.Clone(w.dirs), slices.Clone(w.files), slices.Clone(w.ignored)
+	paths := &watchPaths{dirs: slices.Clone(w.dirs), files: slices.Clone(w.files), ignored: slices.Clone(w.ignored)}
+	n.paths.Store(paths)
+	n.watches = []fswatch.Watch{}
 	watcher := fswatch.Default()
 	if !watcher.Available() {
 		return
 	}
-	n.working = true
-	ignore := fswatch.WithIgnore(n.ignoredPath)
-	for _, dir := range n.dirs {
+	working := true
+	ignore := fswatch.WithIgnore(paths.ignoredPath)
+	for _, dir := range paths.dirs {
 		watch, err := watcher.WatchDirectory(dir, n.event, fswatch.WithRecursive(), ignore)
 		if err != nil {
-			n.working = false
+			working = false
 			continue
 		}
 		n.watches = append(n.watches, watch)
 	}
-	for _, file := range n.files {
-		// a file whose folder doesn't exist yet (a lockfile above the project) is only polled
+	for _, file := range paths.files {
+		// a file above the project (package.json and the lockfiles of the folders above it) is only polled:
+		// a file watch watches its folder, and a home folder or / changes all the time
+		if !paths.inProject(file) {
+			continue
+		}
 		watch, err := watcher.WatchFile(file, n.event)
 		if err != nil {
-			n.working = false
+			working = false
 			continue
 		}
 		n.watches = append(n.watches, watch)
 	}
-	if n.watches == nil {
-		// keeps follow from trying again on every build
-		n.watches = []fswatch.Watch{}
-	}
+	n.working.Store(working)
 }
 
-// event is the watches' callback. An error (an overflow, or a watch that ended) also wakes the loop, and a
-// watch that ended leaves polling in charge.
-func (n *nativeWatch) event(_ []fswatch.Event, err error) {
-	if err != nil && !errors.Is(err, fswatch.ErrOverflow) {
-		n.mu.Lock()
-		n.working = false
-		n.mu.Unlock()
+// event is the watches' callback. It wakes the loop for an event on a watched path. An error (an overflow,
+// or a watch that ended) also wakes it, and a watch that ended leaves polling in charge.
+func (n *nativeWatch) event(events []fswatch.Event, err error) {
+	if err != nil {
+		if !errors.Is(err, fswatch.ErrOverflow) {
+			n.working.Store(false)
+		}
+	} else {
+		paths := n.paths.Load()
+		if !slices.ContainsFunc(events, func(event fswatch.Event) bool { return paths.watched(event.Path) }) {
+			return
+		}
 	}
 	select {
 	case n.wake <- struct{}{}:
@@ -124,15 +140,40 @@ func (n *nativeWatch) event(_ []fswatch.Event, err error) {
 	}
 }
 
+// inProject is whether path is in the folder the source folders are in (the project folder, for a rootDir of
+// src), or below it.
+func (p *watchPaths) inProject(path string) bool {
+	path = filepath.Clean(path)
+	for _, dir := range p.dirs {
+		if root := filepath.Dir(dir); sameWatchPath(filepath.Dir(path), root) || isWatchPathDescendant(path, root) {
+			return true
+		}
+	}
+	return false
+}
+
+// watched is whether an event for path concerns a poll: a watched file, or a file in a watched folder that
+// the walk doesn't skip.
+func (p *watchPaths) watched(path string) bool {
+	path = filepath.Clean(path)
+	if slices.ContainsFunc(p.files, func(file string) bool { return sameWatchPath(file, path) }) {
+		return true
+	}
+	if p.ignoredPath(path) {
+		return false
+	}
+	return slices.ContainsFunc(p.dirs, func(dir string) bool { return sameWatchPath(path, dir) || isWatchPathDescendant(path, dir) })
+}
+
 // ignoredPath is what a poll's walk skips: node_modules, .git and the build's outputs.
-func (n *nativeWatch) ignoredPath(path string) bool {
+func (p *watchPaths) ignoredPath(path string) bool {
 	path = filepath.Clean(path)
 	for _, segment := range strings.Split(filepath.ToSlash(path), "/") {
 		if segment == "node_modules" || segment == ".git" {
 			return true
 		}
 	}
-	for _, ignored := range n.ignored {
+	for _, ignored := range p.ignored {
 		if sameWatchPath(path, ignored) || isWatchPathDescendant(path, ignored) {
 			return true
 		}
@@ -160,5 +201,5 @@ func (n *nativeWatch) closeLocked() {
 		_ = watch.Close()
 	}
 	n.watches = nil
-	n.working = false
+	n.working.Store(false)
 }
