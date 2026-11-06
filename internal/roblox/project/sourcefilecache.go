@@ -57,6 +57,11 @@ func (h *cachingCompilerHost) GetSourceFile(opts ast.SourceFileParseOptions) *as
 	return file
 }
 
+// Clear drops every file, so the next build reads, parses and binds them again.
+func (c *SourceFileCache) Clear() {
+	c.files.Clear()
+}
+
 // prune drops the files that are not in program, so deleted files don't stay in memory.
 func (c *SourceFileCache) prune(program *compiler.Program) {
 	files := program.FilesByPath()

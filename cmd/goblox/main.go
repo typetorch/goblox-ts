@@ -79,6 +79,8 @@ type buildFlags struct {
 	noIncremental *bool
 	emitFirst     *bool
 	noHandoff     *bool
+	// hibernateAfter is how long a watcher idles before it drops its in-memory state
+	hibernateAfter *time.Duration
 }
 
 func newBuildFlags() *buildFlags {
@@ -109,6 +111,7 @@ func newBuildFlags() *buildFlags {
 	f.memProfile = flags.String("memprofile", "", "write a Go heap profile to this file at exit (goblox only)")
 	f.noIncremental = flags.Bool("noIncremental", false, "compile every file, ignoring what the last build left (goblox only)")
 	f.emitFirst = flags.Bool("emitFirst", false, "in watch mode, write the files without errors and report the errors after (goblox only)")
+	f.hibernateAfter = flags.Duration("hibernateAfter", time.Hour, "watch mode: after this long without a build, drop the in-memory state until the next change, 0 = never (goblox only)")
 	f.noHandoff = flags.Bool("noHandoff", false, "build in this process, even when a `goblox -w` of the project could build it (goblox only)")
 	flags.Usage = func() {
 		fmt.Fprintf(flags.Output(), "%s\n\nUsage: goblox [build|watch] [flags]\n       goblox check [flags]\n\nFlags:\n", versionString())
@@ -187,7 +190,7 @@ func runBuild(args []string) int {
 	flags.Visit(func(f *flag.Flag) {
 		getter := f.Value.(flag.Getter)
 		switch f.Name {
-		case "project", "p", "checkers", "timing", "cpuprofile", "memprofile", "logTruncatedPaths", "usePolling", "noIncremental", "emitFirst", "noHandoff":
+		case "project", "p", "checkers", "timing", "cpuprofile", "memprofile", "logTruncatedPaths", "usePolling", "noIncremental", "emitFirst", "noHandoff", "hibernateAfter":
 			return
 		case "w", "watch":
 			watch = getter.Get().(bool)
@@ -212,7 +215,7 @@ func runBuild(args []string) int {
 		opts.Incremental = &project.IncrementalSession{Persist: true}
 	}
 	if watch {
-		return runWatch(opts, newHandoffServer(opts, *f.noHandoff || handoffDisabledByEnv()))
+		return runWatch(opts, newHandoffServer(opts, *f.noHandoff || handoffDisabledByEnv()), *f.hibernateAfter)
 	}
 
 	// a running `goblox -w` of the project builds it with what it already parsed, when it can build it

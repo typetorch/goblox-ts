@@ -148,6 +148,14 @@ func (s *IncrementalSession) Forget() {
 	}
 }
 
+// Hibernate drops the state kept in memory, but not the cache file: the next build reads the cache file, as
+// a new process would, or compiles every file when there is none.
+func (s *IncrementalSession) Hibernate() {
+	s.saving.Wait()
+	s.state = nil
+	s.proxyFiles.Clear()
+}
+
 // begin picks the state to compare with and checks the outputs it describes.
 func (s *IncrementalSession) begin(fs vfs.FS, loaded *loadedConfig, data *transform.ProjectData, pathTranslator *rojo.PathTranslator, program *compiler.Program, sourceFiles []*ast.SourceFile, outputs *projectOutputs) *incrementalBuild {
 	s.saving.Wait()

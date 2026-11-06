@@ -87,6 +87,7 @@ options, as in roblox-ts.
 | `--checkers <n>` | – | goblox only: type checker count. Default: 4 with 8 or more threads, otherwise min(4, physical cores). Physical cores are read on Linux and macOS; elsewhere half the threads are assumed. `GOMAXPROCS` counts as the thread count |
 | `--timing` | – | goblox only: print `Build time:` on stderr |
 | `--noHandoff` | – | goblox only: build in this process even when a `goblox -w` of the project is running (see Build handoff). Also `GOBLOX_NO_HANDOFF=1`. On a watcher: don't take builds |
+| `--hibernateAfter <duration>` | – | goblox only, watch mode only: drop the in-memory state after this long without a build (default `1h`, `0` = never; see Watch mode) |
 
 ### Output and exit codes
 
@@ -172,6 +173,11 @@ src/bad.ts:1:7 - error TS2322: Type 'number' is not assignable to type 'string'.
 
 A build that fails before compiling, such as a broken rojo project, counts as 1 error, and watching
 continues. In rbxtsc that kills the watcher. When the `-p` path doesn't exist, goblox exits with 1.
+
+After `--hibernateAfter` without a build (default `1h`, `0` = never; goblox only), the watcher drops what it
+keeps in memory between builds, the parsed files and the incremental state, and keeps polling. It prints
+`Idle for 1h0m0s: dropped the in-memory state until the next change.` The next change, or a handed-off build,
+starts from the cache file as a new process would (a full build when the tsconfig has no `incremental`).
 
 ### Build handoff
 

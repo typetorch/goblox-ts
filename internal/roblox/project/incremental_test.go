@@ -563,6 +563,43 @@ func runIncrementalFixtures(t *testing.T, rbxts string, plugins bool, persist bo
 
 // TestEmitFirst: the files without errors are written, the file with the error keeps its output, and the
 // errors don't leave anything behind once they are fixed.
+func TestHibernate(t *testing.T) { //nolint:paralleltest // Build uses the global LogService and DiagnosticService.
+	oracle := os.Getenv("GOBLOX_ORACLE")
+	if oracle == "" {
+		oracle = defaultOracle
+	}
+	rbxts := filepath.Join(oracle, "tests", "node_modules", "@rbxts")
+	if _, err := os.Stat(filepath.Join(rbxts, "compiler-types")); err != nil {
+		t.Skipf("no @rbxts/compiler-types in the oracle (set GOBLOX_ORACLE): %v", err)
+	}
+	for _, plugins := range []bool{false, true} { //nolint:paralleltest // Build uses the global LogService and DiagnosticService.
+		t.Run(fmt.Sprintf("plugins=%v", plugins), func(t *testing.T) {
+			f := newIncrementalFixture(t, rbxts, plugins, false)
+			f.watchPersist = true
+			dir := f.dir
+			f.check("cold")
+
+			// a hibernating watcher keeps only the cache file: its next build is a new process's
+			f.session.Hibernate()
+			f.cache.Clear()
+			f.check("no change after hibernating")
+			f.compiled("no change after hibernating", 0)
+
+			f.session.Hibernate()
+			f.cache.Clear()
+			editTestFile(t, dir, "src/shared/net.ts", "export const PORT = 1;", "// a comment\nexport const PORT = 1;")
+			f.check("shared comment after hibernating")
+			f.compiled("shared comment after hibernating", 1)
+
+			f.session.Hibernate()
+			f.cache.Clear()
+			editTestFile(t, dir, "src/client/quiet.ts", "QUIET = 1", "QUIET = 2")
+			f.check("leaf edit after hibernating")
+			f.compiled("leaf edit after hibernating", 1)
+		})
+	}
+}
+
 func TestEmitFirst(t *testing.T) { //nolint:paralleltest // Build uses the global LogService and DiagnosticService.
 	oracle := os.Getenv("GOBLOX_ORACLE")
 	if oracle == "" {

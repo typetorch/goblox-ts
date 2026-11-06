@@ -31,7 +31,9 @@ func reportWatchStatus(message string) {
 	fmt.Fprintf(os.Stdout, "[\x1b[90m%s\x1b[0m] %s\n\n", time.Now().Format("3:04:05 PM"), message)
 }
 
-func runWatch(opts project.BuildOptions, handoff *handoffServer) int {
+// runWatch is the watch loop. After hibernateAfter without a build (0 = never), the watcher drops what it
+// keeps in memory between builds and only polls; the next change rebuilds from the cache file.
+func runWatch(opts project.BuildOptions, handoff *handoffServer, hibernateAfter time.Duration) int {
 	session := newWatchSession(opts)
 	opts = session.opts
 	// the inputs the last build read: the first build reports them
@@ -73,6 +75,9 @@ func runWatch(opts project.BuildOptions, handoff *handoffServer) int {
 			poll.Reset(watchPollInterval)
 		}
 		if !watcher.changed() {
+			if hibernateAfter > 0 && session.idleFor() >= hibernateAfter && session.hibernate() {
+				reportWatchStatus("Idle for " + hibernateAfter.String() + ": dropped the in-memory state until the next change.")
+			}
 			continue
 		}
 		// wait until the files stop changing (an editor saving several files, a git checkout)
@@ -114,6 +119,34 @@ type watchSession struct {
 	// the GC alone
 	gcMu   sync.Mutex
 	builds int
+	// lastBuild is when the last build ended, and hibernated is whether the state was dropped since
+	lastBuild  time.Time
+	hibernated bool
+}
+
+// idleFor is how long ago the last build ended.
+func (w *watchSession) idleFor() time.Duration {
+	w.gcMu.Lock()
+	defer w.gcMu.Unlock()
+	return time.Since(w.lastBuild)
+}
+
+// hibernate drops the parsed files and the incremental state kept for the next build, keeping the cache file,
+// and hands the memory back. It is false when the state was already dropped.
+func (w *watchSession) hibernate() bool {
+	w.gcMu.Lock()
+	if w.hibernated {
+		w.gcMu.Unlock()
+		return false
+	}
+	w.hibernated = true
+	w.gcMu.Unlock()
+	if w.opts.Incremental != nil {
+		w.opts.Incremental.Hibernate()
+	}
+	w.opts.SourceFileCache.Clear()
+	debug.FreeOSMemory()
+	return true
 }
 
 // build is buildOnce with the GC tuned for a build, and back to Go's default once the state is saved.
@@ -121,9 +154,13 @@ func (w *watchSession) build(opts project.BuildOptions, out consoleOutput) (*pro
 	w.gcMu.Lock()
 	w.builds++
 	build := w.builds
+	w.hibernated = false
 	project.SetBuildGC(true)
 	w.gcMu.Unlock()
 	result, errorCount, ok := buildOnce(opts, out)
+	w.gcMu.Lock()
+	w.lastBuild = time.Now()
+	w.gcMu.Unlock()
 	// the watcher idles between builds: Go's default GOGC, and the build's garbage handed back once the
 	// state is saved
 	go func() {
