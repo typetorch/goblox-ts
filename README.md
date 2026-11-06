@@ -5,6 +5,8 @@ to Go on top of [typescript-go](https://github.com/microsoft/typescript-go), the
 drop-in replacement for `rbxtsc`: same flags, same `tsconfig.json` and `rbxts` options, same `out/` folder, same Luau.
 
 A 40-second rbxtsc build of a ~500-file game takes 5 seconds with goblox, and an edit rebuilds in under a second.
+With `goblox -w` running, a one-shot `goblox build` of the same project takes it over and finishes in well under a
+second.
 
 ```sh
 npm i -D goblox     # or: bun add -d goblox
@@ -41,8 +43,29 @@ gnome-game is a real Roblox game with 487 `.ts`/`.tsx` files (~80k lines), using
 | New export in a leaf file | 6.35 s | 0.60 s | **11×** |
 | New export in a widely imported file (160 files) | 14.74 s | 1.59 s | **9.3×** |
 
-In watch mode (`goblox -w`), the time from saving a file to "Found 0 errors" is ~0.6 s for a leaf edit and ~1.5 s
-for an edit that recompiles 160 files, polling included.
+### Watch mode and build handoff
+
+The same laptop, gnome-game at 647 files, goblox 0.2.4 and later:
+
+| Scenario | goblox |
+| --- | ---: |
+| `goblox -w`: save a leaf file → "Found 0 errors" (polling included) | ~0.4 s |
+| `goblox build` while `goblox -w` runs, nothing changed | 0.2–0.5 s |
+| `goblox build` while `goblox -w` runs, after a leaf edit | ~0.5 s |
+| `goblox build` with no watcher (in-process, same project) | ~7 s |
+| Idle `goblox -w`: CPU | ~2% of a core |
+| Idle `goblox -w`: memory | ~270 MB |
+| Idle `goblox -w`: memory after an hour without a build (hibernated) | ~55 MB |
+
+- **Build handoff.** A one-shot `goblox build` asks a running `goblox -w` of the same tsconfig to do the build, and
+  prints exactly what an in-process build would: same files, same output, same exit code. The watcher checks every
+  input by content, not just by modification time, before it reuses anything. If no watcher answers, or its version,
+  flags or environment differ, the build runs in-process as before. `--noHandoff` or `GOBLOX_NO_HANDOFF=1` turns it
+  off. It works with plain `goblox -w`; nothing else needs to run.
+- **Cheap idle.** The watcher polls only the files the build reads (the source folders, the tsconfig chain, the Rojo
+  project, `package.json` and the lockfiles), not the whole project folder.
+- **Hibernate.** After `--hibernateAfter` without a build (default `1h`), the watcher drops what it keeps in memory
+  and keeps polling. The next change rebuilds from the incremental cache on disk.
 
 Where the speed comes from:
 
@@ -50,6 +73,8 @@ Where the speed comes from:
   startup or JIT warm-up.
 - **The plugin runs in-process.** `@typetorch/transformer` is ported to Go and runs inside the compiler, in parallel
   across files.
+- **A tuned runtime.** goblox runs Go's garbage collector at GOGC 400 during builds (with a memory limit of a third
+  of the RAM; `GOGC`/`GOMEMLIMIT` override it) and is compiled with profile-guided optimization from a real build.
 - **Incremental builds that skip comment-only edits.** goblox recompiles only the files whose output can change. An
   edit that only changes comments in a shared file recompiles nothing that depends on it. rbxtsc recompiles all 183
   of that file's dependents.
@@ -80,6 +105,8 @@ Real games compile with the same imports and DI metadata as rbxtsc. Known differ
 | `--stripComments` | Leaves source comments and macro markers out of the output. The header and `--!` directives at the top of a file stay. Also available as `"rbxts": { "stripComments": true }` in tsconfig.json. Unlike `removeComments`, it keeps incremental builds |
 | `--noIncremental` | Compiles every file, ignoring the incremental cache |
 | `--emitFirst` | Watch mode: writes the files without errors, then reports the errors |
+| `--noHandoff` | Builds in this process even when a `goblox -w` of the project is running. Also `GOBLOX_NO_HANDOFF=1`. On a watcher: don't take builds |
+| `--hibernateAfter <duration>` | Watch mode: drops the in-memory state after this long without a build (default `1h`, `0` = never) |
 | `--checkers <n>` | Number of parallel type checkers (default: 4 with 8 or more threads) |
 | `--timing` | Prints the build time |
 
