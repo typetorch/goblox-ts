@@ -49,11 +49,11 @@ The same laptop, gnome-game at 647 files, goblox 0.2.4 and later:
 
 | Scenario | goblox |
 | --- | ---: |
-| `goblox -w`: save a leaf file → "Found 0 errors" (polling included) | ~0.4 s |
+| `goblox -w`: save a leaf file → "Found 0 errors" | ~0.3 s |
 | `goblox build` while `goblox -w` runs, nothing changed | 0.2–0.5 s |
 | `goblox build` while `goblox -w` runs, after a leaf edit | ~0.5 s |
 | `goblox build` with no watcher (in-process, same project) | ~7 s |
-| Idle `goblox -w`: CPU | ~2% of a core |
+| Idle `goblox -w`: CPU | ~1% of a core |
 | Idle `goblox -w`: memory | ~270 MB |
 | Idle `goblox -w`: memory after an hour without a build (hibernated) | ~55 MB |
 
@@ -62,8 +62,12 @@ The same laptop, gnome-game at 647 files, goblox 0.2.4 and later:
   input by content, not just by modification time, before it reuses anything. If no watcher answers, or its version,
   flags or environment differ, the build runs in-process as before. `--noHandoff` or `GOBLOX_NO_HANDOFF=1` turns it
   off. It works with plain `goblox -w`; nothing else needs to run.
-- **Cheap idle.** The watcher polls only the files the build reads (the source folders, the tsconfig chain, the Rojo
-  project, `package.json` and the lockfiles), not the whole project folder.
+- **Cheap idle.** The watcher looks only at the files the build reads (the source folders, the tsconfig chain, the
+  Rojo project, `package.json` and the lockfiles), not the whole project folder.
+- **Native file events.** The OS reports changes (fanotify or inotify on Linux, FSEvents on macOS,
+  ReadDirectoryChangesW on Windows) and the watcher looks at once instead of at its next poll. The events only wake
+  it: a comparison of the files still decides what changed, and a slow poll stays on as a net. `--usePolling` turns
+  the events off.
 - **Hibernate.** After `--hibernateAfter` without a build (default `1h`), the watcher drops what it keeps in memory
   and keeps polling. The next change rebuilds from the incremental cache on disk.
 

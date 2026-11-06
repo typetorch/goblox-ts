@@ -253,7 +253,9 @@ func TestHandoffFallbacks(t *testing.T) {
 		if _, ok := handOff(handoffTestOptions(newHandoffTestDir(t)), out.console()); ok {
 			t.Fatal("handed off without a watcher")
 		}
-		if elapsed := time.Since(start); elapsed > time.Second {
+		// a missing socket fails at once; the limit only catches a wait for the dial timeout, with room for a
+		// loaded CI runner (4.7 s once on windows-latest, in parallel with the other tests)
+		if elapsed := time.Since(start); elapsed > 10*time.Second {
 			t.Errorf("took %v", elapsed)
 		}
 	})
